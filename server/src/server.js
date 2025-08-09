@@ -3,6 +3,7 @@ import dotenv from "dotenv";
 import cors from "cors";
 import http from "http";
 import { Server as SocketIOServer } from "socket.io";
+import pool, { dbPing } from "./db.js";
 
 dotenv.config();
 
@@ -16,6 +17,16 @@ app.use(express.json());
 // Health check
 app.get("/api/health", (req, res) => {
   res.json({ ok: true, uptime: process.uptime() });
+});
+
+app.get("/api/db-health", async (req, res) => {
+  try {
+    const ok = await dbPing();
+    res.json({ ok });
+  } catch (e) {
+    console.error(e);
+    res.status(500).json({ ok: false, error: "DB error" });
+  }
 });
 
 // HTTP + WebSockets
