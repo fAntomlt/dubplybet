@@ -1,0 +1,30 @@
+name: Deploy backend to VPS (prod)
+
+on:
+  push:
+    branches: [ "prod" ]
+    paths:
+      - "server/**"
+      - ".github/workflows/deploy_backend.yml"
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: SSH to VPS and deploy
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          port: ${{ secrets.VPS_PORT }}
+          key: ${{ secrets.VPS_SSH_KEY }}
+          script: |
+            set -e
+            cd /var/www/app/dubplybet
+            git fetch --all --prune
+            git checkout prod
+            git reset --hard origin/prod
+            cd server
+            npm ci --omit=dev || npm install
+            pm2 restart icrib-backend || pm2 start pm2.config.cjs
+            pm2 save
