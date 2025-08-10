@@ -2,9 +2,9 @@ import { Router } from "express";
 import { z } from "zod";
 import crypto from "crypto";
 import pool from "../db.js";
-import { hashPassword, verifyPassword } from "../utils/hash.js";
-import { signJwt } from "../utils/jwt.js";
 import { sendMail } from "../utils/mailer.js";
+import bcrypt from "bcryptjs";
+import jwt from "jsonwebtoken";
 
 const router = Router();
 
@@ -29,10 +29,14 @@ const LoginSchema = z.object({
   password: z.string().min(8, "Neteisingi prisijungimo duomenys"),
 });
 
+const JWT_SECRET = process.env.JWT_SECRET;
+const JWT_EXPIRES_IN = process.env.JWT_EXPIRES_IN || "7d";
+
 // POST /api/auth/register
 router.post("/register", async (req, res) => {
   try {
-    const { email, username, password } = RegisterSchema.parse(req.body);
+    const payload = req.body?.data ?? req.body ?? {};
+    const { email, username, password } = RegisterSchema.parse(payload);
 
     const [exists] = await pool.query(
       "SELECT id FROM users WHERE email = ? OR username = ? LIMIT 1",
@@ -42,7 +46,9 @@ router.post("/register", async (req, res) => {
       return res.status(400).json({ error: "El. paštas arba vartotojo vardas jau naudojamas" });
     }
 
-    const password_hash = await hashPassword(password);
+    const salt = await bcrypt.genSalt(10);
+    const password_hash = await bcrypt.hash(password, salt);
+
     const [result] = await pool.query(
       "INSERT INTO users (email, username, password_hash) VALUES (?,?,?)",
       [email, username, password_hash]
@@ -123,10 +129,10 @@ router.post("/login", async (req, res) => {
     }
 
     const user = rows[0];
-    const ok = await verifyPassword(password, user.password_hash);
+    const ok = await bcrypt.compare(password, user.password_hash);
     if (!ok) return res.status(400).json({ error: "El. paštas arba slaptažodis neteisingi" });
 
-    const token = signJwt({ uid: user.id, role: user.role });
+    const token = jwt.sign({ uid: user.id, role: user.role }, JWT_SECRET, { expiresIn: JWT_EXPIRES_IN });
 
     return res.json({
       ok: true,
