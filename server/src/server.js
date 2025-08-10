@@ -2,10 +2,13 @@ import express from "express";
 import rateLimit from "express-rate-limit";
 import cors from "cors";
 import http from "http";
+import adminUsersRoutes from "./routes/admin.users.js";
+import { requireAuth, requireAdmin } from "./middleware/auth.js";
 import { Server as SocketIOServer } from "socket.io";
 import path from "path";
 import { fileURLToPath } from "url";
 import dotenv from "dotenv";
+
 
 import authRoutes from "./routes/auth.js";
 import pool, { dbPing } from "./db.js";
@@ -33,6 +36,7 @@ const corsOptions = {
 app.use(express.json({ limit: "1mb" }));
 app.use(express.urlencoded({ extended: false }));
 app.use(cors(corsOptions));
+app.use("/api/admin", requireAuth, requireAdmin, adminUsersRoutes);
 
 const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,

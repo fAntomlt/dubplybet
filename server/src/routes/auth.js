@@ -15,6 +15,9 @@ const RegisterSchema = z.object({
   username: z.string({ required_error: "Vartotojo vardas privalomas" })
              .min(3, "Vartotojo vardas per trumpas (min. 3)")
              .max(50, "Vartotojo vardas per ilgas (max. 50)"),
+  // Discord global username: letters/digits/._ , 2–32 chars, no leading/trailing . or _, no double .. or __
+  discordUsername: z.string({ required_error: "Discord vardas privalomas" })
+    .regex(/^(?!.*[._]{2})(?![._])[a-zA-Z0-9._]{2,32}(?<![._])$/, "Neteisingas Discord vardas"),
   password: z.string({ required_error: "Slaptažodis privalomas" })
              .min(8, "Slaptažodis per trumpas (min. 8)")
              .max(100, "Slaptažodis per ilgas (max. 100)"),
@@ -36,22 +39,22 @@ const JWT_EXPIRES_IN = process.env.JWT_EXPIRES_IN || "7d";
 router.post("/register", async (req, res) => {
   try {
     const payload = req.body?.data ?? req.body ?? {};
-    const { email, username, password } = RegisterSchema.parse(payload);
+    const { email, username, discordUsername, password } = RegisterSchema.parse(payload);
 
     const [exists] = await pool.query(
-      "SELECT id FROM users WHERE email = ? OR username = ? LIMIT 1",
-      [email, username]
+      "SELECT id FROM users WHERE email = ? OR username = ? OR discord_username = ? LIMIT 1",
+      [email, username, discordUsername]
     );
     if (exists.length) {
-      return res.status(400).json({ error: "El. paštas arba vartotojo vardas jau naudojamas" });
+      return res.status(400).json({ error: "El. paštas, vartotojo vardas arba Discord vardas jau naudojamas" });
     }
 
     const salt = await bcrypt.genSalt(10);
     const password_hash = await bcrypt.hash(password, salt);
 
     const [result] = await pool.query(
-      "INSERT INTO users (email, username, password_hash) VALUES (?,?,?)",
-      [email, username, password_hash]
+      "INSERT INTO users (email, username, discord_username, password_hash) VALUES (?,?,?,?)",
+      [email, username, discordUsername, password_hash]
     );
     const userId = result.insertId;
 
