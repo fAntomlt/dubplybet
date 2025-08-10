@@ -1,3 +1,5 @@
+import rateLimit from "express-rate-limit";
+import authRoutes from "./routes/auth.js";
 import express from "express";
 import dotenv from "dotenv";
 import cors from "cors";
@@ -10,7 +12,15 @@ dotenv.config();
 const app = express();
 const PORT = process.env.SERVER_PORT || 8080;
 const CORS_ORIGIN = process.env.CORS_ORIGIN || "*";
+const authLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 50,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: "Per daug užklausų. Bandykite dar kartą vėliau." }
+});
 
+app.use("/api/auth", authLimiter, authRoutes);
 app.use(cors({ origin: CORS_ORIGIN, credentials: true }));
 app.use(express.json());
 
