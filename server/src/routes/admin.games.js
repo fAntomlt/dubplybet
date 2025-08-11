@@ -1,6 +1,7 @@
 import { Router } from "express";
 import { z } from "zod";
 import pool from "../db.js";
+import { scoreGuess } from "../utils/scoring.js";
 
 const router = Router();
 
@@ -68,11 +69,55 @@ router.post("/games/:id/finish", async (req, res) => {
   if (!id || score_a == null || score_b == null) {
     return res.status(400).json({ error: "Trūksta rezultatų" });
   }
+
+  // 1) Update game result
   await pool.query(
     "UPDATE games SET score_a=?, score_b=?, status='finished', updated_at = NOW() WHERE id = ?",
     [Number(score_a), Number(score_b), id]
   );
-  return res.json({ ok: true, message: "Rungtynės užbaigtos" });
+
+  // 2) Load game with stage + tournament
+  const [[game]] = await pool.query(
+    `SELECT id, tournament_id, stage, score_a, score_b FROM games WHERE id = ? LIMIT 1`,
+    [id]
+  );
+
+  // 3) Score each guess for this game
+  const [gs] = await pool.query(
+    `SELECT id, user_id, guess_a, guess_b FROM guesses WHERE game_id = ?`,
+    [id]
+  );
+
+  for (const g of gs) {
+    const { cond_ok, diff_ok, exact_ok, points } = scoreGuess({
+      stage: game.stage,
+      guess_a: g.guess_a,
+      guess_b: g.guess_b,
+      score_a: game.score_a,
+      score_b: game.score_b,
+    });
+
+    // update guess row
+    await pool.query(
+      `UPDATE guesses
+          SET cond_ok=?, diff_ok=?, exact_ok=?, awarded_points=?, updated_at=NOW()
+        WHERE id = ?`,
+      [cond_ok, diff_ok, exact_ok, points, g.id]
+    );
+
+    // upsert tournament_scores
+    await pool.query(
+      `INSERT INTO tournament_scores (tournament_id, user_id, points, correct_any, updated_at)
+       VALUES (?, ?, ?, ?, NOW())
+       ON DUPLICATE KEY UPDATE
+         points = points + VALUES(points),
+         correct_any = correct_any + VALUES(correct_any),
+         updated_at = NOW()`,
+      [game.tournament_id, g.user_id, points, cond_ok ? 1 : 0]
+    );
+  }
+
+  return res.json({ ok: true, message: "Rungtynės užbaigtos ir įvertintos" });
 });
 
 export default router;
