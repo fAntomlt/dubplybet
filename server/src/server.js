@@ -18,6 +18,7 @@ import { requireAuth, requireAdmin } from "./middleware/auth.js";
 import gamesPublic from "./routes/games.public.js";
 import gamesGuess from "./routes/games.guess.js";
 import gamePublicGuesses from "./routes/games.public.guesses.js";
+import leaderboardsPublic from "./routes/leaderboards.public.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -48,6 +49,7 @@ app.use("/api/admin", requireAuth, requireAdmin, gamesAdmin);
 app.use("/api/games", gamesPublic);
 app.use("/api/games", gamesGuess);
 app.use("/api/games", gamePublicGuesses);
+app.use("/api/leaderboards", leaderboardsPublic);
 
 const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
