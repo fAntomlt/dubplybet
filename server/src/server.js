@@ -18,6 +18,7 @@ import gamesPublic from "./routes/games.public.js";
 import gamesGuess from "./routes/games.guess.js";
 import gamePublicGuesses from "./routes/games.public.guesses.js";
 import leaderboardsPublic from "./routes/leaderboards.public.js";
+import { startLockGamesJob } from "./jobs/lockGames.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -79,6 +80,12 @@ io.on("connection", (socket) => {
   console.log("socket connected:", socket.id);
   socket.on("ping", () => socket.emit("pong"));
 });
+
+const enableCron = process.env.ENABLE_CRON_JOBS === "true";
+if (enableCron) {
+  startLockGamesJob();
+  console.log("Cron jobs enabled: lockGames");
+}
 
 server.listen(PORT, () => {
   console.log(`API listening on http://localhost:${PORT}`);
