@@ -14,7 +14,6 @@ import authRoutes from "./routes/auth.js";
 import pool, { dbPing } from "./db.js";
 import tournamentsAdmin from "./routes/admin.tournaments.js";
 import gamesAdmin from "./routes/admin.games.js";
-import { requireAuth, requireAdmin } from "./middleware/auth.js";
 import gamesPublic from "./routes/games.public.js";
 import gamesGuess from "./routes/games.guess.js";
 import gamePublicGuesses from "./routes/games.public.guesses.js";
