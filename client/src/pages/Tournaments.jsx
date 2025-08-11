@@ -1,0 +1,1 @@
+export default function Tournaments(){ return <h1>Turnyrai</h1>; }
