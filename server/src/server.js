@@ -15,6 +15,9 @@ import pool, { dbPing } from "./db.js";
 import tournamentsAdmin from "./routes/admin.tournaments.js";
 import gamesAdmin from "./routes/admin.games.js";
 import { requireAuth, requireAdmin } from "./middleware/auth.js";
+import gamesPublic from "./routes/games.public.js";
+import gamesGuess from "./routes/games.guess.js";
+import gamePublicGuesses from "./routes/games.public.guesses.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -42,6 +45,9 @@ app.use(cors(corsOptions));
 app.use("/api/admin", requireAuth, requireAdmin, adminUsersRoutes);
 app.use("/api/admin", requireAuth, requireAdmin, tournamentsAdmin);
 app.use("/api/admin", requireAuth, requireAdmin, gamesAdmin);
+app.use("/api/games", gamesPublic);
+app.use("/api/games", gamesGuess);
+app.use("/api/games", gamePublicGuesses);
 
 const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
