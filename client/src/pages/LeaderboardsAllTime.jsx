@@ -1,0 +1,1 @@
+export default function LeaderboardsAllTime(){ return <h1>Visų laikų lyderiai</h1>; }

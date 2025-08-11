@@ -1,0 +1,1 @@
+export default function Profile(){ return <h1>Profilis</h1>; }

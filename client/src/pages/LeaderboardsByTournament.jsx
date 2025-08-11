@@ -1,0 +1,1 @@
+export default function LeaderboardsByTournament(){ return <h1>Lyderiai pagal turnyrą</h1>; }
