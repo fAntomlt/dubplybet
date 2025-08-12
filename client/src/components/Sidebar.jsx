@@ -47,7 +47,7 @@ export default function Sidebar({ onOpenChat }) {
         </Primary>
 
         <Divider />
-        <SectionTitle>PAGRINDINIS</SectionTitle>
+        <SectionTitle>NAVIGACIJA</SectionTitle>
 
         <Item to="/turnyrai" onClick={closeIfMobile}>
           <FiAward /> <span>Turnyrai</span>
