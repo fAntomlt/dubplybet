@@ -28,7 +28,8 @@ export default function Login() {
       ? "Slaptažodis per trumpas (min. 8)"
       : "");
 
-  const canSubmit = !emailError && !passwordError && email && password && !submitting;
+  const canSubmit =
+    !emailError && !passwordError && email && password && !submitting;
 
   async function onSubmit(e) {
     e.preventDefault();
@@ -46,7 +47,9 @@ export default function Login() {
       const data = await res.json();
 
       if (!res.ok || !data?.ok) {
-        setServerError(data?.error || "Nepavyko prisijungti. Bandykite dar kartą.");
+        setServerError(
+          data?.error || "Nepavyko prisijungti. Bandykite dar kartą."
+        );
         setSubmitting(false);
         return;
       }
@@ -62,64 +65,70 @@ export default function Login() {
 
   return (
     <Wrap>
-      <Card>
-        <Left>
+      <Inner>
+        <Card>
+          <Left>
             <Avatar>
-                <img src={logoImg} alt="DubplyBet Logo" />
+              <img src={logoImg} alt="DubplyBet Logo" />
             </Avatar>
-        </Left>
+          </Left>
 
-        <Right>
-          <Title>Prisijungti</Title>
-          {!!serverError && <Alert role="alert">{serverError}</Alert>}
+          <Right>
+            <Title>Prisijungti</Title>
+            {!!serverError && <Alert role="alert">{serverError}</Alert>}
 
-          <Form onSubmit={onSubmit} noValidate>
-            <Field>
-              <Label htmlFor="email">El. paštas</Label>
-              <InputWrap aria-invalid={!!emailError}>
-                <FiMail />
-                <Input
-                  id="email"
-                  type="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  onBlur={() => setTouched((t) => ({ ...t, email: true }))}
-                  placeholder="vardas@pastas.lt"
-                />
-              </InputWrap>
-              {!!emailError && <Error>{emailError}</Error>}
-            </Field>
+            <Form onSubmit={onSubmit} noValidate>
+              <Field>
+                <Label htmlFor="email">El. paštas</Label>
+                <InputWrap aria-invalid={!!emailError}>
+                  <FiMail />
+                  <Input
+                    id="email"
+                    type="email"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    onBlur={() => setTouched((t) => ({ ...t, email: true }))}
+                    placeholder="vardas@pastas.lt"
+                  />
+                </InputWrap>
+                {!!emailError && <Error>{emailError}</Error>}
+              </Field>
 
-            <Field>
-              <Label htmlFor="password">Slaptažodis</Label>
-              <InputWrap aria-invalid={!!passwordError}>
-                <FiLock />
-                <Input
-                  id="password"
-                  type="password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  onBlur={() => setTouched((t) => ({ ...t, password: true }))}
-                  placeholder="●●●●●●●●"
-                />
-              </InputWrap>
-              {!!passwordError && <Error>{passwordError}</Error>}
-            </Field>
+              <Field>
+                <Label htmlFor="password">Slaptažodis</Label>
+                <InputWrap aria-invalid={!!passwordError}>
+                  <FiLock />
+                  <Input
+                    id="password"
+                    type="password"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    onBlur={() => setTouched((t) => ({ ...t, password: true }))}
+                    placeholder="●●●●●●●●"
+                  />
+                </InputWrap>
+                {!!passwordError && <Error>{passwordError}</Error>}
+              </Field>
 
-            <Actions>
-              <Small as={Link} to="/priminti-slaptazodi">Pamiršote slaptažodį?</Small>
-            </Actions>
+              <Actions>
+                <Small as={Link} to="/priminti-slaptazodi">
+                  Pamiršote slaptažodį?
+                </Small>
+              </Actions>
 
-            <Submit type="submit" disabled={!canSubmit}>
-              {submitting ? "Jungiama..." : "Prisijungti"}
-            </Submit>
-          </Form>
+              <Submit type="submit" disabled={!canSubmit}>
+                {submitting ? "Jungiama..." : "Prisijungti"}
+              </Submit>
+            </Form>
 
-          <Footer>
-            Neturite paskyros? <Link to="/registracija">Susikurkite</Link>
-          </Footer>
-        </Right>
-      </Card>
+            <Footer>
+              Neturite paskyros? <Link to="/registracija">Susikurkite</Link>
+            </Footer>
+          </Right>
+        </Card>
+
+        <GuestLink onClick={() => navigate("/")}>Tęsti kaip svečias</GuestLink>
+      </Inner>
     </Wrap>
   );
 }
@@ -134,9 +143,13 @@ const Wrap = styled.div`
   background: #fff; /* keep site background white */
 `;
 
-const Card = styled.section`
+const Inner = styled.div`
   width: 100%;
   max-width: 980px;
+`;
+
+const Card = styled.section`
+  width: 100%;
   min-height: 460px;
   background: #fff;
   border: 1px solid #eceff3;
@@ -229,12 +242,16 @@ const InputWrap = styled.div`
   gap: 10px;
   height: 48px;
   padding: 0 14px;
-  border: 1px solid ${({["aria-invalid"]: invalid}) => (invalid ? "#e11d48" : "#dfe5ec")};
-  border-radius: 999px; /* pill like in the mock */
+  border: 1px solid ${({ ["aria-invalid"]: invalid }) =>
+    invalid ? "#e11d48" : "#dfe5ec"};
+  border-radius: 999px;
   background: #fff;
-  transition: border-color .15s ease, box-shadow .15s ease;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
 
-  svg { color: #99a3b2; font-size: 18px; }
+  svg {
+    color: #99a3b2;
+    font-size: 18px;
+  }
 
   &:focus-within {
     border-color: #1f6feb;
@@ -267,32 +284,56 @@ const Small = styled.span`
   font-size: 13px;
   color: #1f6feb;
   text-decoration: none;
-  &:hover { text-decoration: underline; }
+  &:hover {
+    text-decoration: underline;
+  }
 `;
 
 const Submit = styled.button`
   height: 54px;
   border: 0;
-  border-radius: 999px;          /* big rounded button */
+  border-radius: 999px;
   background: #1f6feb;
   color: #fff;
   font-weight: 800;
   font-size: 16px;
   cursor: pointer;
-  transition: filter .15s ease, opacity .15s ease;
+  transition: filter 0.15s ease, opacity 0.15s ease;
 
   &:disabled {
-    opacity: .6;
+    opacity: 0.6;
     cursor: not-allowed;
   }
-  &:hover:not(:disabled) { filter: brightness(0.98); }
-  &:active:not(:disabled) { filter: brightness(0.96); }
+  &:hover:not(:disabled) {
+    filter: brightness(0.98);
+  }
+  &:active:not(:disabled) {
+    filter: brightness(0.96);
+  }
 `;
 
 const Footer = styled.div`
   margin-top: 12px;
   font-size: 14px;
   color: #0f172a;
-  a { color: #1f6feb; text-decoration: none; }
-  a:hover { text-decoration: underline; }
+  a {
+    color: #1f6feb;
+    text-decoration: none;
+  }
+  a:hover {
+    text-decoration: underline;
+  }
+`;
+
+const GuestLink = styled.div`
+  margin-top: 20px;
+  font-size: 18px;
+  font-weight: 600;
+  color: #1f6feb;
+  cursor: pointer;
+  text-align: center;
+
+  &:hover {
+    text-decoration: underline;
+  }
 `;
