@@ -1,81 +1,103 @@
+import { useState } from 'react';
 import styled from 'styled-components';
 import { NavLink } from 'react-router-dom';
-import { useState } from 'react';
+import {
+  HiOutlineHome, HiOutlineUser, HiOutlineTrophy,
+  HiOutlineChatBubbleBottomCenterText,
+  HiOutlineChevronDown, HiOutlineChevronUp
+} from 'react-icons/hi2';
 
-const Shell = styled.aside`
-  width: ${({theme}) => theme.layout.sidebarWidth};
-  background: #0B1220;
-  border-right: 1px solid #1f2937;
-  padding: 20px;
-  position: sticky; top: 0; height: 100vh;
-  @media ${({theme}) => theme.mq.md} {
-    position: fixed; left: 0; top: 0; height: 100%; z-index: 50;
-    transform: ${({$open}) => $open ? 'translateX(0)' : 'translateX(-100%)'};
-    transition: transform .25s ease;
-  }
-`;
-
-const Brand = styled.div`
-  font-weight: 800; font-size: 22px; letter-spacing: .5px;
-  color: ${({theme}) => theme.colors.primary};
-  margin-bottom: 24px;
-`;
-
-const GroupTitle = styled.div`
-  margin: 18px 0 8px; color: ${({theme}) => theme.colors.subtle}; font-size: 13px;
-`;
-
-const Item = styled(NavLink)`
-  display: block; padding: 10px 12px; border-radius: 10px; color: #E5E7EB;
-  &.active, &:hover {
-    background: rgba(47,107,166,.18);
-    color: ${({theme}) => theme.colors.text};
-  }
-`;
-
-const Overlay = styled.div`
-  display: none;
-  @media ${({theme}) => theme.mq.md} {
-    display: ${({$open}) => $open ? 'block' : 'none'};
-    position: fixed; inset: 0; background: rgba(0,0,0,.45); z-index: 40;
-  }
-`;
-
-const Burger = styled.button`
-  display: none;
-  @media ${({theme}) => theme.mq.md} {
-    display: inline-flex; align-items: center; gap: 8px;
-    background: ${({theme}) => theme.colors.primary};
-    padding: 8px 12px; margin: 10px;
-    position: fixed; top: 0; left: 0; z-index: 60;
-  }
-`;
-
-export default function Sidebar() {
-  const [open, setOpen] = useState(false);
-  const close = () => setOpen(false);
+export default function Sidebar({ onOpenChat }) {
+  const [lbOpen, setLbOpen] = useState(false);
 
   return (
-    <>
-      <Burger onClick={() => setOpen(v => !v)}>☰ Meniu</Burger>
-      <Overlay $open={open} onClick={close} />
-      <Shell $open={open} onClick={close}>
-        <Brand>DuBPlyBET</Brand>
+    <Wrap>
+      <Brand>
+        <LogoDot /> <span>DuBPly<span className="emph">BET</span></span>
+      </Brand>
 
-        <Item to="/profile">Profilis</Item>
+      <Group>
+        <SectionTitle>Pagrindinis</SectionTitle>
 
-        <GroupTitle>Pagrindinis</GroupTitle>
-        <Item to="/tournaments">Turnyrai</Item>
+        <Item to="/" end>
+          <HiOutlineHome size={20} />
+          <span>Profilis</span>
+        </Item>
 
-        <Item to="/leaderboards/all-time">Leaderboards · Visų laikų</Item>
-        <Item to="/leaderboards/tournaments">Leaderboards · Pagal turnyrą</Item>
+        <Item to="/tournaments">
+          <HiOutlineTrophy size={20} />
+          <span>Turnyrai</span>
+        </Item>
 
-        <GroupTitle>Kita</GroupTitle>
-        <Item to="#" onClick={(e)=>e.preventDefault()}>Chat</Item>
+        <Item as="button" onClick={() => setLbOpen(v => !v)} $button>
+          <HiOutlineTrophy size={20} />
+          <span>Leaderboards</span>
+          <Chevron>{lbOpen ? <HiOutlineChevronUp size={18}/> : <HiOutlineChevronDown size={18}/>}</Chevron>
+        </Item>
 
-        <GroupTitle>Admin</GroupTitle>
-        <Item to="/admin">Administravimas</Item>
-      </Shell>
-    </>
+        {lbOpen && (
+          <Submenu>
+            <SubItem to="/leaderboards/all-time">• Visų laikų</SubItem>
+            <SubItem to="/leaderboards/by-tournament">• Pagal turnyrą</SubItem>
+          </Submenu>
+        )}
+
+        <Item as="button" onClick={onOpenChat} $button>
+          <HiOutlineChatBubbleBottomCenterText size={20} />
+          <span>Chat</span>
+        </Item>
+
+        <Item to="/admin">
+          <HiOutlineUser size={20} />
+          <span>Adminas</span>
+        </Item>
+      </Group>
+    </Wrap>
   );
 }
+
+/* styles */
+const Wrap = styled.aside`
+  border-right: 1px solid ${({theme}) => theme.colors.line};
+  padding: 20px 16px;
+  background: ${({theme}) => theme.colors.bg};
+`;
+const Brand = styled.div`
+  display:flex;align-items:center;gap:10px;
+  padding:8px 10px;margin-bottom:20px;
+  font-weight:800;font-size:18px;
+  .emph{ color:${({theme})=>theme.colors.blue}; }
+`;
+const LogoDot = styled.div`
+  width:10px;height:10px;border-radius:50%;
+  background:${({theme})=>theme.colors.blue};
+`;
+const Group = styled.nav`display:flex;flex-direction:column;gap:6px;`;
+const SectionTitle = styled.div`
+  font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;
+  color:${({theme})=>theme.colors.subtext};
+  padding:10px 10px;margin:8px 0 6px;
+  border-bottom:1px solid ${({theme})=>theme.colors.line};
+`;
+const ItemBase = styled(NavLink)`
+  display:flex;align-items:center;gap:10px;
+  padding:10px 12px;border-radius:${({theme})=>theme.radii.md};
+  color:${({theme})=>theme.colors.text};
+  border:1px solid transparent;transition:background .15s,border-color .15s;
+  &.active{ background:${({theme})=>theme.colors.blueSoft}; border-color:${({theme})=>theme.colors.blue}; }
+  &:hover{ background:${({theme})=>theme.colors.blueSoft}; }
+`;
+const Item = styled(ItemBase).attrs(p => ({ as: p.$button ? 'button' : undefined }))`
+  justify-content:flex-start;width:100%;text-align:left;background:transparent;cursor:pointer;position:relative;
+`;
+const Chevron = styled.span`
+  margin-left:auto;display:flex;align-items:center;color:${({theme})=>theme.colors.subtext};
+`;
+const Submenu = styled.div`
+  display:grid;gap:4px;margin:0 0 6px 36px;padding-left:8px;border-left:2px solid ${({theme})=>theme.colors.line};
+`;
+const SubItem = styled(NavLink)`
+  display:block;padding:6px 0;color:${({theme})=>theme.colors.subtext};
+  &:hover{ color:${({theme})=>theme.colors.text}; }
+  &.active{ color:${({theme})=>theme.colors.blue}; font-weight:600; }
+`;

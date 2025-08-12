@@ -1,29 +1,29 @@
-import styled from 'styled-components';
+import { useState } from 'react';
+import styled, { ThemeProvider } from 'styled-components';
+import { theme } from '../styles/theme';
+import { GlobalStyle } from '../styles/GlobalStyle';
 import Sidebar from '../components/Sidebar';
 import ChatDock from '../components/ChatDock';
-import { useLocation } from 'react-router-dom';
+import { Outlet } from 'react-router-dom';
 
-const Wrap = styled.div`
-  display: grid;
-  grid-template-columns: ${({theme}) => theme.layout.sidebarWidth} 1fr;
-  @media ${({theme}) => theme.mq.md} { grid-template-columns: 1fr; }
-`;
-const Content = styled.main`
-  padding: 24px; max-width: ${({theme}) => theme.layout.maxContent};
-`;
-
-const AUTH_HIDDEN = ['/login','/register','/reset'];
-
-export default function MainLayout({children}) {
-  const { pathname } = useLocation();
-  const hideShell = AUTH_HIDDEN.some(p => pathname.startsWith(p));
+export default function MainLayout() {
+  const [chatOpen, setChatOpen] = useState(false);
   return (
-    <>
-      <Wrap>
-        {!hideShell && <Sidebar />}
-        <Content style={{margin:'0 auto', width:'100%'}}>{children}</Content>
-      </Wrap>
-      {!hideShell && <ChatDock />}
-    </>
+    <ThemeProvider theme={theme}>
+      <GlobalStyle />
+      <Shell>
+        <Sidebar onOpenChat={() => setChatOpen(v=>!v)} />
+        <Main><Content><Outlet /></Content></Main>
+        <ChatDock open={chatOpen} onClose={() => setChatOpen(false)} />
+      </Shell>
+    </ThemeProvider>
   );
 }
+
+/* layout styling */
+const Shell = styled.div`
+  display:grid; grid-template-columns:260px 1fr; min-height:100vh;
+  @media (max-width:960px){ grid-template-columns:80px 1fr; }
+`;
+const Main = styled.main` padding:24px; @media (max-width:960px){ padding:16px; }`;
+const Content = styled.div` max-width:1120px; margin:0 auto; `;

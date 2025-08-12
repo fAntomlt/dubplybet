@@ -1,39 +1,45 @@
 import styled from 'styled-components';
-import { useState } from 'react';
+import { HiOutlineXMark } from 'react-icons/hi2';
 
-const Btn = styled.button`
-  position: fixed; right: 20px; bottom: 20px; z-index: 30;
-  background: ${({theme}) => theme.colors.primary};
-  padding: 12px 16px; color: white;
-  box-shadow: ${({theme}) => theme.shadow.soft};
-`;
-
-const Panel = styled.div`
-  position: fixed; right: 20px; bottom: 70px; width: 340px; height: 420px;
-  background: ${({theme}) => theme.colors.surface};
-  border: 1px solid #1f2937; border-radius: ${({theme}) => theme.radius.md};
-  box-shadow: ${({theme}) => theme.shadow.hard};
-  display: ${({$open}) => $open ? 'flex' : 'none'};
-  flex-direction: column; z-index: 30; overflow: hidden;
-`;
-
-const Header = styled.div`
-  padding: 10px 12px; border-bottom: 1px solid #1f2937; font-weight: 600;
-`;
-
-const Body = styled.div`
-  flex: 1; padding: 10px; color: ${({theme}) => theme.colors.subtle};
-`;
-
-export default function ChatDock(){
-  const [open,setOpen]=useState(false);
+export default function ChatDock({ open = false, onClose }) {
   return (
-    <>
-      <Panel $open={open}>
-        <Header>Chat</Header>
-        <Body>(UI tik apvalkalas — realtime vėliau)</Body>
-      </Panel>
-      <Btn onClick={()=>setOpen(v=>!v)}>{open?'Uždaryti chat':'Atidaryti chat'}</Btn>
-    </>
+    <Wrap $open={open}>
+      <Header>
+        <strong>Chat</strong>
+        <button onClick={onClose}><HiOutlineXMark size={18} /></button>
+      </Header>
+      <Body><Empty>Čia bus pokalbių langas.</Empty></Body>
+      <InputBar>
+        <input placeholder="Rašykite žinutę…" disabled />
+        <button disabled>Siųsti</button>
+      </InputBar>
+    </Wrap>
   );
 }
+
+const Wrap = styled.section`
+  position:fixed;right:20px;bottom:20px;width:360px;max-height:60vh;
+  background:${({theme})=>theme.colors.bg};
+  border:1px solid ${({theme})=>theme.colors.line};
+  border-radius:${({theme})=>theme.radii.lg};
+  box-shadow:${({theme})=>theme.shadow};
+  overflow:hidden;
+  transform:translateY(${p=>p.$open?'0':'12px'});
+  opacity:${p=>p.$open?1:0};
+  pointer-events:${p=>p.$open?'auto':'none'};
+  transition:.18s ease;
+  @media (max-width:640px){ right:12px; left:12px; width:auto; }
+`;
+const Header = styled.header`
+  display:flex;align-items:center;justify-content:space-between;
+  padding:10px 12px;border-bottom:1px solid ${({theme})=>theme.colors.line};
+  button{ border:0;background:transparent;cursor:pointer;color:${({theme})=>theme.colors.subtext}; }
+`;
+const Body = styled.div` overflow:auto; max-height:38vh; `;
+const Empty = styled.div` padding:16px; color:${({theme})=>theme.colors.subtext}; `;
+const InputBar = styled.div`
+  border-top:1px solid ${({theme})=>theme.colors.line};
+  padding:10px;display:flex;gap:8px;
+  input{ flex:1; border:1px solid ${({theme})=>theme.colors.line}; border-radius:${({theme})=>theme.radii.md}; padding:10px 12px; }
+  button{ background:${({theme})=>theme.colors.blue}; color:#fff; border:0; padding:10px 14px; border-radius:${({theme})=>theme.radii.md}; }
+`;

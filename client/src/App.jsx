@@ -1,44 +1,52 @@
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
-import { ThemeProvider } from 'styled-components';
-import GlobalStyle from './styles/GlobalStyle';
-import theme from './theme';
+import { useRoutes, Navigate } from "react-router-dom";
+import MainLayout from "./layouts/MainLayout.jsx";
 
-import MainLayout from './layouts/MainLayout';
-import Home from './pages/Home';
-import Tournaments from './pages/Tournaments';
-import TournamentDetail from './pages/TournamentDetail';
-import LeaderboardsAllTime from './pages/LeaderboardsAllTime';
-import LeaderboardsByTournament from './pages/LeaderboardsByTournament';
-import Login from './pages/Login';
-import Register from './pages/Register';
-import Reset from './pages/Reset';
-import Profile from './pages/Profile';
-import Admin from './pages/Admin';
+// pages
+import Home from "./pages/Home.jsx";
+import Tournaments from "./pages/Tournaments.jsx";
+import TournamentDetail from "./pages/TournamentDetail.jsx";
+import LeaderboardsAllTime from "./pages/LeaderboardsAllTime.jsx";
+import LeaderboardsByTournament from "./pages/LeaderboardsByTournament.jsx";
+import Profile from "./pages/Profile.jsx";
+import Admin from "./pages/Admin.jsx";
+import Login from "./pages/Login.jsx";
+import Register from "./pages/Register.jsx";
+import Reset from "./pages/Reset.jsx";
 
-export default function App(){
-  return (
-    <ThemeProvider theme={theme}>
-      <GlobalStyle />
-      <BrowserRouter>
-        <MainLayout>
-          <Routes>
-            <Route path="/" element={<Home />} />
-            <Route path="/tournaments" element={<Tournaments />} />
-            <Route path="/tournaments/:id" element={<TournamentDetail />} />
-            <Route path="/leaderboards/all-time" element={<LeaderboardsAllTime />} />
-            <Route path="/leaderboards/tournaments" element={<LeaderboardsByTournament />} />
-            <Route path="/profile" element={<Profile />} />
-            <Route path="/admin" element={<Admin />} />
+function AppRoutes() {
+  const routes = useRoutes([
+    {
+      element: <MainLayout />,     // left sidebar + chat dock, etc.
+      children: [
+        { path: "/", element: <Home /> },
+        { path: "/turnyrai", element: <Tournaments /> },
+        { path: "/turnyrai/:id", element: <TournamentDetail /> },
 
-            {/* auth pages — shell hidden via MainLayout */}
-            <Route path="/login" element={<Login />} />
-            <Route path="/register" element={<Register />} />
-            <Route path="/reset" element={<Reset />} />
+        {
+          path: "/leaderboards",
+          children: [
+            { index: true, element: <Navigate to="visu-laiku" replace /> },
+            { path: "visu-laiku", element: <LeaderboardsAllTime /> },
+            { path: "pagal-turnyra", element: <LeaderboardsByTournament /> },
+          ],
+        },
 
-            <Route path="*" element={<Navigate to="/" replace />} />
-          </Routes>
-        </MainLayout>
-      </BrowserRouter>
-    </ThemeProvider>
-  );
+        { path: "/profilis", element: <Profile /> },
+        { path: "/admin", element: <Admin /> },
+      ],
+    },
+
+    // auth flows live outside the main layout
+    { path: "/prisijungti", element: <Login /> },
+    { path: "/registruotis", element: <Register /> },
+    { path: "/slaptazodis/atkurti", element: <Reset /> },
+
+    { path: "*", element: <Navigate to="/" replace /> },
+  ]);
+
+  return routes;
+}
+
+export default function App() {
+  return <AppRoutes />;
 }
