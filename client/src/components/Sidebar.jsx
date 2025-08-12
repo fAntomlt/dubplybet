@@ -1,103 +1,231 @@
-import { useState } from 'react';
-import styled from 'styled-components';
-import { NavLink } from 'react-router-dom';
+import { useState } from "react";
+import { NavLink } from "react-router-dom";
+import styled from "styled-components";
 import {
-  HiOutlineHome, HiOutlineUser, HiOutlineTrophy,
-  HiOutlineChatBubbleBottomCenterText,
-  HiOutlineChevronDown, HiOutlineChevronUp
-} from 'react-icons/hi2';
+  FiHome,
+  FiUser,
+  FiAward,
+  FiBarChart2,
+  FiChevronDown,
+  FiMessageSquare,
+  FiShield
+} from "react-icons/fi";
 
 export default function Sidebar({ onOpenChat }) {
-  const [lbOpen, setLbOpen] = useState(false);
+  const [open, setOpen] = useState({ leaderboards: false });
 
   return (
-    <Wrap>
+    <Nav>
       <Brand>
         <LogoDot /> <span>DuBPly<span className="emph">BET</span></span>
       </Brand>
 
-      <Group>
-        <SectionTitle>Pagrindinis</SectionTitle>
-
+      {/* PRIMARY (above PAGRINDINIS) */}
+      <Primary>
         <Item to="/" end>
-          <HiOutlineHome size={20} />
-          <span>Profilis</span>
+          <FiHome /> <span>Pagrindinis</span>
         </Item>
 
-        <Item to="/tournaments">
-          <HiOutlineTrophy size={20} />
-          <span>Turnyrai</span>
+        <Item to="/profilis">
+          <FiUser /> <span>Profilis</span>
         </Item>
+      </Primary>
+      <Divider />
+      <SectionTitle>PAGRINDINIS</SectionTitle>
 
-        <Item as="button" onClick={() => setLbOpen(v => !v)} $button>
-          <HiOutlineTrophy size={20} />
-          <span>Leaderboards</span>
-          <Chevron>{lbOpen ? <HiOutlineChevronUp size={18}/> : <HiOutlineChevronDown size={18}/>}</Chevron>
-        </Item>
+      {/* Turnyrai */}
+      <Item to="/turnyrai">
+        <FiAward /> <span>Turnyrai</span>
+      </Item>
 
-        {lbOpen && (
-          <Submenu>
-            <SubItem to="/leaderboards/all-time">• Visų laikų</SubItem>
-            <SubItem to="/leaderboards/by-tournament">• Pagal turnyrą</SubItem>
+      {/* Leaderboards (expand/collapse) */}
+      <Group>
+        <GroupHeader
+          type="button"
+          onClick={() =>
+            setOpen((s) => ({ ...s, leaderboards: !s.leaderboards }))
+          }
+          aria-expanded={open.leaderboards}
+        >
+          <div>
+            <FiBarChart2 /> <span>Leaderboards</span>
+          </div>
+          <Caret $open={open.leaderboards}>
+            <FiChevronDown />
+          </Caret>
+        </GroupHeader>
+
+        {open.leaderboards && (
+          <Submenu onClick={(e) => e.stopPropagation()}>
+            <SubItem to="/leaderboards/visu-laiku">Visų laikų</SubItem>
+            <SubItem to="/leaderboards/pagal-turnyra">Pagal turnyrą</SubItem>
           </Submenu>
         )}
-
-        <Item as="button" onClick={onOpenChat} $button>
-          <HiOutlineChatBubbleBottomCenterText size={20} />
-          <span>Chat</span>
-        </Item>
-
-        <Item to="/admin">
-          <HiOutlineUser size={20} />
-          <span>Adminas</span>
-        </Item>
       </Group>
-    </Wrap>
+
+      {/* Chat */}
+      <ButtonItem type="button" onClick={onOpenChat}>
+        <FiMessageSquare /> <span>Chat</span>
+      </ButtonItem>
+
+      {/* Admin */}
+      <Item to="/admin">
+        <FiShield /> <span>Admin</span>
+      </Item>
+    </Nav>
   );
 }
 
-/* styles */
-const Wrap = styled.aside`
-  border-right: 1px solid ${({theme}) => theme.colors.line};
+/* ===================== styles ===================== */
+
+const Nav = styled.aside`
+  width: 280px;
+  min-width: 280px;
+  background: #fff;
+  border-right: 1px solid #eceff3;
   padding: 20px 16px;
-  background: ${({theme}) => theme.colors.bg};
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
 `;
+
+const Logo = styled(NavLink)`
+  font-weight: 800;
+  font-size: 22px;
+  color: #1f6feb; /* calm blue accent */
+  text-decoration: none;
+  margin-bottom: 12px;
+`;
+
+const SectionTitle = styled.div`
+  margin: 10px 8px 6px;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  color: #8892a0;
+  text-transform: uppercase;
+`;
+
+const Divider = styled.div`
+  height: 1px;
+  background: #eceff3;
+  margin: 6px 8px 10px;
+`;
+
+const Primary = styled.div`
+  display: grid;
+  gap: 4px;
+  margin-bottom: 8px;
+`;
+
+const Item = styled(NavLink)`
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  color: #0f172a;
+  text-decoration: none;
+
+  &.active {
+    background: #e8f1ff;
+    color: #1f6feb;
+  }
+  &:hover {
+    background: #f5f7fb;
+  }
+
+  svg {
+    font-size: 18px;
+  }
+`;
+
+const Group = styled.div`
+  display: grid;
+`;
+
+const GroupHeader = styled.button`
+  width: 100%;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 12px;
+  border: 0;
+  border-radius: 12px;
+  background: transparent;
+  color: #0f172a;
+  cursor: pointer;
+
+  &:hover {
+    background: #f5f7fb;
+  }
+
+  > div {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+`;
+
+const Caret = styled.span`
+  display: grid;
+  place-items: center;
+  transition: transform 0.15s ease;
+  transform: rotate(${(p) => (p.$open ? "180deg" : "0deg")});
+`;
+
+const Submenu = styled.div`
+  display: grid;
+  gap: 2px;
+  padding-left: 12px;
+  margin-top: 4px;
+`;
+
+const SubItem = styled(NavLink)`
+  padding: 8px 12px;
+  border-radius: 10px;
+  text-decoration: none;
+  color: #0f172a;
+  font-size: 14px;
+
+  &.active {
+    background: #e8f1ff;
+    color: #1f6feb;
+  }
+  &:hover {
+    background: #f5f7fb;
+  }
+`;
+
+const ButtonItem = styled.button`
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  color: #0f172a;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+
+  &:hover {
+    background: #f5f7fb;
+  }
+
+  svg {
+    font-size: 18px;
+  }
+`;
+
 const Brand = styled.div`
   display:flex;align-items:center;gap:10px;
   padding:8px 10px;margin-bottom:20px;
-  font-weight:800;font-size:18px;
+  font-weight:800;font-size:22px;
   .emph{ color:${({theme})=>theme.colors.blue}; }
 `;
+
 const LogoDot = styled.div`
   width:10px;height:10px;border-radius:50%;
   background:${({theme})=>theme.colors.blue};
-`;
-const Group = styled.nav`display:flex;flex-direction:column;gap:6px;`;
-const SectionTitle = styled.div`
-  font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;
-  color:${({theme})=>theme.colors.subtext};
-  padding:10px 10px;margin:8px 0 6px;
-  border-bottom:1px solid ${({theme})=>theme.colors.line};
-`;
-const ItemBase = styled(NavLink)`
-  display:flex;align-items:center;gap:10px;
-  padding:10px 12px;border-radius:${({theme})=>theme.radii.md};
-  color:${({theme})=>theme.colors.text};
-  border:1px solid transparent;transition:background .15s,border-color .15s;
-  &.active{ background:${({theme})=>theme.colors.blueSoft}; border-color:${({theme})=>theme.colors.blue}; }
-  &:hover{ background:${({theme})=>theme.colors.blueSoft}; }
-`;
-const Item = styled(ItemBase).attrs(p => ({ as: p.$button ? 'button' : undefined }))`
-  justify-content:flex-start;width:100%;text-align:left;background:transparent;cursor:pointer;position:relative;
-`;
-const Chevron = styled.span`
-  margin-left:auto;display:flex;align-items:center;color:${({theme})=>theme.colors.subtext};
-`;
-const Submenu = styled.div`
-  display:grid;gap:4px;margin:0 0 6px 36px;padding-left:8px;border-left:2px solid ${({theme})=>theme.colors.line};
-`;
-const SubItem = styled(NavLink)`
-  display:block;padding:6px 0;color:${({theme})=>theme.colors.subtext};
-  &:hover{ color:${({theme})=>theme.colors.text}; }
-  &.active{ color:${({theme})=>theme.colors.blue}; font-weight:600; }
 `;
