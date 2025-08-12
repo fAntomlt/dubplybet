@@ -40,7 +40,6 @@ function AppRoutes() {
     { path: "/prisijungti", element: <Login /> },
     { path: "/registruotis", element: <Register /> },
     { path: "/slaptazodis/atkurti", element: <Reset /> },
-
     { path: "*", element: <Navigate to="/" replace /> },
   ]);
 
