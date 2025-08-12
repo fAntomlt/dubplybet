@@ -33,7 +33,7 @@ export default function Sidebar({ onOpenChat }) {
 
       {/* SIDE NAV (desktop static, mobile off-canvas) */}
       <Nav $mobileOpen={mobileOpen}>
-        <Brand $hide={mobileOpen} onClick={closeIfMobile}>
+        <Brand to="/" $hide={mobileOpen} onClick={closeIfMobile}>
           <LogoDot /> <span>DuBPly<span className="emph">BET</span></span>
         </Brand>
 
@@ -243,7 +243,7 @@ const ButtonItem = styled.button`
   svg { font-size: 18px; }
 `;
 
-const Brand = styled.div`
+const Brand = styled(NavLink)`
   display:flex; align-items:center; gap:10px; padding:8px 10px; margin-bottom:20px;
   font-weight:800; font-size:22px; .emph{ color:${({theme})=>theme.colors.blue}; }
 
