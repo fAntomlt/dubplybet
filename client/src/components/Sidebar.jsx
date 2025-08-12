@@ -37,7 +37,6 @@ export default function Sidebar({ onOpenChat }) {
           <LogoDot /> <span>DuBPly<span className="emph">BET</span></span>
         </Brand>
 
-        {/* above “PAGRINDINIS” */}
         <Primary>
           <Item to="/" end onClick={closeIfMobile}>
             <FiHome /> <span>Pagrindinis</span>
@@ -87,7 +86,7 @@ export default function Sidebar({ onOpenChat }) {
   );
 }
 
-/* ============== styles (layout only; palette stays) ============== */
+/* ============== styles ============== */
 const MOBILE_BP = 960; // px
 const TOPBAR_H = 56;   // mobile top bar height
 
@@ -155,7 +154,6 @@ const Divider = styled.div`
 
 const Primary = styled.div` display: grid; gap: 4px; margin-bottom: 8px; `;
 
-/* Add smooth color/Background transitions for click/active/hover */
 const Item = styled(NavLink)`
   display: flex; align-items: center; gap: 10px; padding: 10px 12px;
   border-radius: 12px; color: #0f172a; text-decoration: none;
@@ -210,7 +208,17 @@ const Submenu = styled.div`
   @media (prefers-reduced-motion: reduce) {
     transition: none;
   }
+
+  /* smooth slide-in of the links themselves (tiny stagger) */
+  > a {
+    opacity: ${({$open}) => ($open ? 1 : 0)};
+    transform: translateY(${({$open}) => ($open ? "0" : "-6px")});
+    transition: opacity .18s ease, transform .18s ease;
+  }
+  > a:nth-child(1) { transition-delay: ${({$open}) => ($open ? ".04s" : "0s")}; }
+  > a:nth-child(2) { transition-delay: ${({$open}) => ($open ? ".08s" : "0s")}; }
 `;
+
 
 const SubItem = styled(NavLink)`
   padding: 8px 12px; border-radius: 10px; text-decoration: none;
