@@ -1,1 +1,2 @@
-export default function Admin(){ return <h1>Administravimas</h1>; }
+import { useEffect } from "react";
+export default function Admin(){ useEffect(() => { document.title = "Admin – DuBPlyBET"; }, []); return <h1>Administravimas</h1>; }

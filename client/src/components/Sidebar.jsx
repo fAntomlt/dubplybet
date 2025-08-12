@@ -5,6 +5,7 @@ import {
   FiHome, FiUser, FiAward, FiBarChart2, FiChevronDown,
   FiMessageSquare, FiShield, FiMenu, FiX
 } from "react-icons/fi";
+import logoImg from "../assets/icriblogo.png";
 
 export default function Sidebar({ onOpenChat }) {
   const [open, setOpen] = useState({ leaderboards: false });
@@ -17,7 +18,7 @@ export default function Sidebar({ onOpenChat }) {
       {/* MOBILE TOP BAR — like NBC: logo left, menu right */}
       <TopBar>
         <TopBrand to="/" onClick={closeIfMobile}>
-          <LogoDot /> <span>DuBPly<span className="emph">BET</span></span>
+          <LogoImg src={logoImg} alt="DubplyBet Logo" /> <span>DuBPly<span className="emph">BET</span></span>
         </TopBrand>
         <TopButton
           type="button"
@@ -34,7 +35,7 @@ export default function Sidebar({ onOpenChat }) {
       {/* SIDE NAV (desktop static, mobile off-canvas) */}
       <Nav $mobileOpen={mobileOpen}>
         <Brand to="/" $hide={mobileOpen} onClick={closeIfMobile}>
-          <LogoDot /> <span>DuBPly<span className="emph">BET</span></span>
+          <LogoImg src={logoImg} alt="DubplyBet Logo" /> <span>DuBPly<span className="emph">BET</span></span>
         </Brand>
 
         <Primary>
@@ -253,6 +254,9 @@ const Brand = styled(NavLink)`
   }
 `;
 
-const LogoDot = styled.div`
-  width:10px; height:10px; border-radius:50%; background:${({theme})=>theme.colors.blue};
+const LogoImg = styled.img`
+  width: 40px;
+  height: 40px;
+  object-fit: contain;
+  display: block;
 `;

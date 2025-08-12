@@ -3,8 +3,10 @@ import { useNavigate, Link } from "react-router-dom";
 import styled from "styled-components";
 import { FiMail, FiLock } from "react-icons/fi";
 import logoImg from "../assets/icriblogo.png";
+import { useEffect } from "react";
 
 export default function Login() {
+    useEffect(() => { document.title = "Prisijungti – DuBPlyBET"; }, []);
   const navigate = useNavigate();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
