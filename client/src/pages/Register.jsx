@@ -123,8 +123,8 @@ export default function Register() {
         return;
       }
 
-      setServerOK("Registracija sėkminga. Patvirtinkite paskyrą el. paštu.");
-      setTimeout(() => navigate("/"), 1200);
+      setServerOK("Registracija sėkminga. Patvirtinkite paskyrą el. paštu. Į prisijungimą grįšite už 10s.");
+      setTimeout(() => navigate("/prisijungti"), 10000);
     } catch {
       setServerError("Serverio klaida. Bandykite vėliau.");
     } finally {
