@@ -298,17 +298,20 @@ const Submit = styled.button`
   font-weight: 800;
   font-size: 16px;
   cursor: pointer;
-  transition: filter 0.15s ease, opacity 0.15s ease;
+  transition: background-color 0.2s ease, transform 0.15s ease, opacity 0.15s ease;
 
   &:disabled {
     opacity: 0.6;
     cursor: not-allowed;
   }
+
   &:hover:not(:disabled) {
-    filter: brightness(0.98);
+    background-color: #155ac5; /* darker blue on hover */
+    transform: translateY(-2px); /* subtle lift */
   }
+
   &:active:not(:disabled) {
-    filter: brightness(0.96);
+    transform: translateY(0); /* return on click */
   }
 `;
 
