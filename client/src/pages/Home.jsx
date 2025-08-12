@@ -1,1 +1,2 @@
-export default function Home(){ return <h1>Pagrindinis</h1>; }
+import { useEffect } from "react";
+export default function Home(){ useEffect(() => { document.title = "Pagrindinis – DuBPlyBET"; }, []); return <h1>Pagrindinis</h1>; }
