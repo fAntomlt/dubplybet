@@ -16,7 +16,9 @@ export default function Sidebar({ onOpenChat }) {
 
   return (
     <Nav>
-      <Logo to="/">DuBPlyBET</Logo>
+      <Brand>
+        <LogoDot /> <span>DuBPly<span className="emph">BET</span></span>
+      </Brand>
 
       {/* PRIMARY (above PAGRINDINIS) */}
       <Primary>
@@ -214,4 +216,16 @@ const ButtonItem = styled.button`
   svg {
     font-size: 18px;
   }
+`;
+
+const Brand = styled.div`
+  display:flex;align-items:center;gap:10px;
+  padding:8px 10px;margin-bottom:20px;
+  font-weight:800;font-size:22px;
+  .emph{ color:${({theme})=>theme.colors.blue}; }
+`;
+
+const LogoDot = styled.div`
+  width:10px;height:10px;border-radius:50%;
+  background:${({theme})=>theme.colors.blue};
 `;
