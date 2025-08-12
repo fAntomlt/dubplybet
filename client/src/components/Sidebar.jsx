@@ -64,12 +64,15 @@ export default function Sidebar({ onOpenChat }) {
             <Caret $open={open.leaderboards}><FiChevronDown/></Caret>
           </GroupHeader>
 
-          {open.leaderboards && (
-            <Submenu onClick={e => e.stopPropagation()}>
-              <SubItem to="/leaderboards/visu-laiku" onClick={closeIfMobile}>Visų laikų</SubItem>
-              <SubItem to="/leaderboards/pagal-turnyra" onClick={closeIfMobile}>Pagal turnyrą</SubItem>
-            </Submenu>
-          )}
+          {/* always render; slide with CSS */}
+          <Submenu
+            $open={open.leaderboards}
+            onClick={e => e.stopPropagation()}
+            aria-hidden={!open.leaderboards}
+          >
+            <SubItem to="/leaderboards/visu-laiku" onClick={closeIfMobile}>Visų laikų</SubItem>
+            <SubItem to="/leaderboards/pagal-turnyra" onClick={closeIfMobile}>Pagal turnyrą</SubItem>
+          </Submenu>
         </Group>
 
         <ButtonItem type="button" onClick={() => { onOpenChat?.(); closeIfMobile(); }}>
@@ -152,11 +155,20 @@ const Divider = styled.div`
 
 const Primary = styled.div` display: grid; gap: 4px; margin-bottom: 8px; `;
 
+/* Add smooth color/Background transitions for click/active/hover */
 const Item = styled(NavLink)`
   display: flex; align-items: center; gap: 10px; padding: 10px 12px;
   border-radius: 12px; color: #0f172a; text-decoration: none;
-  &.active { background: #e8f1ff; color: #1f6feb; }
-  &:hover { background: #f5f7fb; }
+
+  transition: background-color .18s ease, color .18s ease;  /* ← fade in */
+
+  &.active {
+    background-color: #e8f1ff; /* same color, just animated */
+    color: #1f6feb;
+  }
+  &:hover {
+    background-color: #f5f7fb;
+  }
   svg { font-size: 18px; }
 `;
 
@@ -166,7 +178,10 @@ const GroupHeader = styled.button`
   width: 100%; display: flex; justify-content: space-between; align-items: center;
   gap: 8px; padding: 10px 12px; border: 0; border-radius: 12px;
   background: transparent; color: #0f172a; cursor: pointer;
-  &:hover { background: #f5f7fb; }
+
+  transition: background-color .18s ease, color .18s ease;  /* subtle fade */
+
+  &:hover { background-color: #f5f7fb; }
   > div { display: flex; align-items: center; gap: 10px; }
 `;
 
@@ -175,19 +190,48 @@ const Caret = styled.span`
   transform: rotate(${p => (p.$open ? "180deg" : "0deg")});
 `;
 
-const Submenu = styled.div` display: grid; gap: 2px; padding-left: 12px; margin-top: 4px; `;
+/* Slide/Fade rollout for submenu */
+const Submenu = styled.div`
+  display: grid;
+  gap: 2px;
+  padding-left: 12px;
+  margin-top: 4px;
+
+  max-height: ${({$open}) => ($open ? "220px" : "0px")};
+  opacity: ${({$open}) => ($open ? 1 : 0)};
+  transform: translateY(${({$open}) => ($open ? "0" : "-4px")});
+  overflow: hidden;
+
+  transition:
+    max-height .24s ease,
+    opacity .18s ease,
+    transform .18s ease;
+
+  @media (prefers-reduced-motion: reduce) {
+    transition: none;
+  }
+`;
 
 const SubItem = styled(NavLink)`
   padding: 8px 12px; border-radius: 10px; text-decoration: none;
   color: #0f172a; font-size: 14px;
-  &.active { background: #e8f1ff; color: #1f6feb; }
-  &:hover { background: #f5f7fb; }
+
+  transition: background-color .18s ease, color .18s ease;
+
+  &.active {
+    background-color: #e8f1ff;
+    color: #1f6feb;
+  }
+  &:hover { background-color: #f5f7fb; }
 `;
 
 const ButtonItem = styled.button`
   display: flex; align-items: center; gap: 10px; padding: 10px 12px;
   border-radius: 12px; color: #0f172a; background: transparent; border: none; cursor: pointer;
-  &:hover { background: #f5f7fb; }
+
+  transition: background-color .18s ease, color .18s ease;
+
+  &:hover { background-color: #f5f7fb; }
   svg { font-size: 18px; }
 `;
 
