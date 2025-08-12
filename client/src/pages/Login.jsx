@@ -124,7 +124,7 @@ export default function Login() {
             </Form>
 
             <Footer>
-              Neturite paskyros? <Link to="/registracija">Susikurkite</Link>
+              Neturite paskyros? <Link to="/registruotis">Susikurkite</Link>
             </Footer>
           </Right>
         </Card>
