@@ -89,7 +89,7 @@ const lastSendAt = new Map();
 io.on("connection", async (socket) => {
   try {
     const token = socket.handshake?.auth?.token;
-    const payload = verifyToken(token);
+    const payload = verifyJwt(token);
     if (!payload?.id) throw new Error("bad token");
 
     const [rows] = await pool.query(
