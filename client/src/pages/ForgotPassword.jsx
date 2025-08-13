@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import styled from "styled-components";
 import { FiMail } from "react-icons/fi";
 import logoImg from "../assets/icriblogo.png";
+import { Link } from "react-router-dom";
 
 export default function ForgotPassword() {
   useEffect(() => { document.title = "Priminti slaptažodį – DuBPlyBET"; }, []);
@@ -80,6 +81,9 @@ export default function ForgotPassword() {
               <Submit type="submit" disabled={!canSubmit}>
                 {sending ? "Siunčiama..." : "Siųsti nuorodą"}
               </Submit>
+                <BackLink to="/prisijungti">
+                    Grįžti prie prisijungimo
+                </BackLink>
             </Form>
           </Right>
         </Card>
@@ -102,7 +106,7 @@ const Avatar = styled.div`
   box-shadow:0 8px 30px rgba(31,111,235,.08); display:grid; place-items:center;
   img{width:100%;height:100%;object-fit:cover;}
 `;
-const Right = styled.div`display:grid;align-content:start;`;
+const Right = styled.div`display:grid;align-content:center;`;
 const Title = styled.h1`margin:4px 0 14px 0;font-size:28px;font-weight:800;color:#0f172a;`;
 const Alert = styled.div`background:#fff4f4;border:1px solid #ffd4d4;color:#8b1f1f;padding:10px 12px;border-radius:12px;margin-bottom:10px;font-size:14px;`;
 const Success = styled.div`background:#effaf1;border:1px solid #c9efd1;color:#0d6c2f;padding:10px 12px;border-radius:12px;margin-bottom:10px;font-size:14px;`;
@@ -124,4 +128,12 @@ const Submit = styled.button`
   &:disabled{opacity:.6;cursor:not-allowed;}
   &:hover:not(:disabled){background-color:#155ac5;transform:translateY(-2px);}
   &:active:not(:disabled){transform:translateY(0);}
+`;
+const BackLink = styled(Link)`
+  font-size: 14px;
+  color: #1f6feb;
+  text-align: center;
+  cursor: pointer;
+  text-decoration: none;
+  &:hover { text-decoration: underline; }
 `;
