@@ -8,6 +8,8 @@ import { Server as SocketIOServer } from "socket.io";
 import path from "path";
 import { fileURLToPath } from "url";
 import dotenv from "dotenv";
+import chatPublic from "./routes/chat.public.js";
+import { verifyJwt } from "./utils/jwt.js";
 
 
 import authRoutes from "./routes/auth.js";
@@ -50,6 +52,7 @@ app.use("/api/games", gamesPublic);
 app.use("/api/games", gamesGuess);
 app.use("/api/games", gamePublicGuesses);
 app.use("/api/leaderboards", leaderboardsPublic);
+app.use("/api/chat", chatPublic);
 
 const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
@@ -79,6 +82,52 @@ const io = new SocketIOServer(server, { cors: corsOptions });
 io.on("connection", (socket) => {
   console.log("socket connected:", socket.id);
   socket.on("ping", () => socket.emit("pong"));
+});
+
+const lastSendAt = new Map();
+
+io.on("connection", async (socket) => {
+  try {
+    const token = socket.handshake?.auth?.token;
+    const payload = verifyToken(token);
+    if (!payload?.id) throw new Error("bad token");
+
+    const [rows] = await pool.query(
+      "SELECT id, username FROM users WHERE id = ? LIMIT 1",
+      [payload.id]
+    );
+    if (!rows.length) throw new Error("no user");
+
+    const user = rows[0];
+    socket.join("public");
+
+    socket.on("chat:send", async (data) => {
+      const content = String(data?.content || "").trim();
+      if (!content || content.length > 500) return;
+
+      // throttle 1 msg/sec per user
+      const now = Date.now();
+      if ((lastSendAt.get(user.id) || 0) > now - 1000) return;
+      lastSendAt.set(user.id, now);
+
+      const [result] = await pool.query(
+        "INSERT INTO chat_messages (user_id, content) VALUES (?, ?)",
+        [user.id, content]
+      );
+
+      const message = {
+        id: result.insertId,
+        userId: user.id,
+        username: user.username,
+        content,
+        createdAt: new Date().toISOString(),
+      };
+
+      io.to("public").emit("chat:new", message);
+    });
+  } catch {
+    socket.disconnect(true);
+  }
 });
 
 const enableCron = process.env.ENABLE_CRON_JOBS === "true";
