@@ -93,18 +93,20 @@ io.on("connection", async (socket) => {
     const userId = payload?.id ?? payload?.uid ?? payload?.userId;
     if (!userId) throw new Error("token has no id/uid");
 
-    // verify user exists
+    // verify user exists (also read role for admin permissions)
     const [rows] = await pool.query(
-      "SELECT id, username FROM users WHERE id = ? LIMIT 1",
+      "SELECT id, username, role FROM users WHERE id = ? LIMIT 1",
       [userId]
     );
     if (!rows.length) throw new Error("user not found");
 
     const user = rows[0];
+    const isAdmin = user.role === "admin";
 
     // everyone in a public room for now
     socket.join("public");
 
+    // === SEND ===
     socket.on("chat:send", async (data) => {
       const content = String(data?.content || "").trim();
       if (!content || content.length > 500) return;
@@ -128,6 +130,56 @@ io.on("connection", async (socket) => {
       };
 
       io.to("public").emit("chat:new", message);
+    });
+
+    // === DELETE (admins can delete others' messages) ===
+    socket.on("chat:delete", async ({ id }) => {
+      try {
+        if (!isAdmin) return;
+
+        // ensure it's someone else's message (per your requirement)
+        const [own] = await pool.query(
+          "SELECT user_id FROM chat_messages WHERE id = ?",
+          [id]
+        );
+        if (!own.length) return;
+        if (own[0].user_id === user.id) return; // admin cannot delete own (requirement)
+
+        const [res] = await pool.query("DELETE FROM chat_messages WHERE id = ?", [id]);
+        if (res.affectedRows > 0) {
+          io.to("public").emit("chat:deleted", { id });
+        }
+      } catch (e) {
+        console.error("chat:delete error", e);
+      }
+    });
+
+    // === EDIT (only author can edit) ===
+    socket.on("chat:update", async ({ id, content }) => {
+      try {
+        const text = String(content || "").trim();
+        if (!text || text.length > 500) return;
+
+        // ensure ownership
+        const [rows] = await pool.query(
+          "SELECT user_id FROM chat_messages WHERE id = ?",
+          [id]
+        );
+        if (!rows.length) return;
+        if (rows[0].user_id !== user.id) return;
+        await pool.query("UPDATE chat_messages SET content = ?, edited_at = NOW() WHERE id = ?", [text, id]);
+
+        io.to("public").emit("chat:updated", {
+          id,
+          content: text,
+          edited: true,
+          userId: user.id,
+          username: user.username,
+          updatedAt: new Date().toISOString(),
+        });
+      } catch (e) {
+        console.error("chat:update error", e);
+      }
     });
   } catch (err) {
     console.error("socket auth error:", err.message);

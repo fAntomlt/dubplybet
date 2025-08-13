@@ -3,19 +3,24 @@ import styled from 'styled-components';
 import { HiOutlineXMark } from 'react-icons/hi2';
 import { io } from 'socket.io-client';
 import { Link } from 'react-router-dom';
+import { FiTrash2, FiEdit3, FiX, FiCheck } from 'react-icons/fi';
 
 export default function ChatDock({ open = false, onClose }) {
   const [msg, setMsg] = useState('');
   const [sending, setSending] = useState(false);
   const [messages, setMessages] = useState([]);
+  const [editingId, setEditingId] = useState(null);
+  const [editingText, setEditingText] = useState('');
+
   const listRef = useRef(null);
   const inputRef = useRef(null);
   const socketRef = useRef(null);
 
   const API_URL = import.meta.env.VITE_API_URL;
   const token = localStorage.getItem('authToken');
-  const authUser = safeParse(localStorage.getItem('authUser')); // { username, ... } or null
+  const authUser = safeParse(localStorage.getItem('authUser')); // { id, username, role, ... } expected
   const myName = authUser?.username || null;
+  const isAdmin = authUser?.role === 'admin';
 
   // focus input on open
   useEffect(() => {
@@ -40,9 +45,11 @@ export default function ChatDock({ open = false, onClose }) {
           setMessages(
             (data.items || []).map(m => ({
               id: m.id,
+              userId: m.userId,
               username: m.username,
               text: m.content,
               ts: new Date(m.createdAt).getTime(),
+              edited: !!m.editedAt,
             }))
           );
         }
@@ -62,7 +69,7 @@ export default function ChatDock({ open = false, onClose }) {
     });
 
     s.on('connect', () => {
-      console.log('Connected to chat server');
+      // console.log('Connected to chat server');
     });
 
     s.on('chat:new', (msg) => {
@@ -70,15 +77,35 @@ export default function ChatDock({ open = false, onClose }) {
         ...prev,
         {
           id: msg.id,
+          userId: msg.userId,
           username: msg.username,
           text: msg.content,
           ts: new Date(msg.createdAt).getTime(),
+          edited: false,
         },
       ]);
     });
 
+    s.on('chat:updated', (msg) => {
+      setMessages(prev =>
+        prev.map(m => (m.id === msg.id ? { ...m, text: msg.content, edited: true } : m))
+      );
+      if (editingId === msg.id) {
+        setEditingId(null);
+        setEditingText('');
+      }
+    });
+
+    s.on('chat:deleted', ({ id }) => {
+      setMessages(prev => prev.filter(m => m.id !== id));
+      if (editingId === id) {
+        setEditingId(null);
+        setEditingText('');
+      }
+    });
+
     s.on('disconnect', () => {
-      console.log('Disconnected from chat');
+      // console.log('Disconnected from chat');
     });
 
     socketRef.current = s;
@@ -86,16 +113,13 @@ export default function ChatDock({ open = false, onClose }) {
       s.disconnect();
       socketRef.current = null;
     };
-  }, [open, token, API_URL]);
+  }, [open, token, API_URL, editingId]);
 
   const handleSend = () => {
     const text = msg.trim();
     if (!text || !socketRef.current || sending) return;
     setSending(true);
-
-    // emit only; no local echo (server broadcast will add it)
     socketRef.current.emit('chat:send', { content: text });
-
     setMsg('');
     setSending(false);
   };
@@ -105,6 +129,30 @@ export default function ChatDock({ open = false, onClose }) {
       e.preventDefault();
       handleSend();
     }
+  };
+
+  // --- admin delete (other people's messages) ---
+  const askDelete = (m) => {
+    if (!isAdmin || m.username === myName) return;
+    if (!confirm(`Ištrinti ${m.username} žinutę?`)) return;
+    socketRef.current?.emit('chat:delete', { id: m.id });
+  };
+
+  // --- user edit (own message) ---
+  const startEdit = (m) => {
+    if (m.username !== myName) return;
+    setEditingId(m.id);
+    setEditingText(m.text);
+  };
+  const cancelEdit = () => {
+    setEditingId(null);
+    setEditingText('');
+  };
+  const saveEdit = () => {
+    const text = editingText.trim();
+    if (!text || !socketRef.current) return;
+    socketRef.current.emit('chat:update', { id: editingId, content: text });
+    // server will broadcast chat:updated → we sync then
   };
 
   return (
@@ -127,10 +175,53 @@ export default function ChatDock({ open = false, onClose }) {
                     <Avatar>{initials(m.username)}</Avatar>
                     <Meta>
                       <Name>{m.username}</Name>
-                      <Time>{formatTime(m.ts)}</Time>
+                      <Time>
+                        {formatTime(m.ts)} {m.edited ? '· Redaguota' : ''}
+                      </Time>
                     </Meta>
+
+                    {/* hover actions (right) */}
+                    <Actions>
+                      {isMine && editingId !== m.id && (
+                        <IconBtn title="Redaguoti" onClick={() => startEdit(m)}>
+                          <FiEdit3 />
+                        </IconBtn>
+                      )}
+                      {isAdmin && !isMine && (
+                        <IconBtn title="Ištrinti" $danger onClick={() => askDelete(m)}>
+                          <FiTrash2 />
+                        </IconBtn>
+                      )}
+                    </Actions>
                   </MsgHead>
-                  <Bubble $me={isMine}>{m.text}</Bubble>
+
+                  {editingId === m.id ? (
+                    <EditRow>
+                      <EditInput
+                        value={editingText}
+                        onChange={(e) => setEditingText(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter' && !e.shiftKey) {
+                            e.preventDefault();
+                            saveEdit();
+                          } else if (e.key === 'Escape') {
+                            e.preventDefault();
+                            cancelEdit();
+                          }
+                        }}
+                        autoFocus
+                        rows={1}
+                      />
+                      <SmallBtn onClick={saveEdit} title="Išsaugoti">
+                        <FiCheck />
+                      </SmallBtn>
+                      <SmallBtn onClick={cancelEdit} title="Atšaukti">
+                        <FiX />
+                      </SmallBtn>
+                    </EditRow>
+                  ) : (
+                    <Bubble $me={isMine}>{m.text}</Bubble>
+                  )}
                 </Msg>
               );
             })}
@@ -207,9 +298,14 @@ const Body = styled.div` overflow:auto; max-height:38vh; `;
 const Empty = styled.div` padding:16px; color:${({theme})=>theme.colors.subtext}; `;
 const List = styled.div` display:grid; gap:12px; padding:12px; `;
 const Msg = styled.div` display:grid; gap:6px; `;
+
 const MsgHead = styled.div`
-  display:grid; grid-template-columns: 32px 1fr; gap:8px; align-items:center;
+  display:grid;
+  grid-template-columns: 32px 1fr auto;
+  gap:8px;
+  align-items:center;
 `;
+
 const Avatar = styled.div`
   width:32px;height:32px;border-radius:50%;
   display:grid;place-items:center;
@@ -219,6 +315,23 @@ const Avatar = styled.div`
 const Meta = styled.div` display:flex; align-items:baseline; gap:8px; `;
 const Name = styled.span` font-weight:700; color:#0f172a; font-size:13px; `;
 const Time = styled.span` color:${({theme})=>theme.colors.subtext}; font-size:12px; `;
+
+const Actions = styled.div`
+  display:flex; gap:6px; opacity:0; transition:opacity .12s ease;
+  ${Msg}:hover & { opacity: 1; }
+`;
+
+const IconBtn = styled.button`
+  border: 1px solid ${({theme})=>theme.colors.line};
+  background: #fff;
+  border-radius: 8px;
+  padding: 6px;
+  cursor: pointer;
+  display: grid; place-items: center;
+  color: ${({ $danger }) => ($danger ? '#dc2626' : '#0f172a')};
+  &:hover { background: #f9fafb; }
+`;
+
 const Bubble = styled.div`
   border:1px solid ${({theme})=>theme.colors.line};
   border-radius:14px;
@@ -228,6 +341,25 @@ const Bubble = styled.div`
   background: ${({$me}) => ($me ? '#ddebffff' : '#f5f7fb')};
   color: #0f172a;
 `;
+
+const EditRow = styled.div`
+  display:flex; align-items:center; gap:8px;
+`;
+const EditInput = styled.textarea`
+  flex:1; resize:none; min-height:36px;
+  border:1px solid ${({theme})=>theme.colors.line};
+  border-radius:${({theme})=>theme.radii.md};
+  padding:8px 10px; background:${({theme})=>theme.colors.bg};
+  color:#0f172a; line-height:1.25;
+  &:focus{ background:#fff; border:none; outline:none; box-shadow:0 0 0 3px #e8f1ff; }
+`;
+const SmallBtn = styled.button`
+  display:grid; place-items:center;
+  border:1px solid ${({theme})=>theme.colors.line};
+  background:#fff; border-radius:10px; padding:8px;
+  cursor:pointer;
+`;
+
 const InputBar = styled.div`
   border-top:1px solid ${({theme})=>theme.colors.line};
   padding:10px;display:flex;gap:8px;align-items:center;min-height:64px;
@@ -238,12 +370,7 @@ const Input = styled.textarea`
   border-radius:${({theme})=>theme.radii.md};
   padding:10px 12px; background:${({theme})=>theme.colors.bg};
   color:#0f172a; line-height:1.3;
-  &:focus {
-  background: #ffffff;
-  border: none;
-  outline: none; /* removes browser default focus outline */
-  box-shadow: 0 0 0 3px #e8f1ff; /* optional glow */
-}
+  &:focus { background:#ffffff; border:none; outline:none; box-shadow:0 0 0 3px #e8f1ff; }
   &:disabled { opacity:.6; cursor:not-allowed; }
 `;
 const SendBtn = styled.button`
