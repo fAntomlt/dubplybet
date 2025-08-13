@@ -11,9 +11,10 @@ router.get("/history", async (req, res) => {
     const [rows] = await pool.query(
       `SELECT
          cm.id,
-         cm.user_id   AS userId,
+         cm.user_id      AS userId,
          cm.content,
-         cm.created_at AS createdAt,
+         cm.created_at   AS createdAt,
+         cm.edited_at    AS editedAt,
          u.username
        FROM chat_messages cm
        JOIN users u ON u.id = cm.user_id
