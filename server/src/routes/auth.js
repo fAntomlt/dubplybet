@@ -158,4 +158,85 @@ router.post("/login", async (req, res) => {
   }
 });
 
+// --- Password reset: request ---
+router.post("/forgot-password", async (req, res) => {
+  try {
+    const email = (req.body?.email || "").trim().toLowerCase();
+    if (!email) return res.status(400).json({ error: "El. paštas privalomas" });
+
+    const [rows] = await pool.query(
+      "SELECT id, username, email_verified FROM users WHERE email = ? LIMIT 1",
+      [email]
+    );
+    // Always return ok=true (don’t leak whether user exists)
+    if (!rows.length) return res.json({ ok: true });
+
+    const user = rows[0];
+
+    const token = crypto.randomBytes(32).toString("hex");
+    const hours = 2; // token validity
+    await pool.query(
+      "INSERT INTO password_resets (user_id, token, expires_at) VALUES (?,?, DATE_ADD(NOW(), INTERVAL ? HOUR))",
+      [user.id, token, hours]
+    );
+
+    const link = `${process.env.FRONTEND_URL}/atstatyti-slaptazodi?token=${token}`;
+    await sendMail({
+      to: email,
+      subject: "Slaptažodžio atstatymas",
+      html: `
+        <p>Sveiki${user.username ? ", " + user.username : ""},</p>
+        <p>Norėdami atstatyti slaptažodį, paspauskite nuorodą (galioja ${hours} val.):</p>
+        <p><a href="${link}">${link}</a></p>
+        <p>Jei to neprašėte, ignoruokite šį laišką.</p>
+      `,
+    });
+
+    return res.json({ ok: true });
+  } catch (err) {
+    console.error("forgot-password error:", err);
+    return res.status(500).json({ error: "Serverio klaida. Bandykite vėliau." });
+  }
+});
+
+// --- Password reset: apply new password ---
+router.post("/reset-password", async (req, res) => {
+  try {
+    const token = (req.body?.token || "").trim();
+    const newPassword = (req.body?.password || "");
+    const confirm = (req.body?.confirmPassword || "");
+
+    if (!token) return res.status(400).json({ error: "Trūksta žetono" });
+    if (!newPassword || newPassword.length < 8 || newPassword.length > 100) {
+      return res.status(400).json({ error: "Neteisingas slaptažodis (8–100)" });
+    }
+    if (newPassword !== confirm) {
+      return res.status(400).json({ error: "Slaptažodžiai nesutampa" });
+    }
+
+    const [rows] = await pool.query(
+      "SELECT id, user_id, expires_at, used FROM password_resets WHERE token = ? LIMIT 1",
+      [token]
+    );
+    if (!rows.length) return res.status(400).json({ error: "Neteisingas žetonas" });
+
+    const pr = rows[0];
+    if (pr.used) return res.status(400).json({ error: "Žetonas jau panaudotas" });
+    if (new Date(pr.expires_at) < new Date()) return res.status(400).json({ error: "Žetonas nebegalioja" });
+
+    // hash
+    // you already have utils/hash.js with hashPassword
+    const { hashPassword } = await import("../utils/hash.js");
+    const password_hash = await hashPassword(newPassword);
+
+    await pool.query("UPDATE users SET password_hash = ? WHERE id = ?", [password_hash, pr.user_id]);
+    await pool.query("UPDATE password_resets SET used = 1 WHERE id = ?", [pr.id]);
+
+    return res.json({ ok: true, message: "Slaptažodis atnaujintas. Galite prisijungti." });
+  } catch (err) {
+    console.error("reset-password error:", err);
+    return res.status(500).json({ error: "Serverio klaida. Bandykite vėliau." });
+  }
+});
+
 export default router;
