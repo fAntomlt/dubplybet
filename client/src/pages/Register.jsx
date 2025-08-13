@@ -3,6 +3,7 @@ import { useNavigate, Link } from "react-router-dom";
 import styled from "styled-components";
 import { FiMail, FiLock, FiUser, FiHash } from "react-icons/fi";
 import logoImg from "../assets/icriblogo.png";
+import { useToast } from "../components/ToastProvider";
 
 export default function Register() {
   const navigate = useNavigate();
@@ -10,6 +11,7 @@ export default function Register() {
   useEffect(() => {
     document.title = "Registracija – DuBPlyBET";
   }, []);
+  const toast = useToast();
 
   const [email, setEmail] = useState("");
   const [username, setUsername] = useState("");
@@ -133,6 +135,7 @@ export default function Register() {
       }
 
       setServerOK("Registracija sėkminga. Patvirtinkite paskyrą el. paštu. Į prisijungimą grįšite už 10s.");
+      toast.success("Sėkmingai prisiregistravote");
       setTimeout(() => navigate("/prisijungti"), 10000);
     } catch {
       setServerError("Serverio klaida. Bandykite vėliau.");
