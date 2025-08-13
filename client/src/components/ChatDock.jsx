@@ -12,6 +12,9 @@ export default function ChatDock({ open = false, onClose }) {
   const [editingId, setEditingId] = useState(null);
   const [editingText, setEditingText] = useState('');
 
+  // NEW: delete confirmation state
+  const [confirmDel, setConfirmDel] = useState(null); // { id, username } | null
+
   const listRef = useRef(null);
   const inputRef = useRef(null);
   const socketRef = useRef(null);
@@ -68,10 +71,6 @@ export default function ChatDock({ open = false, onClose }) {
       auth: { token },
     });
 
-    s.on('connect', () => {
-      // console.log('Connected to chat server');
-    });
-
     s.on('chat:new', (msg) => {
       setMessages(prev => [
         ...prev,
@@ -102,10 +101,7 @@ export default function ChatDock({ open = false, onClose }) {
         setEditingId(null);
         setEditingText('');
       }
-    });
-
-    s.on('disconnect', () => {
-      // console.log('Disconnected from chat');
+      if (confirmDel?.id === id) setConfirmDel(null);
     });
 
     socketRef.current = s;
@@ -113,7 +109,7 @@ export default function ChatDock({ open = false, onClose }) {
       s.disconnect();
       socketRef.current = null;
     };
-  }, [open, token, API_URL, editingId]);
+  }, [open, token, API_URL, editingId, confirmDel?.id]);
 
   const handleSend = () => {
     const text = msg.trim();
@@ -133,10 +129,17 @@ export default function ChatDock({ open = false, onClose }) {
 
   // --- admin delete (other people's messages) ---
   const askDelete = (m) => {
-    if (!isAdmin || m.username === myName) return;
-    if (!confirm(`Ištrinti ${m.username} žinutę?`)) return;
-    socketRef.current?.emit('chat:delete', { id: m.id });
+  if (!isAdmin || m.username === myName) return;
+  setConfirmDel({ id: m.id, username: m.username, text: m.text });
+};
+
+  const confirmDelete = () => {
+    if (!confirmDel) return;
+    socketRef.current?.emit('chat:delete', { id: confirmDel.id });
+    setConfirmDel(null);
   };
+
+  const cancelDelete = () => setConfirmDel(null);
 
   // --- user edit (own message) ---
   const startEdit = (m) => {
@@ -157,100 +160,126 @@ export default function ChatDock({ open = false, onClose }) {
 
   return (
     <Wrap $open={open}>
-      <Header>
-        <strong>Chat</strong>
-        <button onClick={onClose}><HiOutlineXMark size={18} /></button>
-      </Header>
+      {/* blur all content if confirm modal is open */}
+      <BlurContainer $blur={!!confirmDel}>
+        <Header>
+          <strong>Chat</strong>
+          <button onClick={onClose}><HiOutlineXMark size={18} /></button>
+        </Header>
 
-      <Body ref={listRef}>
-        {messages.length === 0 ? (
-          <Empty>Čia bus pokalbių langas.</Empty>
-        ) : (
-          <List>
-            {messages.map(m => {
-              const isMine = !!myName && m.username === myName;
-              return (
-                <Msg key={m.id}>
-                  <MsgHead>
-                    <Avatar>{initials(m.username)}</Avatar>
-                    <Meta>
-                      <Name>{m.username}</Name>
-                      <Time>
-                        {formatTime(m.ts)} {m.edited ? '· Redaguota' : ''}
-                      </Time>
-                    </Meta>
+        <Body ref={listRef}>
+          {messages.length === 0 ? (
+            <Empty>Čia bus pokalbių langas.</Empty>
+          ) : (
+            <List>
+              {messages.map(m => {
+                const isMine = !!myName && m.username === myName;
+                return (
+                  <Msg key={m.id}>
+                    <MsgHead>
+                      <Avatar>{initials(m.username)}</Avatar>
+                      <Meta>
+                        <Name>{m.username}</Name>
+                        <Time>
+                          {formatTime(m.ts)} {m.edited ? '· Redaguota' : ''}
+                        </Time>
+                      </Meta>
 
-                    {/* hover actions (right) */}
-                    <Actions>
-                      {isMine && editingId !== m.id && (
-                        <IconBtn title="Redaguoti" onClick={() => startEdit(m)}>
-                          <FiEdit3 />
-                        </IconBtn>
-                      )}
-                      {isAdmin && !isMine && (
-                        <IconBtn title="Ištrinti" $danger onClick={() => askDelete(m)}>
-                          <FiTrash2 />
-                        </IconBtn>
-                      )}
-                    </Actions>
-                  </MsgHead>
+                      <Actions>
+                        {isMine && editingId !== m.id && (
+                          <IconBtn title="Redaguoti" onClick={() => startEdit(m)}>
+                            <FiEdit3 />
+                          </IconBtn>
+                        )}
+                        {isAdmin && !isMine && (
+                          <IconBtn title="Ištrinti" $danger onClick={() => askDelete(m)}>
+                            <FiTrash2 />
+                          </IconBtn>
+                        )}
+                      </Actions>
+                    </MsgHead>
 
-                  {editingId === m.id ? (
-                    <EditRow>
-                      <EditInput
-                        value={editingText}
-                        onChange={(e) => setEditingText(e.target.value)}
-                        onKeyDown={(e) => {
-                          if (e.key === 'Enter' && !e.shiftKey) {
-                            e.preventDefault();
-                            saveEdit();
-                          } else if (e.key === 'Escape') {
-                            e.preventDefault();
-                            cancelEdit();
-                          }
-                        }}
-                        autoFocus
-                        rows={1}
-                      />
-                      <SmallBtn onClick={saveEdit} title="Išsaugoti">
-                        <FiCheck />
-                      </SmallBtn>
-                      <SmallBtn onClick={cancelEdit} title="Atšaukti">
-                        <FiX />
-                      </SmallBtn>
-                    </EditRow>
-                  ) : (
-                    <Bubble $me={isMine}>{m.text}</Bubble>
-                  )}
-                </Msg>
-              );
-            })}
-          </List>
-        )}
-      </Body>
+                    {editingId === m.id ? (
+                      <EditRow>
+                        <EditInput
+                          value={editingText}
+                          onChange={(e) => setEditingText(e.target.value)}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter' && !e.shiftKey) {
+                              e.preventDefault();
+                              saveEdit();
+                            } else if (e.key === 'Escape') {
+                              e.preventDefault();
+                              cancelEdit();
+                            }
+                          }}
+                          autoFocus
+                          rows={1}
+                        />
+                        <SmallBtn onClick={saveEdit} title="Išsaugoti">
+                          <FiCheck />
+                        </SmallBtn>
+                        <SmallBtn onClick={cancelEdit} title="Atšaukti">
+                          <FiX />
+                        </SmallBtn>
+                      </EditRow>
+                    ) : (
+                      <Bubble $me={isMine}>{m.text}</Bubble>
+                    )}
+                  </Msg>
+                );
+              })}
+            </List>
+          )}
+        </Body>
 
-      <InputBar>
-        {token ? (
-          <>
-            <Input
-              ref={inputRef}
-              value={msg}
-              onChange={(e) => setMsg(e.target.value)}
-              onKeyDown={onKeyDown}
-              placeholder="Rašykite žinutę…"
-              disabled={!open || sending}
-            />
-            <SendBtn onClick={handleSend} disabled={!msg.trim() || sending}>
-              {sending ? 'Siunčiama…' : 'Siųsti'}
-            </SendBtn>
-          </>
-        ) : (
-          <Guest>
-            Prisijunk, jog galėtum rašyti žinutes.{' '}
-            <Link to="/prisijungti">Prisijunk</Link>
-          </Guest>
-        )}
-      </InputBar>
+        <InputBar>
+          {token ? (
+            <>
+              <Input
+                ref={inputRef}
+                value={msg}
+                onChange={(e) => setMsg(e.target.value)}
+                onKeyDown={onKeyDown}
+                placeholder="Rašykite žinutę…"
+                disabled={!open || sending}
+              />
+              <SendBtn onClick={handleSend} disabled={!msg.trim() || sending}>
+                {sending ? 'Siunčiama…' : 'Siųsti'}
+              </SendBtn>
+            </>
+          ) : (
+            <Guest>
+              Prisijunk, jog galėtum rašyti žinutes.{` `}
+              <Link to="/prisijungti">Prisijunk</Link>
+            </Guest>
+          )}
+        </InputBar>
+      </BlurContainer>
+
+      {/* confirmation modal + backdrop */}
+            {confirmDel && (
+              <>
+          <Backdrop />
+          <Modal role="dialog" aria-modal="true" aria-labelledby="del-title">
+            <ModalCard>
+              <ModalTitle id="del-title">
+                Ar tikrai norite ištrinti žinutę?
+              </ModalTitle>
+              <ModalText>
+                Vartotojas: <b>{confirmDel.username}</b>
+              </ModalText>
+              <ModalMessage>
+                "{confirmDel.text}"
+              </ModalMessage>
+              <ModalActions>
+                <Danger onClick={confirmDelete}>Trinti</Danger>
+                <Ghost onClick={cancelDelete}>Atšaukti</Ghost>
+              </ModalActions>
+            </ModalCard>
+          </Modal>
+        </>
+      )}
     </Wrap>
   );
 }
@@ -289,6 +318,14 @@ const Wrap = styled.section`
   transition:.18s ease;
   @media (max-width:640px){ right:12px; left:12px; width:auto; }
 `;
+
+/* everything inside gets blurred when the modal is open */
+const BlurContainer = styled.div`
+  filter: ${({$blur}) => ($blur ? 'blur(3px)' : 'none')};
+  pointer-events: ${({$blur}) => ($blur ? 'none' : 'auto')};
+  transition: filter .12s ease;
+`;
+
 const Header = styled.header`
   display:flex;align-items:center;justify-content:space-between;
   padding:10px 12px;border-bottom:1px solid ${({theme})=>theme.colors.line};
@@ -383,3 +420,89 @@ const Guest = styled.div`
   a{ color:${({theme})=>theme.colors.blue}; text-decoration:none; }
   a:hover{ text-decoration:underline; }
 `;
+
+/* --- modal & backdrop --- */
+const Backdrop = styled.div`
+  position:absolute; inset:0;
+  background: rgba(15,23,42,0.30);
+`;
+
+
+const ModalBox = styled.div``; // not used; we style Modal directly via child below
+
+const ModalContent = styled.div``; // (kept minimal if you want to split)
+
+
+const ModalInner = styled.div``; // not used; simplifying
+
+const Modal = styled.div`
+  position:absolute; inset:0;
+  display:grid; place-items:center;
+`;
+
+const ModalCard = styled.div`
+  background:#fff;
+  border:1px solid ${({theme})=>theme.colors.line};
+  border-radius:16px;
+  box-shadow:0 10px 30px rgba(0,0,0,.14);
+  width:min(92vw, 320px);
+  padding:16px;
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  text-align:center;
+  gap:6px; /* tighter spacing */
+`;
+
+const ModalTitle = styled.h3`
+  margin:0;
+  font-size:16px;
+  font-weight:700;
+  color:#0f172a;
+`;
+
+const ModalText = styled.p`
+  margin:0;
+  font-size:14px;
+  color:#334155;
+`;
+
+const ModalMessage = styled.p`
+  margin:0 0 6px;
+  font-size:13px;
+  color:#475569;
+  font-style:italic;
+`;
+
+const ModalActions = styled.div`
+  display:flex;
+  gap:8px;
+  margin-top:8px;
+`;
+
+const Danger = styled.button`
+  background:#dc2626;
+  color:#fff;
+  border:0;
+  padding:8px 12px; /* smaller */
+  border-radius:10px;
+  font-weight:700;
+  cursor:pointer;
+`;
+
+const Ghost = styled.button`
+  background:#fff;
+  color:#0f172a;
+  border:1px solid ${({theme})=>theme.colors.line};
+  padding:8px 12px; /* smaller */
+  border-radius:10px;
+  font-weight:700;
+  cursor:pointer;
+`;
+
+/* style the modal card */
+Modal.defaultProps = {
+  children: (
+    <div />
+  ),
+};
