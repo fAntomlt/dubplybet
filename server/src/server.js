@@ -133,17 +133,19 @@ io.on("connection", async (socket) => {
     });
 
     // === DELETE (admins can delete others' messages) ===
+    // === DELETE (owner OR admin) ===
     socket.on("chat:delete", async ({ id }) => {
       try {
-        if (!isAdmin) return;
-
-        // ensure it's someone else's message (per your requirement)
-        const [own] = await pool.query(
-          "SELECT user_id FROM chat_messages WHERE id = ?",
+        // find owner of the message
+        const [rows] = await pool.query(
+          "SELECT user_id FROM chat_messages WHERE id = ? LIMIT 1",
           [id]
         );
-        if (!own.length) return;
-        if (own[0].user_id === user.id) return; // admin cannot delete own (requirement)
+        if (!rows.length) return;
+
+        const ownerId = rows[0].user_id;
+        const canDelete = isAdmin || ownerId === user.id; // allow owner OR admin
+        if (!canDelete) return;
 
         const [res] = await pool.query("DELETE FROM chat_messages WHERE id = ?", [id]);
         if (res.affectedRows > 0) {
@@ -153,6 +155,7 @@ io.on("connection", async (socket) => {
         console.error("chat:delete error", e);
       }
     });
+
 
     // === EDIT (only author can edit) ===
     socket.on("chat:update", async ({ id, content }) => {
