@@ -11,7 +11,8 @@ import Profile from "./pages/Profile.jsx";
 import Admin from "./pages/Admin.jsx";
 import Login from "./pages/Login.jsx";
 import Register from "./pages/Register.jsx";
-import Reset from "./pages/Reset.jsx";
+import ForgotPassword from "./pages/ForgotPassword.jsx";
+import ResetPassword from "./pages/ResetPassword.jsx";
 
 function AppRoutes() {
   const routes = useRoutes([
@@ -39,7 +40,8 @@ function AppRoutes() {
     // auth flows live outside the main layout
     { path: "/prisijungti", element: <Login /> },
     { path: "/registruotis", element: <Register /> },
-    { path: "/slaptazodis/atkurti", element: <Reset /> },
+    { path: "/priminti-slaptazodi", element: <ForgotPassword /> },
+    { path: "/atstatyti-slaptazodi", element: <ResetPassword /> },
     { path: "*", element: <Navigate to="/" replace /> },
   ]);
 
