@@ -40,7 +40,8 @@ export default function ForgotPassword() {
         body: JSON.stringify({ email }),
       });
       await res.json(); // always {ok:true}
-      setServerOK("Jei el. paštas egzistuoja, atsiuntėme nuorodą slaptažodžiui atstatyti.");
+      setServerOK("Jei el. paštas egzistuoja, atsiuntėme nuorodą slaptažodžiui atstatyti. Į prisijungimą grįšite už 10s.");
+      setTimeout(() => navigate("/prisijungti"), 10000);
     } catch {
       setServerError("Serverio klaida. Bandykite vėliau.");
     } finally {

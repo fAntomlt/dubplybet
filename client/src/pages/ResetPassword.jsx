@@ -49,8 +49,8 @@ export default function ResetPassword() {
         setSubmitting(false);
         return;
       }
-      setServerOK("Slaptažodis atnaujintas. Galite prisijungti.");
-      setTimeout(()=> navigate("/prisijungti"), 1200);
+      setServerOK("Slaptažodis atnaujintas. Galite prisijungti. Į prisijungimą grįšite už 10s.");
+      setTimeout(() => navigate("/prisijungti"), 10000);
     } catch {
       setServerError("Serverio klaida. Bandykite vėliau.");
       setSubmitting(false);
