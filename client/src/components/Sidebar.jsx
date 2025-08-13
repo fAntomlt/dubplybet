@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { NavLink } from "react-router-dom";
 import styled from "styled-components";
 import {
@@ -7,9 +7,43 @@ import {
 } from "react-icons/fi";
 import logoImg from "../assets/icriblogo.png";
 
+function getAuth() {
+  try {
+    const user = JSON.parse(localStorage.getItem("authUser") || "null");
+    const token = localStorage.getItem("authToken");
+    return user && token ? { user, token } : { user: null, token: null };
+  } catch {
+    return { user: null, token: null };
+  }
+}
+
+const AvatarSmall = ({ name }) => {
+  const initials = (name || "?")
+    .split(" ")
+    .map(w => w[0])
+    .slice(0, 2)
+    .join("")
+    .toUpperCase();
+  return (
+    <AvatarBadge aria-hidden>{initials}</AvatarBadge>
+  );
+};
+
 export default function Sidebar({ onOpenChat }) {
   const [open, setOpen] = useState({ leaderboards: false });
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [auth, setAuth] = useState(getAuth());
+
+  useEffect(() => {
+    setAuth(getAuth());
+    const onStorage = (e) => {
+      if (e.key === "authUser" || e.key === "authToken") {
+        setAuth(getAuth());
+      }
+    };
+    window.addEventListener("storage", onStorage);
+    return () => window.removeEventListener("storage", onStorage);
+  }, []);
 
   const closeIfMobile = () => { if (mobileOpen) setMobileOpen(false); };
 
@@ -42,9 +76,17 @@ export default function Sidebar({ onOpenChat }) {
           <Item to="/" end onClick={closeIfMobile}>
             <FiHome /> <span>Pagrindinis</span>
           </Item>
-          <Item to="/profilis" onClick={closeIfMobile}>
-            <FiUser /> <span>Profilis</span>
-          </Item>
+
+          {auth.user ? (
+            <Item to="/profilis" onClick={closeIfMobile}>
+              <AvatarSmall name={auth.user?.username} />
+              <span>{auth.user?.username || "Profilis"}</span>
+            </Item>
+          ) : (
+            <Item to="/prisijungti" onClick={closeIfMobile}>
+              <FiUser /> <span>Prisijungti / Registruotis</span>
+            </Item>
+          )}
         </Primary>
 
         <Divider />
@@ -220,7 +262,6 @@ const Submenu = styled.div`
   > a:nth-child(2) { transition-delay: ${({$open}) => ($open ? ".08s" : "0s")}; }
 `;
 
-
 const SubItem = styled(NavLink)`
   padding: 8px 12px; border-radius: 10px; text-decoration: none;
   color: #0f172a; font-size: 14px;
@@ -259,4 +300,15 @@ const LogoImg = styled.img`
   height: 40px;
   object-fit: contain;
   display: block;
+`;
+
+const AvatarBadge = styled.span`
+  display: inline-grid;
+  place-items: center;
+  width: 22px; height: 22px;
+  border-radius: 50%;
+  background: #e8f1ff;
+  color: #1f6feb;
+  font-size: 12px;
+  font-weight: 800;
 `;

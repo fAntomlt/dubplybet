@@ -28,6 +28,13 @@ export default function ResetPassword() {
     (!confirm ? "Pakartokite slaptažodį"
      : confirm !== password ? "Slaptažodžiai nesutampa" : "");
 
+    const hasUpper = /[A-Z]/.test(password);
+    const hasLower = /[a-z]/.test(password);
+    const hasDigit = /[0-9]/.test(password);
+    const hasSymbol = /[!@#$%^&*()_\-+\=\[\]{};:'",.<>/?\\|`~]/.test(password);
+    const minLength = password.length >= 8;
+    const ALLOWED_SYMBOLS = `! @ # $ % ^ & * ( ) _ - + = [ ] { } ; : ' " , . < > / ? \\ | \``;
+
   const canSubmit = token && !passwordError && !confirmError && password && confirm && !submitting;
 
   async function onSubmit(e) {
@@ -82,6 +89,16 @@ export default function ResetPassword() {
                   />
                 </InputWrap>
                 {!!passwordError && <Error>{passwordError}</Error>}
+                <Rules aria-live="polite">
+                  <Rule $ok={minLength}>Mažiausiai 8 simboliai</Rule>
+                  <Rule $ok={hasUpper}>Bent viena didžioji raidė</Rule>
+                  <Rule $ok={hasLower}>Bent viena mažoji raidė</Rule>
+                  <Rule $ok={hasDigit}>Bent vienas skaičius</Rule>
+                  <Rule $ok={hasSymbol}>
+                    Bent vienas simbolis{" "}
+                    <Symbols>(leidžiami: {ALLOWED_SYMBOLS})</Symbols>
+                  </Rule>
+                </Rules>
               </Field>
 
               <Field>
@@ -146,4 +163,38 @@ const Submit = styled.button`
   &:disabled{opacity:.6;cursor:not-allowed;}
   &:hover:not(:disabled){background-color:#155ac5;transform:translateY(-2px);}
   &:active:not(:disabled){transform:translateY(0);}
+`;
+
+const Rule = styled.li`
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 6px;
+  border-radius: 8px;
+  font-size: 13px;
+  color: ${({ $ok }) => ($ok ? "#0d6c2f" : "#475569")};
+  background: ${({ $ok }) => ($ok ? "#effaf1" : "transparent")};
+  transition: background-color 0.15s ease, color 0.15s ease;
+
+  &::before {
+    content: ${({ $ok }) => ($ok ? "'✔'" : "'✖'")};
+    font-weight: bold;
+    color: ${({ $ok }) => ($ok ? "#0d6c2f" : "#e11d48")};
+  }
+`;
+
+const Rules = styled.ul`
+  display: grid;
+  margin-top: 8px;
+  padding: 8px 10px;
+  border-radius: 12px;
+  border: 1px solid #e6ecf5;
+  background: #f8fafc;
+  list-style: none;
+  margin: 0;
+  padding-left: 0;
+`;
+
+const Symbols = styled.span`
+  color: #0f172a;
 `;
