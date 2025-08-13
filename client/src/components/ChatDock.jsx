@@ -12,7 +12,8 @@ export default function ChatDock({ open = false, onClose }) {
   const socketRef = useRef(null);
 
   const API_URL = import.meta.env.VITE_API_URL;
-  const token = localStorage.getItem("authToken"); // replace with your token key
+    const token = localStorage.getItem("authToken");
+    const myId = useMemo(() => getUserIdFromToken(token), [token]);
 
   // Auto-focus input when dock opens
   useEffect(() => {
@@ -38,7 +39,7 @@ export default function ChatDock({ open = false, onClose }) {
         if (data.ok) {
           setMessages(data.items.map(m => ({
             id: m.id,
-            role: m.userId === getUserIdFromToken(token) ? 'me' : 'bot',
+            role: m.userId === myId ? "me" : "bot",
             text: m.content,
             ts: new Date(m.createdAt).getTime(),
           })));

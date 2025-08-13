@@ -9,8 +9,12 @@ router.get("/history", async (req, res) => {
   const limit = Math.min(parseInt(req.query.limit) || 50, 200);
   try {
     const [rows] = await pool.query(
-      `SELECT cm.id, cm.content, cm.created_at AS createdAt,
-              u.username
+      `SELECT
+         cm.id,
+         cm.user_id   AS userId,
+         cm.content,
+         cm.created_at AS createdAt,
+         u.username
        FROM chat_messages cm
        JOIN users u ON u.id = cm.user_id
        ORDER BY cm.id ASC
