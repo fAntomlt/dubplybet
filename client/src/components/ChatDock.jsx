@@ -1,17 +1,18 @@
 import { useEffect, useRef, useState } from 'react';
 import styled from 'styled-components';
 import { HiOutlineXMark } from 'react-icons/hi2';
+import { io } from "socket.io-client";
 
 export default function ChatDock({ open = false, onClose }) {
   const [msg, setMsg] = useState('');
   const [sending, setSending] = useState(false);
-  const [messages, setMessages] = useState([
-    // seed with a friendly greeting (optional)
-    { id: 'seed-1', role: 'bot', text: 'Sveiki! Rašykite žinutę žemiau.', ts: Date.now() }
-  ]);
-
+  const [messages, setMessages] = useState([]);
   const listRef = useRef(null);
   const inputRef = useRef(null);
+  const socketRef = useRef(null);
+
+  const API_URL = import.meta.env.VITE_API_URL;
+  const token = localStorage.getItem("authToken"); // replace with your token key
 
   // Auto-focus input when dock opens
   useEffect(() => {
@@ -20,56 +21,88 @@ export default function ChatDock({ open = false, onClose }) {
     }
   }, [open]);
 
-  // Auto-scroll on new messages
+  // Scroll to bottom on messages change
   useEffect(() => {
     const el = listRef.current;
     if (!el) return;
     el.scrollTop = el.scrollHeight;
   }, [messages, open]);
 
-  const handleSend = async () => {
+  // Fetch history when chat opens
+  useEffect(() => {
+    if (!open) return;
+    (async () => {
+      try {
+        const res = await fetch(`${API_URL}/api/chat/history?limit=50`);
+        const data = await res.json();
+        if (data.ok) {
+          setMessages(data.items.map(m => ({
+            id: m.id,
+            role: m.userId === getUserIdFromToken(token) ? 'me' : 'bot',
+            text: m.content,
+            ts: new Date(m.createdAt).getTime(),
+          })));
+        }
+      } catch (err) {
+        console.error("History fetch error", err);
+      }
+    })();
+  }, [open, API_URL]);
+
+  // Connect WebSocket when chat opens
+  useEffect(() => {
+    if (!open || !token) return;
+
+    const s = io(API_URL, {
+      transports: ["websocket"],
+      auth: { token }
+    });
+
+    s.on("connect", () => {
+      console.log("Connected to chat server");
+    });
+
+    s.on("chat:new", (msg) => {
+      setMessages(prev => [
+        ...prev,
+        {
+          id: msg.id,
+          role: msg.userId === getUserIdFromToken(token) ? 'me' : 'bot',
+          text: msg.content,
+          ts: new Date(msg.createdAt).getTime(),
+        }
+      ]);
+    });
+
+    s.on("disconnect", () => {
+      console.log("Disconnected from chat");
+    });
+
+    socketRef.current = s;
+
+    return () => {
+      s.disconnect();
+    };
+  }, [open, token, API_URL]);
+
+  const handleSend = () => {
     const text = msg.trim();
-    if (!text || sending) return;
+    if (!text || !socketRef.current || sending) return;
     setSending(true);
 
-    const myMsg = {
-      id: crypto.randomUUID(),
-      role: 'me',
-      text,
-      ts: Date.now(),
-    };
-    setMessages((m) => [...m, myMsg]);
-    setMsg('');
+    socketRef.current.emit("chat:send", { content: text });
 
-    try {
-      // TODO: hook to your backend/websocket here.
-      // Example (future): POST `${import.meta.env.VITE_API_URL}/api/chat`
-      // For now, simulate a fast reply so UI is testable:
-      setTimeout(() => {
-        setMessages((m) => [
-          ...m,
-          {
-            id: crypto.randomUUID(),
-            role: 'bot',
-            text: 'Gavau žinutę 👍 (čia pavyzdinis atsakymas).',
-            ts: Date.now(),
-          },
-        ]);
-        setSending(false);
-      }, 450);
-    } catch {
-      setMessages((m) => [
-        ...m,
-        {
-          id: crypto.randomUUID(),
-          role: 'bot',
-          text: 'Nepavyko išsiųsti. Bandykite dar kartą.',
-          ts: Date.now(),
-          error: true,
-        },
-      ]);
-      setSending(false);
-    }
+    setMessages(prev => [
+      ...prev,
+      {
+        id: crypto.randomUUID(),
+        role: 'me',
+        text,
+        ts: Date.now(),
+      }
+    ]);
+    setMsg('');
+    setSending(false);
   };
 
   const onKeyDown = (e) => {
@@ -119,7 +152,18 @@ export default function ChatDock({ open = false, onClose }) {
   );
 }
 
-/* ============ styles (kept your palette) ============ */
+// Helper: decode JWT to get userId
+function getUserIdFromToken(token) {
+  if (!token) return null;
+  try {
+    const payload = JSON.parse(atob(token.split('.')[1]));
+    return payload.id;
+  } catch {
+    return null;
+  }
+}
+
+/* ============ styles ============ */
 
 const Wrap = styled.section`
   position:fixed;right:20px;bottom:20px;width:360px;max-height:60vh;
