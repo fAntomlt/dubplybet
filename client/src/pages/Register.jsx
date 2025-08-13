@@ -28,6 +28,15 @@ export default function Register() {
   const [serverError, setServerError] = useState("");
   const [serverOK, setServerOK] = useState("");
 
+  // --- password rule flags (live) ---
+  const hasUpper = /[A-Z]/.test(password);
+  const hasLower = /[a-z]/.test(password);
+  const hasDigit = /[0-9]/.test(password);
+  const hasSymbol = /[!@#$%^&*()_\-+\=\[\]{};:'",.<>/?\\|`~]/.test(password);
+  const minLength = password.length >= 8;
+  const ALLOWED_SYMBOLS = `! @ # $ % ^ & * ( ) _ - + = [ ] { } ; : ' " , . < > / ? \\ | \``;
+
+  // validations
   const emailError =
     touched.email &&
     (!email
@@ -53,7 +62,7 @@ export default function Register() {
     (!discord
       ? "Discord vardas privalomas"
       : !/^@?[a-zA-Z0-9._-]{2,32}$/.test(discord)
-      ? "Neteisingas Discord vardas (2–32 raidės/skaičiai . _ - , galima @ pradžioje)"
+      ? "Neteisingas Discord vardas (2–32 raidės/skaičiai . _ -)"
       : "");
 
   const passwordError =
@@ -189,7 +198,7 @@ export default function Register() {
                     value={discord}
                     onChange={(e) => setDiscord(e.target.value)}
                     onBlur={() => setTouched((t) => ({ ...t, discord: true }))}
-                    placeholder="@vardas arba vardas"
+                    placeholder="vardas"
                   />
                 </InputWrap>
                 {!!discordError && <Error>{discordError}</Error>}
@@ -209,6 +218,17 @@ export default function Register() {
                   />
                 </InputWrap>
                 {!!passwordError && <Error>{passwordError}</Error>}
+
+                <Rules aria-live="polite">
+                  <Rule $ok={minLength}>Mažiausiai 8 simboliai</Rule>
+                  <Rule $ok={hasUpper}>Bent viena didžioji raidė</Rule>
+                  <Rule $ok={hasLower}>Bent viena mažoji raidė</Rule>
+                  <Rule $ok={hasDigit}>Bent vienas skaičius</Rule>
+                  <Rule $ok={hasSymbol}>
+                    Bent vienas simbolis{" "}
+                    <Symbols>(leidžiami: {ALLOWED_SYMBOLS})</Symbols>
+                  </Rule>
+                </Rules>
               </Field>
 
               <Field>
@@ -293,7 +313,6 @@ const Avatar = styled.div`
   box-shadow: 0 8px 30px rgba(31, 111, 235, 0.08);
   display: grid;
   place-items: center;
-
   img { width: 100%; height: 100%; object-fit: cover; }
 `;
 
@@ -369,4 +388,38 @@ const GuestLink = styled.div`
   margin-top: 20px; font-size: 18px; font-weight: 600; color: #1f6feb;
   cursor: pointer; text-align: center;
   &:hover { text-decoration: underline; }
+`;
+
+const Rules = styled.ul`
+  display: grid;
+  margin-top: 8px;
+  padding: 8px 10px;
+  border-radius: 12px;
+  border: 1px solid #e6ecf5;
+  background: #f8fafc;
+  list-style: none;
+  margin: 0;
+  padding-left: 0;
+`;
+
+const Rule = styled.li`
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 6px;
+  border-radius: 8px;
+  font-size: 13px;
+  color: ${({ $ok }) => ($ok ? "#0d6c2f" : "#475569")};
+  background: ${({ $ok }) => ($ok ? "#effaf1" : "transparent")};
+  transition: background-color 0.15s ease, color 0.15s ease;
+
+  &::before {
+    content: ${({ $ok }) => ($ok ? "'✔'" : "'✖'")};
+    font-weight: bold;
+    color: ${({ $ok }) => ($ok ? "#0d6c2f" : "#e11d48")};
+  }
+`;
+
+const Symbols = styled.span`
+  color: #0f172a;
 `;
