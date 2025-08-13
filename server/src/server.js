@@ -4,9 +4,7 @@ import cors from "cors";
 import http from "http";
 import adminUsersRoutes from "./routes/admin.users.js";
 import { requireAuth, requireAdmin } from "./middleware/auth.js";
-import { Server as IOServer } from "socket.io";
-import { db } from "./db.js";
-import {verifyToken} from './utils/jwt.js'
+import { Server as SocketIOServer } from "socket.io";
 import path from "path";
 import { fileURLToPath } from "url";
 import dotenv from "dotenv";
@@ -21,7 +19,6 @@ import gamesGuess from "./routes/games.guess.js";
 import gamePublicGuesses from "./routes/games.public.guesses.js";
 import leaderboardsPublic from "./routes/leaderboards.public.js";
 import { startLockGamesJob } from "./jobs/lockGames.js";
-import chatPublic from './routes/chat.public.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -41,8 +38,6 @@ const corsOptions = {
   },
   credentials: true,
 };
-
-const chatPublic = require("./routes/chat.public");
 
 // ORDER: parsers → cors → routes
 app.use(express.json({ limit: "1mb" }));
@@ -79,74 +74,12 @@ app.get("/api/db-health", async (req, res) => {
 });
 
 const server = http.createServer(app);
-const io = new IOServer(server, {
-  cors: {
-    origin: process.env.CLIENT_ORIGIN,
-    credentials: true,
-  }
+const io = new SocketIOServer(server, { cors: corsOptions });
+
+io.on("connection", (socket) => {
+  console.log("socket connected:", socket.id);
+  socket.on("ping", () => socket.emit("pong"));
 });
-
-// simple in-memory throttle (per user)
-const lastSendAt = new Map();
-
-io.on('connection', async (socket) => {
-  // Expect token in handshake.auth.token
-  const token = socket.handshake?.auth?.token;
-
-  let user = null;
-  try {
-    const payload = verifyToken(token); // { id, username, ... }
-    if (!payload?.id) throw new Error('bad token');
-
-    // minimal fetch of username to be sure user exists
-    const u = await db('users').select('id', 'username').where({ id: payload.id }).first();
-    if (!u) throw new Error('no user');
-    user = u;
-  } catch {
-    socket.disconnect(true);
-    return;
-  }
-
-  // join everyone to one public room (optional)
-  socket.join('public');
-
-  socket.on('chat:send', async (data) => {
-    try {
-      const content = String((data?.content || '')).trim();
-
-      // throttle 1 msg / sec
-      const now = Date.now();
-      if ((lastSendAt.get(user.id) || 0) > now - 1000) return;
-      lastSendAt.set(user.id, now);
-
-      if (!content || content.length > 500) return;
-
-      const [id] = await db('chat_messages').insert({
-        user_id: user.id,
-        content
-      });
-
-      const message = {
-        id,
-        userId: user.id,
-        username: user.username,
-        content,
-        createdAt: new Date().toISOString(),
-      };
-
-      io.to('public').emit('chat:new', message);
-    } catch (e) {
-      console.error(e);
-    }
-  });
-
-  socket.on('disconnect', () => {
-    // nothing for now
-  });
-});
-
-app.use("/api/chat", chatPublic);
-app.use('/api/chat', chatPublic);
 
 const enableCron = process.env.ENABLE_CRON_JOBS === "true";
 if (enableCron) {
