@@ -10,8 +10,6 @@ import { fileURLToPath } from "url";
 import dotenv from "dotenv";
 import chatPublic from "./routes/chat.public.js";
 import { verifyJwt } from "./utils/jwt.js";
-
-
 import authRoutes from "./routes/auth.js";
 import pool, { dbPing } from "./db.js";
 import tournamentsAdmin from "./routes/admin.tournaments.js";
@@ -30,7 +28,7 @@ const app = express();
 const PORT = process.env.SERVER_PORT || 8080;
 
 const allowedOrigins = (process.env.CORS_ORIGINS || process.env.CORS_ORIGIN || "*")
-  .split(",").map(s=>s.trim()).filter(Boolean);
+  .split(",").map(s => s.trim()).filter(Boolean);
 
 const corsOptions = {
   origin: (origin, cb) => {
@@ -79,33 +77,39 @@ app.get("/api/db-health", async (req, res) => {
 const server = http.createServer(app);
 const io = new SocketIOServer(server, { cors: corsOptions });
 
-io.on("connection", (socket) => {
-  console.log("socket connected:", socket.id);
-  socket.on("ping", () => socket.emit("pong"));
-});
-
+// ---------- CHAT SOCKET ----------
 const lastSendAt = new Map();
 
 io.on("connection", async (socket) => {
   try {
-    const token = socket.handshake?.auth?.token;
-    const payload = verifyJwt(token);
-    if (!payload?.id) throw new Error("bad token");
+    // token from handshake auth or Authorization header
+    const token =
+      socket.handshake?.auth?.token ||
+      (socket.handshake?.headers?.authorization || "").replace(/^Bearer\s+/i, "");
 
+    if (!token) throw new Error("missing token");
+
+    const payload = verifyJwt(token);
+    const userId = payload?.id ?? payload?.uid ?? payload?.userId;
+    if (!userId) throw new Error("token has no id/uid");
+
+    // verify user exists
     const [rows] = await pool.query(
       "SELECT id, username FROM users WHERE id = ? LIMIT 1",
-      [payload.id]
+      [userId]
     );
-    if (!rows.length) throw new Error("no user");
+    if (!rows.length) throw new Error("user not found");
 
     const user = rows[0];
+
+    // everyone in a public room for now
     socket.join("public");
 
     socket.on("chat:send", async (data) => {
       const content = String(data?.content || "").trim();
       if (!content || content.length > 500) return;
 
-      // throttle 1 msg/sec per user
+      // throttle: 1 message / second per user
       const now = Date.now();
       if ((lastSendAt.get(user.id) || 0) > now - 1000) return;
       lastSendAt.set(user.id, now);
@@ -125,10 +129,12 @@ io.on("connection", async (socket) => {
 
       io.to("public").emit("chat:new", message);
     });
-  } catch {
+  } catch (err) {
+    console.error("socket auth error:", err.message);
     socket.disconnect(true);
   }
 });
+// ---------- /CHAT SOCKET ----------
 
 const enableCron = process.env.ENABLE_CRON_JOBS === "true";
 if (enableCron) {
