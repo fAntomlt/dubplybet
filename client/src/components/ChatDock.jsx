@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, useMemo } from 'react';
 import styled from 'styled-components';
 import { HiOutlineXMark } from 'react-icons/hi2';
 import { io } from "socket.io-client";
@@ -11,9 +11,9 @@ export default function ChatDock({ open = false, onClose }) {
   const inputRef = useRef(null);
   const socketRef = useRef(null);
 
+  const token = localStorage.getItem("authToken");
+  const myId = useMemo(() => getUserIdFromToken(token), [token]);
   const API_URL = import.meta.env.VITE_API_URL;
-    const token = localStorage.getItem("authToken");
-    const myId = useMemo(() => getUserIdFromToken(token), [token]);
 
   // Auto-focus input when dock opens
   useEffect(() => {
