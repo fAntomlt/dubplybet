@@ -67,6 +67,14 @@ const Viewport = styled.div`
   gap: 10px;
   z-index: 2000;
   max-width: min(380px, 90vw);
+
+   @media (max-width: 959px) {
+    top: auto;
+    bottom: 12px;
+    left: 12px;
+    right: 12px;
+    max-width: 100%;
+  }
 `;
 
 const ToastItem = styled.div`
