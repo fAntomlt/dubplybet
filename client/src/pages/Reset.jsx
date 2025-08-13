@@ -1,1 +1,0 @@
-export default function Reset(){ return <h1>Atkurti slaptažodį</h1>; }
