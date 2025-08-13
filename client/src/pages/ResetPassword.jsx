@@ -3,6 +3,7 @@ import { useNavigate, useSearchParams } from "react-router-dom";
 import styled from "styled-components";
 import { FiLock } from "react-icons/fi";
 import logoImg from "../assets/icriblogo.png";
+import { useToast } from "../components/ToastProvider";
 
 export default function ResetPassword() {
   useEffect(() => { document.title = "Atstatyti slaptažodį – DuBPlyBET"; }, []);
@@ -16,6 +17,7 @@ export default function ResetPassword() {
   const [submitting, setSubmitting] = useState(false);
   const [serverError, setServerError] = useState("");
   const [serverOK, setServerOK] = useState("");
+  const toast = useToast();
 
   const passwordError =
     touched.password &&
@@ -57,6 +59,7 @@ export default function ResetPassword() {
         return;
       }
       setServerOK("Slaptažodis atnaujintas. Galite prisijungti. Į prisijungimą grįšite už 10s.");
+      toast.success("Sėkmingai atsistatėte slaptažodį");
       setTimeout(() => navigate("/prisijungti"), 10000);
     } catch {
       setServerError("Serverio klaida. Bandykite vėliau.");

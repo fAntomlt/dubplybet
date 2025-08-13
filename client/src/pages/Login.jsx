@@ -4,6 +4,7 @@ import styled from "styled-components";
 import { FiMail, FiLock } from "react-icons/fi";
 import logoImg from "../assets/icriblogo.png";
 import { useEffect } from "react";
+import { useToast } from "../components/ToastProvider";
 
 export default function Login() {
     useEffect(() => { document.title = "Prisijungti – DuBPlyBET"; }, []);
@@ -13,6 +14,7 @@ export default function Login() {
   const [touched, setTouched] = useState({ email: false, password: false });
   const [submitting, setSubmitting] = useState(false);
   const [serverError, setServerError] = useState("");
+  const toast = useToast();
 
   const emailError =
     touched.email &&
@@ -58,6 +60,7 @@ export default function Login() {
 
       localStorage.setItem("authToken", data.token);
       localStorage.setItem("authUser", JSON.stringify(data.user));
+      toast.success("Sėkmingai prisijungėte");
       navigate("/");
     } catch {
       setServerError("Serverio klaida. Bandykite vėliau.");

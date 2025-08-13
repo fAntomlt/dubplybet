@@ -13,6 +13,7 @@ import Login from "./pages/Login.jsx";
 import Register from "./pages/Register.jsx";
 import ForgotPassword from "./pages/ForgotPassword.jsx";
 import ResetPassword from "./pages/ResetPassword.jsx";
+import { ToastProvider } from "./components/ToastProvider.jsx";
 
 function AppRoutes() {
   const routes = useRoutes([
@@ -49,5 +50,9 @@ function AppRoutes() {
 }
 
 export default function App() {
-  return <AppRoutes />;
+  return (
+  <ToastProvider>
+      <AppRoutes />
+  </ToastProvider>
+);
 }

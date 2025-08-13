@@ -6,6 +6,7 @@ import {
   FiMessageSquare, FiShield, FiMenu, FiLogOut, FiX
 } from "react-icons/fi";
 import logoImg from "../assets/icriblogo.png";
+import { useToast } from "../components/ToastProvider";
 
 function getAuth() {
   try {
@@ -45,6 +46,8 @@ export default function Sidebar({ onOpenChat }) {
     return () => window.removeEventListener("storage", onStorage);
   }, []);
 
+  const toast = useToast();
+
   const closeIfMobile = () => { if (mobileOpen) setMobileOpen(false); };
 
   const handleLogout = () => {
@@ -52,8 +55,8 @@ export default function Sidebar({ onOpenChat }) {
       localStorage.removeItem("authToken");
       localStorage.removeItem("authUser");
       setAuth({ user: null, token: null });   // ← update local state immediately
+      toast.info("Sėkmingai atsijungėtę");
       closeIfMobile();                        // collapse drawer on mobile
-      // (optional) window.location.assign("/");  // if you also want a redirect
     } catch (e) {
       console.error("Logout failed:", e);
     }
