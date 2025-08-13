@@ -54,14 +54,13 @@ export default function Sidebar({ onOpenChat }) {
     try {
       localStorage.removeItem("authToken");
       localStorage.removeItem("authUser");
-      setAuth({ user: null, token: null });   // ← update local state immediately
+      setAuth({ user: null, token: null });
       toast.info("Sėkmingai atsijungėtę");
-      closeIfMobile();                        // collapse drawer on mobile
+      closeIfMobile();
     } catch (e) {
       console.error("Logout failed:", e);
     }
   };
-
 
   return (
     <>
@@ -129,7 +128,7 @@ export default function Sidebar({ onOpenChat }) {
             aria-hidden={!open.leaderboards}
           >
             <SubItem to="/leaderboards/visu-laiku" onClick={closeIfMobile}>Visų laikų</SubItem>
-            <SubItem to="/leaderboards/pagal-turnyra" onClick={closeIfMobile}>Pagal turnyrą</SubItem>
+            <SubItem to="/leaderboards/pagal-turnyrą" onClick={closeIfMobile}>Pagal turnyrą</SubItem>
           </Submenu>
         </Group>
 
@@ -142,10 +141,12 @@ export default function Sidebar({ onOpenChat }) {
         </Item>
 
         {auth.user && (
-          <LogoutRow type="button" onClick={handleLogout}>
-            <FiLogOut />
-            <span>Atsijungti</span>
-          </LogoutRow>
+          <LogoutDock>
+            <LogoutRow type="button" onClick={handleLogout}>
+              <FiLogOut />
+              <span>Atsijungti</span>
+            </LogoutRow>
+          </LogoutDock>
         )}
       </Nav>
     </>
@@ -156,7 +157,7 @@ export default function Sidebar({ onOpenChat }) {
 const MOBILE_BP = 960; // px
 const TOPBAR_H = 56;   // mobile top bar height
 
-/* NBC-like fixed top bar (mobile only) */
+/* top bar (mobile only) */
 const TopBar = styled.header`
   position: fixed;
   inset: 0 0 auto 0;
@@ -202,8 +203,13 @@ const Nav = styled.aside`
 
   /* Off-canvas under the top bar */
   @media (max-width: ${MOBILE_BP - 1}px) {
-    position: fixed; top: ${TOPBAR_H}px; left: ${({$mobileOpen}) => ($mobileOpen ? "0" : "-290px")};
-    height: calc(100vh - ${TOPBAR_H}px); z-index: 1110;
+    position: fixed; 
+    top: ${TOPBAR_H}px; 
+    left: ${({$mobileOpen}) => ($mobileOpen ? "0" : "-290px")};
+    height: calc(100svh - ${TOPBAR_H}px);
+    overflow: auto;
+    padding-bottom: max(16px, env(safe-area-inset-bottom, 0px));
+    z-index: 1110;
     box-shadow: 0 10px 30px rgba(0,0,0,0.12);
     transition: left .22s ease-out;
   }
@@ -224,10 +230,10 @@ const Item = styled(NavLink)`
   display: flex; align-items: center; gap: 10px; padding: 10px 12px;
   border-radius: 12px; color: #0f172a; text-decoration: none;
 
-  transition: background-color .18s ease, color .18s ease;  /* ← fade in */
+  transition: background-color .18s ease, color .18s ease;
 
   &.active {
-    background-color: #e8f1ff; /* same color, just animated */
+    background-color: #e8f1ff;
     color: #1f6feb;
   }
   &:hover {
@@ -243,7 +249,7 @@ const GroupHeader = styled.button`
   gap: 8px; padding: 10px 12px; border: 0; border-radius: 12px;
   background: transparent; color: #0f172a; cursor: pointer;
 
-  transition: background-color .18s ease, color .18s ease;  /* subtle fade */
+  transition: background-color .18s ease, color .18s ease;
 
   &:hover { background-color: #f5f7fb; }
   > div { display: flex; align-items: center; gap: 10px; }
@@ -254,7 +260,6 @@ const Caret = styled.span`
   transform: rotate(${p => (p.$open ? "180deg" : "0deg")});
 `;
 
-/* Slide/Fade rollout for submenu */
 const Submenu = styled.div`
   display: grid;
   gap: 2px;
@@ -275,7 +280,6 @@ const Submenu = styled.div`
     transition: none;
   }
 
-  /* smooth slide-in of the links themselves (tiny stagger) */
   > a {
     opacity: ${({$open}) => ($open ? 1 : 0)};
     transform: translateY(${({$open}) => ($open ? "0" : "-6px")});
@@ -312,7 +316,6 @@ const Brand = styled(NavLink)`
   display:flex; align-items:center; gap:10px; padding:8px 10px; margin-bottom:20px;
   font-weight:800; font-size:22px; .emph{ color:${({theme})=>theme.colors.blue}; }
 
-  /* Hide the sidebar logo ONLY on mobile when the drawer is open */
   @media (max-width: ${MOBILE_BP - 1}px) {
     display: ${({ $hide }) => ($hide ? "none" : "flex")};
   }
@@ -336,8 +339,16 @@ const AvatarBadge = styled.span`
   font-weight: 800;
 `;
 
-const LogoutRow = styled.button`
+const LogoutDock = styled.div`
   margin-top: auto;
+  position: sticky;
+  bottom: max(8px, env(safe-area-inset-bottom, 0px));
+  background: inherit;
+  padding-top: 8px;
+`;
+
+const LogoutRow = styled.button`
+  width: 100%;
   display: flex;
   align-items: center;
   gap: 10px;
@@ -346,7 +357,9 @@ const LogoutRow = styled.button`
   border: 0;
   color: #ef4444;
   cursor: pointer;
-  border-radius: 12px; /* match other buttons */
+  border-radius: 12px;
+
+  -webkit-tap-highlight-color: transparent;
 
   svg {
     color: inherit;
@@ -361,7 +374,7 @@ const LogoutRow = styled.button`
   transition: background-color .18s ease, color .18s ease;
 
   &:hover {
-    background-color: #f5f7fb; /* same as other sidebar items */
+    background-color: #f5f7fb;
   }
 
   &:focus-visible {
