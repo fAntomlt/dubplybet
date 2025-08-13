@@ -3,7 +3,7 @@ import { NavLink } from "react-router-dom";
 import styled from "styled-components";
 import {
   FiHome, FiUser, FiAward, FiBarChart2, FiChevronDown,
-  FiMessageSquare, FiShield, FiMenu, FiX
+  FiMessageSquare, FiShield, FiMenu, FiLogOut, FiX
 } from "react-icons/fi";
 import logoImg from "../assets/icriblogo.png";
 
@@ -46,6 +46,19 @@ export default function Sidebar({ onOpenChat }) {
   }, []);
 
   const closeIfMobile = () => { if (mobileOpen) setMobileOpen(false); };
+
+  const handleLogout = () => {
+    try {
+      localStorage.removeItem("authToken");
+      localStorage.removeItem("authUser");
+      setAuth({ user: null, token: null });   // ← update local state immediately
+      closeIfMobile();                        // collapse drawer on mobile
+      // (optional) window.location.assign("/");  // if you also want a redirect
+    } catch (e) {
+      console.error("Logout failed:", e);
+    }
+  };
+
 
   return (
     <>
@@ -124,6 +137,13 @@ export default function Sidebar({ onOpenChat }) {
         <Item to="/admin" onClick={closeIfMobile}>
           <FiShield /> <span>Admin</span>
         </Item>
+
+        {auth.user && (
+          <LogoutRow type="button" onClick={handleLogout}>
+            <FiLogOut />
+            <span>Atsijungti</span>
+          </LogoutRow>
+        )}
       </Nav>
     </>
   );
@@ -311,4 +331,38 @@ const AvatarBadge = styled.span`
   color: #1f6feb;
   font-size: 12px;
   font-weight: 800;
+`;
+
+const LogoutRow = styled.button`
+  margin-top: auto;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  background: transparent;
+  border: 0;
+  color: #ef4444;
+  cursor: pointer;
+  border-radius: 12px; /* match other buttons */
+
+  svg {
+    color: inherit;
+    font-size: 18px;
+    flex-shrink: 0;
+  }
+
+  span {
+    font-weight: 700;
+  }
+
+  transition: background-color .18s ease, color .18s ease;
+
+  &:hover {
+    background-color: #f5f7fb; /* same as other sidebar items */
+  }
+
+  &:focus-visible {
+    outline: none;
+    box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.22);
+  }
 `;
