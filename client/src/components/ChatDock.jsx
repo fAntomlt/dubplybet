@@ -129,9 +129,11 @@ export default function ChatDock({ open = false, onClose }) {
 
   // --- admin delete (other people's messages) ---
   const askDelete = (m) => {
-  if (!isAdmin || m.username === myName) return;
-  setConfirmDel({ id: m.id, username: m.username, text: m.text });
+  const mine = m.username === myName;
+  if (!(isAdmin || mine)) return;
+  setConfirmDel({ id: m.id, username: m.username, text: m.text, isMine: mine });
 };
+
 
   const confirmDelete = () => {
     if (!confirmDel) return;
@@ -191,12 +193,13 @@ export default function ChatDock({ open = false, onClose }) {
                             <FiEdit3 />
                           </IconBtn>
                         )}
-                        {isAdmin && !isMine && (
+                        {(isAdmin || isMine) && (
                           <IconBtn title="Ištrinti" $danger onClick={() => askDelete(m)}>
                             <FiTrash2 />
                           </IconBtn>
                         )}
                       </Actions>
+
                     </MsgHead>
 
                     {editingId === m.id ? (
@@ -264,14 +267,19 @@ export default function ChatDock({ open = false, onClose }) {
           <Modal role="dialog" aria-modal="true" aria-labelledby="del-title">
             <ModalCard>
               <ModalTitle id="del-title">
-                Ar tikrai norite ištrinti žinutę?
+                {confirmDel.isMine
+                  ? "Ar tikrai norite ištrinti savo žinutę?"
+                  : "Ar tikrai norite ištrinti žinutę?"}
               </ModalTitle>
-              <ModalText>
-                Vartotojas: <b>{confirmDel.username}</b>
-              </ModalText>
-              <ModalMessage>
-                "{confirmDel.text}"
-              </ModalMessage>
+
+              {!confirmDel.isMine && (
+                <ModalText>
+                  Vartotojas: <b>{confirmDel.username}</b>
+                </ModalText>
+              )}
+
+              <ModalMessage>"{confirmDel.text}"</ModalMessage>
+
               <ModalActions>
                 <Danger onClick={confirmDelete}>Trinti</Danger>
                 <Ghost onClick={cancelDelete}>Atšaukti</Ghost>
