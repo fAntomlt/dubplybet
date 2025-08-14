@@ -19,6 +19,7 @@ import gamesGuess from "./routes/games.guess.js";
 import gamePublicGuesses from "./routes/games.public.guesses.js";
 import leaderboardsPublic from "./routes/leaderboards.public.js";
 import { startLockGamesJob } from "./jobs/lockGames.js";
+import usersMeRoutes from "./routes/users.me.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -51,6 +52,7 @@ app.use("/api/games", gamesGuess);
 app.use("/api/games", gamePublicGuesses);
 app.use("/api/leaderboards", leaderboardsPublic);
 app.use("/api/chat", chatPublic);
+app.use("/api/users", usersMeRoutes);
 
 const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
