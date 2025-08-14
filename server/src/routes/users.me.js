@@ -9,9 +9,15 @@ const router = Router();
 
 // shared validators
 const UsernameSchema = z.string().min(3).max(50);
+
+// Discord: 2–32, only a–z 0–9 _ . , no consecutive "..".
+// We also normalize: trim, strip leading "@", lowercase.
+const DISCORD_RE = /^(?!.*\.\.)[a-z0-9._]{2,32}$/;
 const DiscordSchema = z
   .string()
-  .regex(/^(?!.*[._]{2})(?![._])[a-zA-Z0-9._]{2,32}(?<![._])$/);
+  .transform((s) => String(s).trim().replace(/^@/, "").toLowerCase())
+  .refine((s) => DISCORD_RE.test(s), "Neteisingas Discord vardas");
+
 const PasswordSchema = z.string().min(8).max(100);
 
 // GET /api/users/me
@@ -42,6 +48,8 @@ router.patch("/me", requireAuth, async (req, res) => {
       discordUsername: z.optional(DiscordSchema),
       currentPassword: PasswordSchema,
     });
+
+    // NOTE: if provided, discordUsername is already normalized by DiscordSchema.transform()
     const { username, discordUsername, currentPassword } = Schema.parse(req.body || {});
 
     if (!username && !discordUsername) {
@@ -105,7 +113,7 @@ router.post("/change-password", requireAuth, async (req, res) => {
         password: PasswordSchema,
         confirmPassword: z.string(),
       })
-      .refine(d => d.password === d.confirmPassword, {
+      .refine((d) => d.password === d.confirmPassword, {
         path: ["confirmPassword"],
         message: "Slaptažodžiai nesutampa",
       });
