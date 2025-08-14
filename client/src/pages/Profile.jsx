@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, useRef, useLayoutEffect  } from "react";
 import styled from "styled-components";
 import { FiUser, FiHash, FiLock, FiEdit3, FiX, FiCheck } from "react-icons/fi";
 import logoImg from "../assets/icriblogo.png";
@@ -42,6 +42,48 @@ export default function Profile() {
   const hasSymbol = /[!@#$%^&*()_\-+\=\[\]{};:'",.<>/?\\|`~]/.test(newPwd);
   const minLength = newPwd.length >= 8;
   const ALLOWED_SYMBOLS = `! @ # $ % ^ & * ( ) _ - + = [ ] { } ; : ' " , . < > / ? \\ | \``;
+
+  const rightRef = useRef(null);
+const [leftBaseMinH, setLeftBaseMinH] = useState(0);
+const collapseTimerRef = useRef(null);
+const COLLAPSE_MS = 350; // keep in sync with Expand transition
+
+const measureBaseHeights = () => {
+  if (!rightRef.current) return;
+  const h = rightRef.current.getBoundingClientRect().height;
+  setLeftBaseMinH(h);
+};
+
+// 2) measure once after load (non-edit state), and on window resize
+useEffect(() => {
+  if (!loading && !serverError) {
+    requestAnimationFrame(measureBaseHeights);
+  }
+}, [loading, serverError]);
+
+useEffect(() => {
+  const onResize = () => {
+    if (edit.field === null) measureBaseHeights();
+  };
+  window.addEventListener("resize", onResize);
+  return () => window.removeEventListener("resize", onResize);
+}, [edit.field]);
+
+// keep delayed re-measure AFTER collapse finishes
+useEffect(() => {
+  if (edit.field === null) {
+    if (collapseTimerRef.current) clearTimeout(collapseTimerRef.current);
+    collapseTimerRef.current = setTimeout(() => {
+      requestAnimationFrame(measureBaseHeights);
+    }, COLLAPSE_MS);
+  }
+  return () => {
+    if (collapseTimerRef.current) {
+      clearTimeout(collapseTimerRef.current);
+      collapseTimerRef.current = null;
+    }
+  };
+}, [edit.field]);
 
   // load me
   useEffect(() => {
@@ -232,46 +274,48 @@ export default function Profile() {
 
   return (
     <Wrap>
-      <Grid>
-        {/* Left */}
-        <Left>
-          <Avatar>
-            <img src={logoImg} alt="Avatar" />
-          </Avatar>
-          <Name>{name}</Name>
-          <Role>{roleLT(me?.role)}</Role>
-        </Left>
+      <Container>
+        <PageTitle>Profilis</PageTitle>
+        <Grid>
+          {/* Left */}
+          <Left style={{ minHeight: leftBaseMinH ? `${leftBaseMinH}px` : undefined }}>
+            <Avatar>
+              <img src={logoImg} alt="Avatar" />
+            </Avatar>
+            <Name>{name}</Name>
+            <Role>{roleLT(me?.role)}</Role>
+          </Left>
 
-        {/* Right */}
-        <Right>
-          {!!serverError && <Alert role="alert">{serverError}</Alert>}
+          {/* Right */}
+          <Right ref={rightRef}>
+            {!!serverError && <Alert role="alert">{serverError}</Alert>}
 
-          {/* USERNAME */}
-          <Field>
-            <Label>Slapyvardis</Label>
-            <Row>
-              <InputWrap aria-invalid={false}>
-                <FiUser />
-                <Input
-                  disabled={edit.field !== "username"}
-                  value={username}
-                  onChange={(e) => setUsername(e.target.value)}
-                  placeholder="Jūsų vardas"
-                />
-              </InputWrap>
+            {/* USERNAME */}
+            <Field>
+              <Label>Slapyvardis</Label>
+              <Row>
+                <InputWrap aria-invalid={false}>
+                  <FiUser />
+                  <Input
+                    disabled={edit.field !== "username"}
+                    value={username}
+                    onChange={(e) => setUsername(e.target.value)}
+                    placeholder="Jūsų vardas"
+                  />
+                </InputWrap>
 
-              {edit.field === "username" ? (
-                <BtnRow>
-                  <IconBtn onClick={saveUsernameDiscord} aria-label="Išsaugoti"><FiCheck /></IconBtn>
-                  <IconBtn onClick={cancelEdit} aria-label="Atšaukti"><FiX /></IconBtn>
-                </BtnRow>
-              ) : (
-                <IconBtn onClick={() => startEdit("username")} aria-label="Redaguoti"><FiEdit3 /></IconBtn>
-              )}
-            </Row>
+                {edit.field === "username" ? (
+                  <BtnRow>
+                    <IconBtn $variant="confirm" onClick={saveUsernameDiscord} aria-label="Išsaugoti"><FiCheck /></IconBtn>
+                    <IconBtn $variant="cancel" onClick={cancelEdit} aria-label="Atšaukti"><FiX /></IconBtn>
+                  </BtnRow>
+                ) : (
+                  <IconBtn onClick={() => startEdit("username")} aria-label="Redaguoti"><FiEdit3 /></IconBtn>
+                )}
+              </Row>
 
-            {edit.field === "username" && (
-              <Expand>
+              {/* Animated expand */}
+              <Expand $open={edit.field === "username"} aria-hidden={edit.field !== "username"}>
                 <SubLabel>Patvirtinkite slaptažodį</SubLabel>
                 <ExpandedInputWrap aria-invalid={false}>
                   <FiLock />
@@ -283,35 +327,34 @@ export default function Profile() {
                   />
                 </ExpandedInputWrap>
               </Expand>
-            )}
-          </Field>
+            </Field>
 
-          {/* DISCORD */}
-          <Field>
-            <Label>Discord Nick</Label>
-            <Row>
-              <InputWrap aria-invalid={false}>
-                <FiHash />
-                <Input
-                  disabled={edit.field !== "discord"}
-                  value={discord}
-                  onChange={(e) => setDiscord(e.target.value)}
-                  placeholder="vardas"
-                />
-              </InputWrap>
+            {/* DISCORD */}
+            <Field>
+              <Label>Discord Nick</Label>
+              <Row>
+                <InputWrap aria-invalid={false}>
+                  <FiHash />
+                  <Input
+                    disabled={edit.field !== "discord"}
+                    value={discord}
+                    onChange={(e) => setDiscord(e.target.value)}
+                    placeholder="vardas"
+                  />
+                </InputWrap>
 
-              {edit.field === "discord" ? (
-                <BtnRow>
-                  <IconBtn onClick={saveUsernameDiscord} aria-label="Išsaugoti"><FiCheck /></IconBtn>
-                  <IconBtn onClick={cancelEdit} aria-label="Atšaukti"><FiX /></IconBtn>
-                </BtnRow>
-              ) : (
-                <IconBtn onClick={() => startEdit("discord")} aria-label="Redaguoti"><FiEdit3 /></IconBtn>
-              )}
-            </Row>
+                {edit.field === "discord" ? (
+                  <BtnRow>
+                    <IconBtn $variant="confirm" onClick={saveUsernameDiscord} aria-label="Išsaugoti"><FiCheck /></IconBtn>
+                    <IconBtn $variant="cancel" onClick={cancelEdit} aria-label="Atšaukti"><FiX /></IconBtn>
+                  </BtnRow>
+                ) : (
+                  <IconBtn onClick={() => startEdit("discord")} aria-label="Redaguoti"><FiEdit3 /></IconBtn>
+                )}
+              </Row>
 
-            {edit.field === "discord" && (
-              <Expand>
+              {/* Animated expand */}
+              <Expand $open={edit.field === "discord"} aria-hidden={edit.field !== "discord"}>
                 <SubLabel>Patvirtinkite slaptažodį</SubLabel>
                 <ExpandedInputWrap aria-invalid={false}>
                   <FiLock />
@@ -323,30 +366,29 @@ export default function Profile() {
                   />
                 </ExpandedInputWrap>
               </Expand>
-            )}
-          </Field>
+            </Field>
 
-          {/* PASSWORD */}
-          <Field>
-            <Label>Slaptažodis</Label>
-            <Row>
-              <InputWrap aria-invalid={false}>
-                <FiLock />
-                <Input value="********" disabled />
-              </InputWrap>
+            {/* PASSWORD */}
+            <Field>
+              <Label>Slaptažodis</Label>
+              <Row>
+                <InputWrap aria-invalid={false}>
+                  <FiLock />
+                  <Input value="********" disabled />
+                </InputWrap>
 
-              {edit.field === "password" ? (
-                <BtnRow>
-                  <IconBtn onClick={savePassword} aria-label="Išsaugoti"><FiCheck /></IconBtn>
-                  <IconBtn onClick={cancelEdit} aria-label="Atšaukti"><FiX /></IconBtn>
-                </BtnRow>
-              ) : (
-                <IconBtn onClick={() => startEdit("password")} aria-label="Redaguoti"><FiEdit3 /></IconBtn>
-              )}
-            </Row>
+                {edit.field === "password" ? (
+                  <BtnRow>
+                    <IconBtn $variant="confirm" onClick={savePassword} aria-label="Išsaugoti"><FiCheck /></IconBtn>
+                    <IconBtn $variant="cancel" onClick={cancelEdit} aria-label="Atšaukti"><FiX /></IconBtn>
+                  </BtnRow>
+                ) : (
+                  <IconBtn onClick={() => startEdit("password")} aria-label="Redaguoti"><FiEdit3 /></IconBtn>
+                )}
+              </Row>
 
-            {edit.field === "password" && (
-              <Expand>
+              {/* Animated expand */}
+              <Expand $open={edit.field === "password"} aria-hidden={edit.field !== "password"}>
                 <SubLabel>Senas slaptažodis</SubLabel>
                 <ExpandedInputWrap aria-invalid={false}>
                   <FiLock />
@@ -391,130 +433,291 @@ export default function Profile() {
                   />
                 </ExpandedInputWrap>
               </Expand>
-            )}
-          </Field>
-        </Right>
-      </Grid>
+            </Field>
+          </Right>
+        </Grid>
+      </Container>
     </Wrap>
   );
 }
 
-/* ===== styles ===== */
+/* ===== styles  ===== */
+const MOBILE_BP = 960;
+
 const Wrap = styled.div`
-  padding: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  /* Main already adds page padding; don't add another outer padding here */
+  padding: 0;
+  /* fit exactly inside Main's padded viewport without overflowing */
+  min-height: calc(100vh - (var(--main-pad-y, 24px) * 2));
+  width: 100%;
+  box-sizing: border-box;
 `;
+
+const Container = styled.div`
+  width: 100%;
+  margin: 0 auto;
+  gap: 16px;
+`;
+
+const PageTitle = styled.h1`
+  margin: 0;
+  font-size: 30px;
+  font-weight: 800;
+  color: #0f172a;
+  margin-bottom: 30px;
+`;
+
 const Grid = styled.div`
   display: grid;
-  grid-template-columns: 320px 1fr;
+  /* desktop/tablet: two columns, left scales but stays reasonable */
+  grid-template-columns: clamp(220px, 26vw, 360px) minmax(0, 1fr);
   gap: 24px;
-  @media (max-width: 900px) {
+  align-items: start;
+
+  /* single breakpoint to match Sidebar: stack left (top) + right (bottom) */
+  @media (max-width: ${MOBILE_BP - 1}px) {
     grid-template-columns: 1fr;
+    gap: 16px;
   }
 `;
+
 const Left = styled.div`
-  background:#fff;border:1px solid #eceff3;border-radius:24px;
-  padding:24px;display:grid;justify-items:center;gap:8px;
-`;
-const Avatar = styled.div`
-  width: 180px;height:180px;border-radius:50%;overflow:hidden;
-  background:#f6f8fc;border:1px solid #e7edf6;display:grid;place-items:center;
-  img{width:100%;height:100%;object-fit:cover;}
-`;
-const Name = styled.h2`margin:12px 0 0;font-size:22px;color:#0f172a;`;
-const Role = styled.div`color:#64748b;font-weight:700;`;
+  background: #fff;
+  border: 1px solid #eceff3;
+  border-radius: 24px;
+  padding: 24px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  box-sizing: border-box;
+  align-self: start;
 
-const Right = styled.div`
-  background:#fff;border:1px solid #eceff3;border-radius:24px;
-  padding:24px;display:grid;gap:16px;align-content:start;
-`;
-
-const Alert = styled.div`
-  background:#fff4f4;border:1px solid #ffd4d4;color:#8b1f1f;
-  padding:10px 12px;border-radius:12px;font-size:14px;
-`;
-
-const Field = styled.div`display:grid;gap:8px;`;
-const Label = styled.div`
-  font-weight:800;color:#0f172a;font-size:14px;
-`;
-
-const Row = styled.div`
-  display:flex;align-items:center;gap:10px;
-`;
-
-const InputWrap = styled.div`
-  display:flex;align-items:center;gap:10px;height:48px;padding:0 14px;
-  border:1px solid ${({["aria-invalid"]: invalid}) => (invalid ? "#e11d48" : "#dfe5ec")};
-  border-radius: 999px;background:#f8fafc; flex:1;
-  transition:border-color .15s ease, box-shadow .15s ease, background-color .15s ease;
-
-  svg { color:#99a3b2; font-size:18px; }
-  input:disabled & { background:#f8fafc; }
-
-  &:focus-within {
-    border-color:#1f6feb;
-    box-shadow:0 0 0 3px #e8f1ff;
-    background:#fff;
+  /* full width when stacked */
+  @media (max-width: ${MOBILE_BP - 1}px) {
+    width: 100%;
   }
 `;
 
-const Input = styled.input`
-  border:0;outline:none;flex:1 1 auto;height:100%;
-  background:transparent;color:#0f172a;font-size:15px;
+const Avatar = styled.div`
+  width: 120px;
+  height: 120px;
+  border-radius: 50%;
+  overflow: hidden;
+  background: #f6f8fc;
+  border: 1px solid #e7edf6;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+
+  img { width: 100%; height: 100%; object-fit: cover; }
 `;
 
-const BtnRow = styled.div`display:flex;gap:6px;`;
-const IconBtn = styled.button`
-  display:grid;place-items:center;border:1px solid #eceff3;background:#fff;
-  width:38px;height:38px;border-radius:10px;cursor:pointer;
-`;
-
-const Expand = styled.div`
-  display: grid;
-  gap: 8px;
-  margin-top: 8px;
-  padding: 10px;
-  border-radius: 14px;
-  background: #f1f5f9; /* light background */
-  border: 1px solid #e2e8f0; /* subtle border */
-`;
-
-const SubLabel = styled.div`
-  font-size: 11px; /* smaller font */
-  color: #475569;
+const Name = styled.h2`
+  margin: 0;
+  font-size: 26px;
+  color: #0f172a;
+  text-align: center;
+  word-break: break-word;
   font-weight: 700;
 `;
 
-const ExpandedInputWrap = styled(InputWrap)`
-  height: 42px; /* smaller height */
-  background: #fff; /* white inside */
-  border-radius: 12px;
-  svg {
-    font-size: 16px;
-  }
-  input {
-    font-size: 14px; /* smaller text */
+const Role = styled.div`
+  color: #64748b;
+  font-weight: 600;
+  text-align: center;
+  font-size: 16px;
+`;
+
+const Right = styled.div`
+  background: #fff;
+  border: 1px solid #eceff3;
+  border-radius: 24px;
+  padding: 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  box-sizing: border-box;
+  min-width: 0;
+  align-self: start;
+
+  /* full width when stacked */
+  @media (max-width: ${MOBILE_BP - 1}px) {
+    width: 100%;
   }
 `;
-const Load = styled.div`padding:24px;`;
 
-/* Password rules — same visuals as Register */
-const Rules = styled.ul`
-  display: grid;
-  margin-top: 4px;
-  padding: 8px 10px;
+const Alert = styled.div`
+  background: #fff4f4;
+  border: 1px solid #ffd4d4;
+  color: #8b1f1f;
+  padding: 12px 16px;
   border-radius: 12px;
+  font-size: 14px;
+  word-break: break-word;
+`;
+
+const Field = styled.div`
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  width: 100%;
+`;
+
+const Label = styled.div`
+  font-weight: 700;
+  color: #0f172a;
+  font-size: 15px;
+`;
+
+const Row = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  min-width: 0;
+  /* if space gets tight, wrap instead of overflowing */
+  flex-wrap: wrap;
+`;
+
+const InputWrap = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  height: 52px;               /* taller input (PC + mobile) */
+  padding: 0 16px;
+  border: 1px solid ${({["aria-invalid"]: invalid}) => (invalid ? "#e11d48" : "#dfe5ec")};
+  border-radius: 999px;
+  background: #f6fbffff;
+  flex: 1 1 auto;
+  min-width: 0;
+  transition: border-color .15s ease, box-shadow .15s ease, background-color .15s ease;
+
+  svg { color: #99a3b2; font-size: 18px; flex-shrink: 0; }
+  input:disabled & { background: #f8fafc; }
+
+  &:focus-within {
+    border-color: #1f6feb;
+    box-shadow: 0 0 0 3px #e8f1ff;
+    background: #fff;
+  }
+`;
+
+const ExpandedInputWrap = styled(InputWrap)`
+  background: #fff;
+  border-radius: 14px;
+`;
+
+const Input = styled.input`
+  border: 0;
+  outline: none;
+  flex: 1;
+  height: 100%;
+  background: transparent;
+  color: #0f172a;
+  font-size: 15px;
+  &::placeholder { color: #99a3b2; }
+`;
+
+const BtnRow = styled.div`
+  display: flex;
+  gap: 8px;
+  flex-shrink: 0;
+  margin-left: auto; /* keep actions on the right */
+`;
+
+const IconBtn = styled.button`
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid #eceff3;
+  background: #fff;
+  width: 42px;
+  height: 42px;
+  border-radius: 12px;
+  cursor: pointer;
+  transition: background-color 0.15s ease, border-color 0.15s ease;
+
+  &:hover { background: #f8fafc; border-color: #d1d9e2; }
+  svg { font-size: 16px; color: #64748b; }
+
+  /* Variants */
+  ${({ $variant }) =>
+    $variant === "confirm" &&
+    `
+      border-color: #16a34a;
+      background: #dcfce7;
+      svg { color: #166534; }
+      &:hover {
+        background: #bbf7d0;
+        border-color: #15803d;
+      }
+    `}
+  ${({ $variant }) =>
+    $variant === "cancel" &&
+    `
+      border-color: #dc2626;
+      background: #fee2e2;
+      svg { color: #991b1b; }
+      &:hover {
+        background: #fecaca;
+        border-color: #b91c1c;
+      }
+    `}
+`;
+
+const Expand = styled.div`
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-top: 8px;
+  background: #f1f5f9;
+  border: 1px solid #e2e8f0;
+  border-radius: 16px;
+
+  max-height: ${({ $open }) => ($open ? "1000px" : "0px")};
+  padding: ${({ $open }) => ($open ? "16px" : "0 16px")};
+  opacity: ${({ $open }) => ($open ? 1 : 0)};
+  transform: translateY(${({ $open }) => ($open ? "0" : "-6px")});
+  overflow: hidden;
+  pointer-events: ${({ $open }) => ($open ? "auto" : "none")};
+  transition: max-height .3s ease, padding .25s ease, opacity .2s ease, transform .25s ease;
+`;
+
+const SubLabel = styled.div`
+  font-size: 12px;
+  color: #475569;
+  font-weight: 600;
+`;
+
+const Load = styled.div`
+  padding: 24px;
+  text-align: center;
+  color: #64748b;
+`;
+
+const Rules = styled.ul`
+  display: flex;
+  flex-direction: column;
+  margin: 0;
+  padding: 12px;
+  border-radius: 14px;
   border: 1px solid #e6ecf5;
   background: #f8fafc;
   list-style: none;
-  margin: 0;
-  padding-left: 0;
+  gap: 4px;
 `;
+
 const Rule = styled.li`
   display: flex;
   align-items: center;
-  gap: 6px;
-  padding: 4px 6px;
+  gap: 8px;
+  padding: 6px 8px;
   border-radius: 8px;
   font-size: 13px;
   color: ${({ $ok }) => ($ok ? "#0d6c2f" : "#475569")};
@@ -525,6 +728,11 @@ const Rule = styled.li`
     content: ${({ $ok }) => ($ok ? "'✔'" : "'✖'")};
     font-weight: bold;
     color: ${({ $ok }) => ($ok ? "#0d6c2f" : "#e11d48")};
+    flex-shrink: 0;
   }
 `;
-const Symbols = styled.span`color:#0f172a;`;
+
+const Symbols = styled.span`
+  color: #0f172a;
+  word-break: break-all;
+`;
