@@ -115,9 +115,9 @@ useEffect(() => {
     return () => { alive = false; };
   }, [API, token]);
 
-  const [isMobile, setIsMobile] = useState(window.matchMedia('(max-width: 392px)').matches);
+  const [isMobile, setIsMobile] = useState(window.matchMedia('(max-width: 441px)').matches);
     useEffect(() => {
-    const mql = window.matchMedia('(max-width: 392px)');
+    const mql = window.matchMedia('(max-width: 441px)');
     const handler = (e) => setIsMobile(e.matches);
     mql.addEventListener('change', handler);
     return () => mql.removeEventListener('change', handler);
@@ -858,5 +858,5 @@ const InnerEditBtn = styled.button`
   &:hover { background: #f8fafc; border-color: #d1d9e2; }
 
   /* desktop never sees this */
-  @media (min-width: 393px) { display: none; }
+  @media (min-width: 442px) { display: none; }
 `;
