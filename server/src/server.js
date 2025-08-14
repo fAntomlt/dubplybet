@@ -30,10 +30,14 @@ const PORT = process.env.SERVER_PORT || 8080;
 const allowedOrigins = (process.env.CORS_ORIGINS || process.env.CORS_ORIGIN || "*")
   .split(",").map(s => s.trim()).filter(Boolean);
 
-app.use(cors({
-  origin: "*",
-  credentials: true
-}));
+const corsOptions = {
+  origin: (origin, cb) => {
+    if (!origin) return cb(null, true);
+    if (allowedOrigins.includes("*") || allowedOrigins.includes(origin)) return cb(null, true);
+    return cb(new Error("Not allowed by CORS: " + origin), false);
+  },
+  credentials: true,
+};
 
 // ORDER: parsers → cors → routes
 app.use(express.json({ limit: "1mb" }));
