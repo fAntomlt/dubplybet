@@ -37,6 +37,7 @@ export default function Register() {
   const hasSymbol = /[!@#$%^&*()_\-+\=\[\]{};:'",.<>/?\\|`~]/.test(password);
   const minLength = password.length >= 8;
   const ALLOWED_SYMBOLS = `! @ # $ % ^ & * ( ) _ - + = [ ] { } ; : ' " , . < > / ? \\ | \``;
+  const DISCORD_RE = /^(?!.*\.\.)[a-z0-9._]{2,32}$/;
 
   // validations
   const emailError =
@@ -59,12 +60,14 @@ export default function Register() {
       ? "Vartotojo vardas per ilgas (max. 50)"
       : "");
 
+  const discordNormalized = (discord || "").trim().replace(/^@/, "").toLowerCase();
+
   const discordError =
     touched.discord &&
     (!discord
       ? "Discord vardas privalomas"
-      : !/^@?[a-zA-Z0-9._-]{2,32}$/.test(discord)
-      ? "Neteisingas Discord vardas (2–32 raidės/skaičiai . _ -)"
+      : !DISCORD_RE.test(discordNormalized)
+      ? "Neteisingas Discord vardas (2–32, tik raidės/skaičiai, _ ir ., be '..')"
       : "");
 
   const passwordError =
