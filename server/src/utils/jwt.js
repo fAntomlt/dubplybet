@@ -1,27 +1,37 @@
+// server/src/utils/jwt.js
 import jwt from "jsonwebtoken";
 
-export function requireAuth(req, res, next) {
-  const h = req.headers.authorization || "";
-  const token = h.startsWith("Bearer ") ? h.slice(7) : null;
-  if (!token) return res.status(401).json({ error: "Reikia prisijungti" });
+const SECRET = process.env.JWT_SECRET;
+const EXPIRES_IN = process.env.JWT_EXPIRES_IN || "7d";
 
-  try {
-    // payload is expected to look like { uid, role } based on your login code
-    const payload = jwt.verify(token, process.env.JWT_SECRET);
-    req.user = payload;
-    next();
-  } catch {
-    return res
-      .status(401)
-      .json({ error: "Neteisingas arba pasibaigęs prisijungimas" });
-  }
+export function signJwt(payload /* { uid, role } */) {
+  if (!SECRET) throw new Error("JWT_SECRET not set");
+  return jwt.sign(payload, SECRET, { expiresIn: EXPIRES_IN });
 }
 
-export function requireAdmin(req, res, next) {
-  if (!req.user || req.user.role !== "admin") {
-    return res
-      .status(403)
-      .json({ error: "Reikalingos administratoriaus teisės" });
+export function verifyJwt(token) {
+  if (!SECRET) throw new Error("JWT_SECRET not set");
+  const raw = jwt.verify(token, SECRET); // will throw on invalid/expired
+
+  // Normalize id across any historical shapes you might have used
+  const id =
+    raw?.uid != null ? raw.uid :
+    raw?.id  != null ? raw.id  :
+    raw?.userId != null ? raw.userId :
+    null;
+
+  if (id == null) {
+    // Make it explicit if a token verifies but doesn't carry a usable id
+    const e = new Error("Token missing uid/id/userId");
+    e.code = "NO_USER_ID";
+    throw e;
   }
-  next();
+
+  // Return the original claims, plus normalized id fields
+  return {
+    ...raw,
+    id,
+    uid: id,
+    userId: id,
+  };
 }
