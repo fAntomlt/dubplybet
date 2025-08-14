@@ -115,6 +115,14 @@ useEffect(() => {
     return () => { alive = false; };
   }, [API, token]);
 
+  const [isMobile, setIsMobile] = useState(window.matchMedia('(max-width: 392px)').matches);
+    useEffect(() => {
+    const mql = window.matchMedia('(max-width: 392px)');
+    const handler = (e) => setIsMobile(e.matches);
+    mql.addEventListener('change', handler);
+    return () => mql.removeEventListener('change', handler);
+    }, []);
+
   const startEdit = (field) => {
     setEdit({ field });
     setServerError("");
@@ -278,7 +286,7 @@ useEffect(() => {
         <PageTitle>Profilis</PageTitle>
         <Grid>
           {/* Left */}
-          <Left style={{ minHeight: leftBaseMinH ? `${leftBaseMinH}px` : undefined }}>
+          <Left style={{ minHeight: !isMobile && leftBaseMinH ? `${leftBaseMinH}px` : undefined }}>
             <Avatar>
               <img src={logoImg} alt="Avatar" />
             </Avatar>
@@ -302,16 +310,24 @@ useEffect(() => {
                     onChange={(e) => setUsername(e.target.value)}
                     placeholder="Jūsų vardas"
                   />
+                  {isMobile && edit.field !== "username" && (
+                    <InnerEditBtn onClick={() => startEdit("username")} aria-label="Redaguoti">
+                      <FiEdit3 />
+                    </InnerEditBtn>
+                  )}
                 </InputWrap>
 
-                {edit.field === "username" ? (
-                  <BtnRow>
-                    <IconBtn $variant="confirm" onClick={saveUsernameDiscord} aria-label="Išsaugoti"><FiCheck /></IconBtn>
-                    <IconBtn $variant="cancel" onClick={cancelEdit} aria-label="Atšaukti"><FiX /></IconBtn>
-                  </BtnRow>
-                ) : (
-                  <IconBtn onClick={() => startEdit("username")} aria-label="Redaguoti"><FiEdit3 /></IconBtn>
-                )}
+                {edit.field === "username"
+                  ? (isMobile ? null : (
+                      <BtnRow>
+                        <IconBtn $variant="confirm" onClick={saveUsernameDiscord} aria-label="Išsaugoti"><FiCheck /></IconBtn>
+                        <IconBtn $variant="cancel" onClick={cancelEdit} aria-label="Atšaukti"><FiX /></IconBtn>
+                      </BtnRow>
+                    ))
+                  : (!isMobile && (
+                      <IconBtn onClick={() => startEdit("username")} aria-label="Redaguoti"><FiEdit3 /></IconBtn>
+                    ))
+                }
               </Row>
 
               {/* Animated expand */}
@@ -326,6 +342,12 @@ useEffect(() => {
                     placeholder="●●●●●●●●"
                   />
                 </ExpandedInputWrap>
+                {isMobile && (
+                  <ActionBar>
+                    <IconBtn $variant="confirm" onClick={saveUsernameDiscord} aria-label="Išsaugoti"><FiCheck /></IconBtn>
+                    <IconBtn $variant="cancel" onClick={cancelEdit} aria-label="Atšaukti"><FiX /></IconBtn>
+                  </ActionBar>
+                )}
               </Expand>
             </Field>
 
@@ -341,16 +363,24 @@ useEffect(() => {
                     onChange={(e) => setDiscord(e.target.value)}
                     placeholder="vardas"
                   />
+                  {isMobile && edit.field !== "discord" && (
+                    <InnerEditBtn onClick={() => startEdit("discord")} aria-label="Redaguoti">
+                      <FiEdit3 />
+                    </InnerEditBtn>
+                  )}
                 </InputWrap>
 
-                {edit.field === "discord" ? (
-                  <BtnRow>
-                    <IconBtn $variant="confirm" onClick={saveUsernameDiscord} aria-label="Išsaugoti"><FiCheck /></IconBtn>
-                    <IconBtn $variant="cancel" onClick={cancelEdit} aria-label="Atšaukti"><FiX /></IconBtn>
-                  </BtnRow>
-                ) : (
-                  <IconBtn onClick={() => startEdit("discord")} aria-label="Redaguoti"><FiEdit3 /></IconBtn>
-                )}
+                {edit.field === "discord"
+                  ? (isMobile ? null : (
+                      <BtnRow>
+                        <IconBtn $variant="confirm" onClick={saveUsernameDiscord} aria-label="Išsaugoti"><FiCheck /></IconBtn>
+                        <IconBtn $variant="cancel" onClick={cancelEdit} aria-label="Atšaukti"><FiX /></IconBtn>
+                      </BtnRow>
+                    ))
+                  : (!isMobile && (
+                      <IconBtn onClick={() => startEdit("discord")} aria-label="Redaguoti"><FiEdit3 /></IconBtn>
+                    ))
+                }
               </Row>
 
               {/* Animated expand */}
@@ -365,6 +395,12 @@ useEffect(() => {
                     placeholder="●●●●●●●●"
                   />
                 </ExpandedInputWrap>
+                {isMobile && (
+                  <ActionBar>
+                    <IconBtn $variant="confirm" onClick={saveUsernameDiscord} aria-label="Išsaugoti"><FiCheck /></IconBtn>
+                    <IconBtn $variant="cancel" onClick={cancelEdit} aria-label="Atšaukti"><FiX /></IconBtn>
+                  </ActionBar>
+                )}
               </Expand>
             </Field>
 
@@ -375,16 +411,24 @@ useEffect(() => {
                 <InputWrap aria-invalid={false}>
                   <FiLock />
                   <Input value="********" disabled />
+                  {isMobile && edit.field !== "password" && (
+                    <InnerEditBtn onClick={() => startEdit("password")} aria-label="Redaguoti">
+                      <FiEdit3 />
+                    </InnerEditBtn>
+                  )}
                 </InputWrap>
 
-                {edit.field === "password" ? (
-                  <BtnRow>
-                    <IconBtn $variant="confirm" onClick={savePassword} aria-label="Išsaugoti"><FiCheck /></IconBtn>
-                    <IconBtn $variant="cancel" onClick={cancelEdit} aria-label="Atšaukti"><FiX /></IconBtn>
-                  </BtnRow>
-                ) : (
-                  <IconBtn onClick={() => startEdit("password")} aria-label="Redaguoti"><FiEdit3 /></IconBtn>
-                )}
+                {edit.field === "password"
+                  ? (isMobile ? null : (
+                      <BtnRow>
+                        <IconBtn $variant="confirm" onClick={savePassword} aria-label="Išsaugoti"><FiCheck /></IconBtn>
+                        <IconBtn $variant="cancel" onClick={cancelEdit} aria-label="Atšaukti"><FiX /></IconBtn>
+                      </BtnRow>
+                    ))
+                  : (!isMobile && (
+                      <IconBtn onClick={() => startEdit("password")} aria-label="Redaguoti"><FiEdit3 /></IconBtn>
+                    ))
+                }
               </Row>
 
               {/* Animated expand */}
@@ -411,7 +455,6 @@ useEffect(() => {
                   />
                 </ExpandedInputWrap>
 
-                {/* Password rules — same look as in Register */}
                 <Rules aria-live="polite">
                   <Rule $ok={minLength}>Mažiausiai 8 simboliai</Rule>
                   <Rule $ok={hasUpper}>Bent viena didžioji raidė</Rule>
@@ -432,6 +475,12 @@ useEffect(() => {
                     placeholder="●●●●●●●●"
                   />
                 </ExpandedInputWrap>
+                {isMobile && (
+                  <ActionBar>
+                    <IconBtn $variant="confirm" onClick={savePassword} aria-label="Išsaugoti"><FiCheck /></IconBtn>
+                    <IconBtn $variant="cancel" onClick={cancelEdit} aria-label="Atšaukti"><FiX /></IconBtn>
+                  </ActionBar>
+                )}
               </Expand>
             </Field>
           </Right>
@@ -498,8 +547,10 @@ const Left = styled.div`
   align-self: start;
 
   /* full width when stacked */
-  @media (max-width: ${MOBILE_BP - 1}px) {
+  @media (max-width: ${392 - 1}px) {
     width: 100%;
+    padding: 16px;
+    gap: 10px;
   }
 `;
 
@@ -589,13 +640,14 @@ const InputWrap = styled.div`
   display: flex;
   align-items: center;
   gap: 12px;
-  height: 52px;               /* taller input (PC + mobile) */
+  height: 52px;
   padding: 0 16px;
   border: 1px solid ${({["aria-invalid"]: invalid}) => (invalid ? "#e11d48" : "#dfe5ec")};
   border-radius: 999px;
   background: #f6fbffff;
   flex: 1 1 auto;
   min-width: 0;
+  position: relative; /* enable InnerEditBtn positioning */
   transition: border-color .15s ease, box-shadow .15s ease, background-color .15s ease;
 
   svg { color: #99a3b2; font-size: 18px; flex-shrink: 0; }
@@ -605,6 +657,11 @@ const InputWrap = styled.div`
     border-color: #1f6feb;
     box-shadow: 0 0 0 3px #e8f1ff;
     background: #fff;
+  }
+
+  /* leave room for the inner edit button on mobile */
+  @media (max-width: 392px) {
+    padding-right: 48px;
   }
 `;
 
@@ -735,4 +792,71 @@ const Rule = styled.li`
 const Symbols = styled.span`
   color: #0f172a;
   word-break: break-all;
+`;
+
+const ActionBar = styled.div`
+  display: flex;
+  justify-content: center;
+  gap: 10px;
+  margin-top: 8px;
+`;
+
+const ActionBtn = styled.button`
+  position: relative;
+  border: 1px solid transparent; /* inner border */
+  outline: 1px solid transparent; /* outer border */
+  outline-offset: 2px; /* gap between inner & outer border */
+  border-radius: 999px;
+  height: 35px;
+  padding: 0 18px;
+  font-weight: 800;
+  font-size: 12px;
+  background: transparent;
+  cursor: pointer;
+  transition: 
+    outline-color 0.15s ease,
+    border-color 0.15s ease,
+    color 0.15s ease,
+    background-color 0.15s ease;
+
+  ${({ $variant }) =>
+    $variant === "confirm"
+      ? `
+        color: #16a34a;
+        border-color: #16a34a;      /* inner border */
+        outline-color: #16a34a;     /* outer border */
+        &:hover {
+          background: rgba(22, 163, 74, 0.05);
+        }
+      `
+      : `
+        color: #dc2626;
+        border-color: #dc2626;      /* inner border */
+        outline-color: #dc2626;     /* outer border */
+        &:hover {
+          background: rgba(220, 38, 38, 0.05);
+        }
+      `}
+`;
+
+const InnerEditBtn = styled.button`
+  position: absolute;
+  right: 16px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 30px;
+  height: 30px;
+  border-radius: 10px;
+  border: 1px solid #eceff3;
+  background: #fff;
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+  transition: background-color .15s ease, border-color .15s ease;
+
+  svg { font-size: 18px; color: #64748b; }
+  &:hover { background: #f8fafc; border-color: #d1d9e2; }
+
+  /* desktop never sees this */
+  @media (min-width: 393px) { display: none; }
 `;

@@ -25,5 +25,5 @@ const Shell = styled.div`
   display:grid; grid-template-columns:260px 1fr; min-height:100vh;
   @media (max-width:960px){ grid-template-columns: 1fr; }
 `;
-const Main = styled.main` padding:24px; @media (max-width:960px){ padding: calc(16px + 56px) 16px 16px; }`;
+const Main = styled.main` position: relative; z-index: 0; padding:24px; @media (max-width:960px){ padding: calc(16px + 56px) 16px 16px; }`;
 const Content = styled.div` max-width:1120px; margin:0 auto; `;
