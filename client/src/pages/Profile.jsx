@@ -3,6 +3,7 @@ import styled from "styled-components";
 import { FiUser, FiHash, FiLock, FiEdit3, FiX, FiCheck } from "react-icons/fi";
 import logoImg from "../assets/icriblogo.png";
 import { useToast } from "../components/ToastProvider";
+import { setAuth, getAuth } from "../store/auth";
 
 // small helper
 function roleLT(role) {
@@ -73,7 +74,7 @@ export default function Profile() {
     setNewPwd2("");
   };
   const cancelEdit = () => {
-    // reset values to current data
+    // reset values to current (me) data
     setUsername(me?.username || "");
     setDiscord(me?.discordUsername || "");
     setConfirmPwd("");
@@ -96,9 +97,6 @@ export default function Profile() {
 
       if (edit.field === "discord") {
         // Normalize and validate Discord username:
-        // - trim
-        // - remove leading '@' if present
-        // - force lowercase
         const discordNormalized = (discord || "")
           .trim()
           .replace(/^@/, "")
@@ -126,22 +124,26 @@ export default function Profile() {
         setServerError(data?.error || "Nepavyko išsaugoti pakeitimų.");
         return;
       }
+
+      // --- Apply changes locally ---
+      const updated = {
+        ...me,
+        ...(body.username ? { username: body.username } : {}),
+        ...(body.discordUsername ? { discordUsername: body.discordUsername } : {}),
+      };
+      setMe(updated);
+      if (body.username) setUsername(body.username);
+      if (body.discordUsername) setDiscord(body.discordUsername);
+
+      // clear password confirm + close editor
+      setConfirmPwd("");
+      setEdit({ field: null });
+
+      // --- Update navbar/auth store so it refreshes immediately ---
+      const { token: currentToken } = getAuth();
+      setAuth({ user: updated, token: currentToken });
+
       toast.success("Pakeitimai išsaugoti");
-      setMe(m => ({
-        ...m,
-        username: body.username ?? m.username,
-        discordUsername: body.discordUsername ?? m.discordUsername,
-      }));
-      // also keep localStorage authUser in sync if changed
-      try {
-        const authUser = JSON.parse(localStorage.getItem("authUser") || "null");
-        if (authUser) {
-          if (body.username) authUser.username = body.username;
-          if (body.discordUsername) authUser.discordUsername = body.discordUsername;
-          localStorage.setItem("authUser", JSON.stringify(authUser));
-        }
-      } catch {}
-      cancelEdit();
     } catch {
       setServerError("Serverio klaida. Bandykite vėliau.");
     }
@@ -175,7 +177,12 @@ export default function Profile() {
         return;
       }
       toast.success("Slaptažodis atnaujintas");
-      cancelEdit();
+
+      // clear fields and close edit WITHOUT reverting values
+      setOldPwd("");
+      setNewPwd("");
+      setNewPwd2("");
+      setEdit({ field: null });
     } catch {
       setServerError("Serverio klaida. Bandykite vėliau.");
     }
