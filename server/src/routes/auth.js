@@ -7,6 +7,7 @@ import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 
 const router = Router();
+const DISCORD_RE = /^(?!.*\.\.)[a-z0-9._]{2,32}$/;
 
 const RegisterSchema = z.object({
   email: z.string({ required_error: "El. paštas privalomas" })
@@ -15,9 +16,9 @@ const RegisterSchema = z.object({
   username: z.string({ required_error: "Vartotojo vardas privalomas" })
              .min(3, "Vartotojo vardas per trumpas (min. 3)")
              .max(50, "Vartotojo vardas per ilgas (max. 50)"),
-  // Discord global username: letters/digits/._ , 2–32 chars, no leading/trailing . or _, no double .. or __
   discordUsername: z.string({ required_error: "Discord vardas privalomas" })
-    .regex(/^(?!.*[._]{2})(?![._])[a-zA-Z0-9._]{2,32}(?<![._])$/, "Neteisingas Discord vardas"),
+  .transform(s => String(s).trim().toLowerCase())
+  .refine(s => DISCORD_RE.test(s), "Neteisingas Discord vardas"),
   password: z.string({ required_error: "Slaptažodis privalomas" })
              .min(8, "Slaptažodis per trumpas (min. 8)")
              .max(100, "Slaptažodis per ilgas (max. 100)"),

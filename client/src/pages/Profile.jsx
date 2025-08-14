@@ -22,6 +22,9 @@ export default function Profile() {
     field: null, // 'username' | 'discord' | 'password' | null
   });
 
+  // Discord: 2–32 chars, only a–z 0–9 _ . , no consecutive ".."
+  const DISCORD_RE = /^(?!.*\.\.)[a-z0-9._]{2,32}$/;
+
   // controlled values for edits
   const [username, setUsername] = useState("");
   const [discord, setDiscord] = useState("");
@@ -82,12 +85,34 @@ export default function Profile() {
 
   const saveUsernameDiscord = async () => {
     if (!edit.field) return;
+
+    setServerError("");
+
     try {
       const body = {
         currentPassword: confirmPwd,
         ...(edit.field === "username" ? { username: username.trim() } : {}),
-        ...(edit.field === "discord" ? { discordUsername: discord.trim() } : {}),
       };
+
+      if (edit.field === "discord") {
+        // Normalize and validate Discord username:
+        // - trim
+        // - remove leading '@' if present
+        // - force lowercase
+        const discordNormalized = (discord || "")
+          .trim()
+          .replace(/^@/, "")
+          .toLowerCase();
+
+        if (!DISCORD_RE.test(discordNormalized)) {
+          setServerError(
+            "Neteisingas Discord vardas (2–32, tik raidės/skaičiai, _ ir ., be '..')."
+          );
+          return;
+        }
+        body.discordUsername = discordNormalized;
+      }
+
       const res = await fetch(`${API}/api/users/me`, {
         method: "PATCH",
         headers: {
@@ -107,11 +132,12 @@ export default function Profile() {
         username: body.username ?? m.username,
         discordUsername: body.discordUsername ?? m.discordUsername,
       }));
-      // also keep localStorage authUser username in sync if changed
+      // also keep localStorage authUser in sync if changed
       try {
         const authUser = JSON.parse(localStorage.getItem("authUser") || "null");
         if (authUser) {
           if (body.username) authUser.username = body.username;
+          if (body.discordUsername) authUser.discordUsername = body.discordUsername;
           localStorage.setItem("authUser", JSON.stringify(authUser));
         }
       } catch {}
