@@ -20,6 +20,8 @@ import gamePublicGuesses from "./routes/games.public.guesses.js";
 import leaderboardsPublic from "./routes/leaderboards.public.js";
 import { startLockGamesJob } from "./jobs/lockGames.js";
 
+import { usersMeRoutes } from "./routes/users.me.js"
+
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 dotenv.config({ path: path.join(__dirname, "../.env") });
@@ -60,6 +62,7 @@ const authLimiter = rateLimit({
   message: { error: "Per daug užklausų. Bandykite dar kartą vėliau." }
 });
 app.use("/api/auth", authLimiter, authRoutes);
+app.use("/api/users", usersMeRoutes)
 
 app.get("/api/health", (req, res) => {
   res.json({ ok: true, uptime: process.uptime() });
