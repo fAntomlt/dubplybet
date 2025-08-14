@@ -7,8 +7,6 @@ import {
 } from "react-icons/fi";
 import logoImg from "../assets/icriblogo.png";
 import { useToast } from "../components/ToastProvider";
-
-// ⬇️ use the shared auth store
 import { getAuth, subscribe, clearAuth } from "../store/auth";
 
 const AvatarSmall = ({ name }) => {
@@ -19,8 +17,6 @@ const AvatarSmall = ({ name }) => {
 export default function Sidebar({ onOpenChat }) {
   const [open, setOpen] = useState({ leaderboards: false });
   const [mobileOpen, setMobileOpen] = useState(false);
-
-  // ⬇️ keep sidebar state in sync with the auth store
   const [auth, setAuthState] = useState(getAuth());
   useEffect(() => {
     setAuthState(getAuth());               // initial

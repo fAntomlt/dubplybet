@@ -35,6 +35,14 @@ export default function Profile() {
   const [newPwd, setNewPwd] = useState("");
   const [newPwd2, setNewPwd2] = useState("");
 
+  // --- password rule flags (live) ---
+  const hasUpper = /[A-Z]/.test(newPwd);
+  const hasLower = /[a-z]/.test(newPwd);
+  const hasDigit = /[0-9]/.test(newPwd);
+  const hasSymbol = /[!@#$%^&*()_\-+\=\[\]{};:'",.<>/?\\|`~]/.test(newPwd);
+  const minLength = newPwd.length >= 8;
+  const ALLOWED_SYMBOLS = `! @ # $ % ^ & * ( ) _ - + = [ ] { } ; : ' " , . < > / ? \\ | \``;
+
   // load me
   useEffect(() => {
     document.title = "Profilis – DuBPlyBET";
@@ -86,26 +94,46 @@ export default function Profile() {
 
   const saveUsernameDiscord = async () => {
     if (!edit.field) return;
-
     setServerError("");
 
     try {
-      const body = {
-        currentPassword: confirmPwd,
-        ...(edit.field === "username" ? { username: username.trim() } : {}),
-      };
+      const body = { currentPassword: confirmPwd };
+      const currentUsername = me?.username || "";
+      const currentDiscord = (me?.discordUsername || "").toLowerCase();
+
+      if (edit.field === "username") {
+        const newName = (username || "").trim();
+        if (!newName) {
+          setServerError("Slapyvardis negali būti tuščias.");
+          return;
+        }
+        if (newName === currentUsername) {
+          setServerError("Naujas slapyvardis sutampa su dabartiniu.");
+          return;
+        }
+        if (!confirmPwd) {
+          setServerError("Įveskite slaptažodį patvirtinimui.");
+          return;
+        }
+        body.username = newName;
+      }
 
       if (edit.field === "discord") {
-        // Normalize and validate Discord username:
-        const discordNormalized = (discord || "")
-          .trim()
-          .replace(/^@/, "")
-          .toLowerCase();
-
+        const discordNormalized = (discord || "").trim().replace(/^@/, "").toLowerCase();
+        if (!discordNormalized) {
+          setServerError("Discord vardas negali būti tuščias.");
+          return;
+        }
         if (!DISCORD_RE.test(discordNormalized)) {
-          setServerError(
-            "Neteisingas Discord vardas (2–32, tik raidės/skaičiai, _ ir ., be '..')."
-          );
+          setServerError("Neteisingas Discord vardas (2–32, tik raidės/skaičiai, _ ir ., be '..').");
+          return;
+        }
+        if (discordNormalized === currentDiscord) {
+          setServerError("Naujas Discord vardas sutampa su dabartiniu.");
+          return;
+        }
+        if (!confirmPwd) {
+          setServerError("Įveskite slaptažodį patvirtinimui.");
           return;
         }
         body.discordUsername = discordNormalized;
@@ -125,7 +153,7 @@ export default function Profile() {
         return;
       }
 
-      // --- Apply changes locally ---
+      // apply locally
       const updated = {
         ...me,
         ...(body.username ? { username: body.username } : {}),
@@ -135,11 +163,11 @@ export default function Profile() {
       if (body.username) setUsername(body.username);
       if (body.discordUsername) setDiscord(body.discordUsername);
 
-      // clear password confirm + close editor
+      // clear + close
       setConfirmPwd("");
       setEdit({ field: null });
 
-      // --- Update navbar/auth store so it refreshes immediately ---
+      // refresh navbar immediately
       const { token: currentToken } = getAuth();
       setAuth({ user: updated, token: currentToken });
 
@@ -150,6 +178,8 @@ export default function Profile() {
   };
 
   const savePassword = async () => {
+    setServerError("");
+
     if (!oldPwd || !newPwd || !newPwd2) {
       setServerError("Užpildykite visus laukus.");
       return;
@@ -158,6 +188,11 @@ export default function Profile() {
       setServerError("Slaptažodžiai nesutampa");
       return;
     }
+    if (newPwd === oldPwd) {
+      setServerError("Naujas slaptažodis negali sutapti su senuoju.");
+      return;
+    }
+
     try {
       const res = await fetch(`${API}/api/users/change-password`, {
         method: "POST",
@@ -178,7 +213,7 @@ export default function Profile() {
       }
       toast.success("Slaptažodis atnaujintas");
 
-      // clear fields and close edit WITHOUT reverting values
+      // clear fields and close edit
       setOldPwd("");
       setNewPwd("");
       setNewPwd2("");
@@ -211,15 +246,20 @@ export default function Profile() {
         <Right>
           {!!serverError && <Alert role="alert">{serverError}</Alert>}
 
+          {/* USERNAME */}
           <Field>
-            <Label><FiUser /> Slapyvardis</Label>
-            <Row $editing={edit.field === "username"}>
-              <Input
-                disabled={edit.field !== "username"}
-                value={username}
-                onChange={(e) => setUsername(e.target.value)}
-                placeholder="Jūsų vardas"
-              />
+            <Label>Slapyvardis</Label>
+            <Row>
+              <InputWrap aria-invalid={false}>
+                <FiUser />
+                <Input
+                  disabled={edit.field !== "username"}
+                  value={username}
+                  onChange={(e) => setUsername(e.target.value)}
+                  placeholder="Jūsų vardas"
+                />
+              </InputWrap>
+
               {edit.field === "username" ? (
                 <BtnRow>
                   <IconBtn onClick={saveUsernameDiscord} aria-label="Išsaugoti"><FiCheck /></IconBtn>
@@ -233,25 +273,33 @@ export default function Profile() {
             {edit.field === "username" && (
               <Expand>
                 <SubLabel>Patvirtinkite slaptažodį</SubLabel>
-                <Input
-                  type="password"
-                  value={confirmPwd}
-                  onChange={(e) => setConfirmPwd(e.target.value)}
-                  placeholder="●●●●●●●●"
-                />
+                <ExpandedInputWrap aria-invalid={false}>
+                  <FiLock />
+                  <Input
+                    type="password"
+                    value={confirmPwd}
+                    onChange={(e) => setConfirmPwd(e.target.value)}
+                    placeholder="●●●●●●●●"
+                  />
+                </ExpandedInputWrap>
               </Expand>
             )}
           </Field>
 
+          {/* DISCORD */}
           <Field>
-            <Label><FiHash /> Discord Nick</Label>
-            <Row $editing={edit.field === "discord"}>
-              <Input
-                disabled={edit.field !== "discord"}
-                value={discord}
-                onChange={(e) => setDiscord(e.target.value)}
-                placeholder="vardas"
-              />
+            <Label>Discord Nick</Label>
+            <Row>
+              <InputWrap aria-invalid={false}>
+                <FiHash />
+                <Input
+                  disabled={edit.field !== "discord"}
+                  value={discord}
+                  onChange={(e) => setDiscord(e.target.value)}
+                  placeholder="vardas"
+                />
+              </InputWrap>
+
               {edit.field === "discord" ? (
                 <BtnRow>
                   <IconBtn onClick={saveUsernameDiscord} aria-label="Išsaugoti"><FiCheck /></IconBtn>
@@ -265,20 +313,28 @@ export default function Profile() {
             {edit.field === "discord" && (
               <Expand>
                 <SubLabel>Patvirtinkite slaptažodį</SubLabel>
-                <Input
-                  type="password"
-                  value={confirmPwd}
-                  onChange={(e) => setConfirmPwd(e.target.value)}
-                  placeholder="●●●●●●●●"
-                />
+                <ExpandedInputWrap aria-invalid={false}>
+                  <FiLock />
+                  <Input
+                    type="password"
+                    value={confirmPwd}
+                    onChange={(e) => setConfirmPwd(e.target.value)}
+                    placeholder="●●●●●●●●"
+                  />
+                </ExpandedInputWrap>
               </Expand>
             )}
           </Field>
 
+          {/* PASSWORD */}
           <Field>
-            <Label><FiLock /> Slaptažodis</Label>
-            <Row $editing={edit.field === "password"}>
-              <Input value="********" disabled />
+            <Label>Slaptažodis</Label>
+            <Row>
+              <InputWrap aria-invalid={false}>
+                <FiLock />
+                <Input value="********" disabled />
+              </InputWrap>
+
               {edit.field === "password" ? (
                 <BtnRow>
                   <IconBtn onClick={savePassword} aria-label="Išsaugoti"><FiCheck /></IconBtn>
@@ -292,26 +348,48 @@ export default function Profile() {
             {edit.field === "password" && (
               <Expand>
                 <SubLabel>Senas slaptažodis</SubLabel>
-                <Input
-                  type="password"
-                  value={oldPwd}
-                  onChange={(e) => setOldPwd(e.target.value)}
-                  placeholder="●●●●●●●●"
-                />
+                <ExpandedInputWrap aria-invalid={false}>
+                  <FiLock />
+                  <Input
+                    type="password"
+                    value={oldPwd}
+                    onChange={(e) => setOldPwd(e.target.value)}
+                    placeholder="●●●●●●●●"
+                  />
+                </ExpandedInputWrap>
+
                 <SubLabel>Naujas slaptažodis</SubLabel>
-                <Input
-                  type="password"
-                  value={newPwd}
-                  onChange={(e) => setNewPwd(e.target.value)}
-                  placeholder="●●●●●●●●"
-                />
+                <ExpandedInputWrap aria-invalid={false}>
+                  <FiLock />
+                  <Input
+                    type="password"
+                    value={newPwd}
+                    onChange={(e) => setNewPwd(e.target.value)}
+                    placeholder="●●●●●●●●"
+                  />
+                </ExpandedInputWrap>
+
+                {/* Password rules — same look as in Register */}
+                <Rules aria-live="polite">
+                  <Rule $ok={minLength}>Mažiausiai 8 simboliai</Rule>
+                  <Rule $ok={hasUpper}>Bent viena didžioji raidė</Rule>
+                  <Rule $ok={hasLower}>Bent viena mažoji raidė</Rule>
+                  <Rule $ok={hasDigit}>Bent vienas skaičius</Rule>
+                  <Rule $ok={hasSymbol}>
+                    Bent vienas simbolis <Symbols>(leidžiami: {ALLOWED_SYMBOLS})</Symbols>
+                  </Rule>
+                </Rules>
+
                 <SubLabel>Pakartokite naują slaptažodį</SubLabel>
-                <Input
-                  type="password"
-                  value={newPwd2}
-                  onChange={(e) => setNewPwd2(e.target.value)}
-                  placeholder="●●●●●●●●"
-                />
+                <ExpandedInputWrap aria-invalid={false}>
+                  <FiLock />
+                  <Input
+                    type="password"
+                    value={newPwd2}
+                    onChange={(e) => setNewPwd2(e.target.value)}
+                    placeholder="●●●●●●●●"
+                  />
+                </ExpandedInputWrap>
               </Expand>
             )}
           </Field>
@@ -357,17 +435,34 @@ const Alert = styled.div`
 
 const Field = styled.div`display:grid;gap:8px;`;
 const Label = styled.div`
-  display:flex;align-items:center;gap:8px;font-weight:800;color:#0f172a;
-  svg{color:#99a3b2;}
+  font-weight:800;color:#0f172a;font-size:14px;
 `;
+
 const Row = styled.div`
   display:flex;align-items:center;gap:10px;
-  border:1px solid #dfe5ec;border-radius:12px;padding:8px 8px 8px 12px;
-  background:${p=>p.$editing ? "#fff" : "#f8fafc"};
 `;
+
+const InputWrap = styled.div`
+  display:flex;align-items:center;gap:10px;height:48px;padding:0 14px;
+  border:1px solid ${({["aria-invalid"]: invalid}) => (invalid ? "#e11d48" : "#dfe5ec")};
+  border-radius: 999px;background:#f8fafc; flex:1;
+  transition:border-color .15s ease, box-shadow .15s ease, background-color .15s ease;
+
+  svg { color:#99a3b2; font-size:18px; }
+  input:disabled & { background:#f8fafc; }
+
+  &:focus-within {
+    border-color:#1f6feb;
+    box-shadow:0 0 0 3px #e8f1ff;
+    background:#fff;
+  }
+`;
+
 const Input = styled.input`
-  flex:1;border:0;background:transparent;outline:none;height:40px;font-size:15px;color:#0f172a;
+  border:0;outline:none;flex:1 1 auto;height:100%;
+  background:transparent;color:#0f172a;font-size:15px;
 `;
+
 const BtnRow = styled.div`display:flex;gap:6px;`;
 const IconBtn = styled.button`
   display:grid;place-items:center;border:1px solid #eceff3;background:#fff;
@@ -375,7 +470,61 @@ const IconBtn = styled.button`
 `;
 
 const Expand = styled.div`
-  display:grid;gap:6px;padding:10px;border:1px dashed #e6ecf5;border-radius:12px;background:#f8fafc;
+  display: grid;
+  gap: 8px;
+  margin-top: 8px;
+  padding: 10px;
+  border-radius: 14px;
+  background: #f1f5f9; /* light background */
+  border: 1px solid #e2e8f0; /* subtle border */
 `;
-const SubLabel = styled.div`font-size:12px;color:#475569;font-weight:700;`;
+
+const SubLabel = styled.div`
+  font-size: 11px; /* smaller font */
+  color: #475569;
+  font-weight: 700;
+`;
+
+const ExpandedInputWrap = styled(InputWrap)`
+  height: 42px; /* smaller height */
+  background: #fff; /* white inside */
+  border-radius: 12px;
+  svg {
+    font-size: 16px;
+  }
+  input {
+    font-size: 14px; /* smaller text */
+  }
+`;
 const Load = styled.div`padding:24px;`;
+
+/* Password rules — same visuals as Register */
+const Rules = styled.ul`
+  display: grid;
+  margin-top: 4px;
+  padding: 8px 10px;
+  border-radius: 12px;
+  border: 1px solid #e6ecf5;
+  background: #f8fafc;
+  list-style: none;
+  margin: 0;
+  padding-left: 0;
+`;
+const Rule = styled.li`
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 6px;
+  border-radius: 8px;
+  font-size: 13px;
+  color: ${({ $ok }) => ($ok ? "#0d6c2f" : "#475569")};
+  background: ${({ $ok }) => ($ok ? "#effaf1" : "transparent")};
+  transition: background-color 0.15s ease, color 0.15s ease;
+
+  &::before {
+    content: ${({ $ok }) => ($ok ? "'✔'" : "'✖'")};
+    font-weight: bold;
+    color: ${({ $ok }) => ($ok ? "#0d6c2f" : "#e11d48")};
+  }
+`;
+const Symbols = styled.span`color:#0f172a;`;
