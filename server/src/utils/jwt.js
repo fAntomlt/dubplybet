@@ -1,18 +1,27 @@
-// src/utils/jwt.js
 import jwt from "jsonwebtoken";
 
-/** Verify a JWT and return its payload, or null if invalid/expired. */
-export function verifyJwt(token) {
-  if (!token) return null;
+export function requireAuth(req, res, next) {
+  const h = req.headers.authorization || "";
+  const token = h.startsWith("Bearer ") ? h.slice(7) : null;
+  if (!token) return res.status(401).json({ error: "Reikia prisijungti" });
+
   try {
-    return jwt.verify(token, process.env.JWT_SECRET);
+    // payload is expected to look like { uid, role } based on your login code
+    const payload = jwt.verify(token, process.env.JWT_SECRET);
+    req.user = payload;
+    next();
   } catch {
-    return null;
+    return res
+      .status(401)
+      .json({ error: "Neteisingas arba pasibaigęs prisijungimas" });
   }
 }
 
-/** Optional helper (not used by login route, safe to keep). */
-export function signJwt(payload, opts = {}) {
-  const expiresIn = opts.expiresIn || process.env.JWT_EXPIRES_IN || "7d";
-  return jwt.sign(payload, process.env.JWT_SECRET, { expiresIn });
+export function requireAdmin(req, res, next) {
+  if (!req.user || req.user.role !== "admin") {
+    return res
+      .status(403)
+      .json({ error: "Reikalingos administratoriaus teisės" });
+  }
+  next();
 }
