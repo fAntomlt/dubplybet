@@ -8,80 +8,49 @@ import {
 import logoImg from "../assets/icriblogo.png";
 import { useToast } from "../components/ToastProvider";
 
-function getAuth() {
-  try {
-    const user = JSON.parse(localStorage.getItem("authUser") || "null");
-    const token = localStorage.getItem("authToken");
-    return user && token ? { user, token } : { user: null, token: null };
-  } catch {
-    return { user: null, token: null };
-  }
-}
+// ⬇️ use the shared auth store
+import { getAuth, subscribe, clearAuth } from "../store/auth";
 
 const AvatarSmall = ({ name }) => {
-  const initials = (name || "?")
-    .split(" ")
-    .map(w => w[0])
-    .slice(0, 2)
-    .join("")
-    .toUpperCase();
-  return (
-    <AvatarBadge aria-hidden>{initials}</AvatarBadge>
-  );
+  const initials = (name || "?").split(" ").map(w => w[0]).slice(0, 2).join("").toUpperCase();
+  return <AvatarBadge aria-hidden>{initials}</AvatarBadge>;
 };
 
 export default function Sidebar({ onOpenChat }) {
   const [open, setOpen] = useState({ leaderboards: false });
   const [mobileOpen, setMobileOpen] = useState(false);
-  const [auth, setAuth] = useState(getAuth());
 
+  // ⬇️ keep sidebar state in sync with the auth store
+  const [auth, setAuthState] = useState(getAuth());
   useEffect(() => {
-    setAuth(getAuth());
-    const onStorage = (e) => {
-      if (e.key === "authUser" || e.key === "authToken") {
-        setAuth(getAuth());
-      }
-    };
-    window.addEventListener("storage", onStorage);
-    return () => window.removeEventListener("storage", onStorage);
+    setAuthState(getAuth());               // initial
+    const unsub = subscribe(setAuthState); // live updates
+    return () => unsub();
   }, []);
 
   const toast = useToast();
-
   const closeIfMobile = () => { if (mobileOpen) setMobileOpen(false); };
 
   const handleLogout = () => {
-    try {
-      localStorage.removeItem("authToken");
-      localStorage.removeItem("authUser");
-      setAuth({ user: null, token: null });
-      toast.info("Sėkmingai atsijungėtę");
-      closeIfMobile();
-    } catch (e) {
-      console.error("Logout failed:", e);
-    }
+    clearAuth();                           // clears and notifies subscribers
+    setAuthState({ user: null, token: null });
+    toast.info("Sėkmingai atsijungėtę");
+    closeIfMobile();
   };
 
   return (
     <>
-      {/* MOBILE TOP BAR — like NBC: logo left, menu right */}
       <TopBar>
         <TopBrand to="/" onClick={closeIfMobile}>
           <LogoImg src={logoImg} alt="DubplyBet Logo" /> <span>DuBPly<span className="emph">BET</span></span>
         </TopBrand>
-        <TopButton
-          type="button"
-          aria-label={mobileOpen ? "Close menu" : "Open menu"}
-          onClick={() => setMobileOpen(s => !s)}
-        >
+        <TopButton type="button" aria-label={mobileOpen ? "Close menu" : "Open menu"} onClick={() => setMobileOpen(s => !s)}>
           {mobileOpen ? <FiX /> : <FiMenu />}
         </TopButton>
       </TopBar>
 
-      {/* Backdrop for drawer */}
       {mobileOpen && <Backdrop onClick={() => setMobileOpen(false)} />}
 
-      {/* SIDE NAV (desktop static, mobile off-canvas) */}
       <Nav $mobileOpen={mobileOpen}>
         <Brand to="/" $hide={mobileOpen} onClick={closeIfMobile}>
           <LogoImg src={logoImg} alt="DubplyBet Logo" /> <span>DuBPly<span className="emph">BET</span></span>
@@ -112,21 +81,12 @@ export default function Sidebar({ onOpenChat }) {
         </Item>
 
         <Group>
-          <GroupHeader
-            type="button"
-            onClick={() => setOpen(s => ({ ...s, leaderboards: !s.leaderboards }))}
-            aria-expanded={open.leaderboards}
-          >
+          <GroupHeader type="button" onClick={() => setOpen(s => ({ ...s, leaderboards: !s.leaderboards }))} aria-expanded={open.leaderboards}>
             <div><FiBarChart2 /> <span>Leaderboards</span></div>
             <Caret $open={open.leaderboards}><FiChevronDown/></Caret>
           </GroupHeader>
 
-          {/* always render; slide with CSS */}
-          <Submenu
-            $open={open.leaderboards}
-            onClick={e => e.stopPropagation()}
-            aria-hidden={!open.leaderboards}
-          >
+          <Submenu $open={open.leaderboards} onClick={e => e.stopPropagation()} aria-hidden={!open.leaderboards}>
             <SubItem to="/leaderboards/visu-laiku" onClick={closeIfMobile}>Visų laikų</SubItem>
             <SubItem to="/leaderboards/pagal-turnyrą" onClick={closeIfMobile}>Pagal turnyrą</SubItem>
           </Submenu>
@@ -143,8 +103,7 @@ export default function Sidebar({ onOpenChat }) {
         {auth.user && (
           <LogoutDock>
             <LogoutRow type="button" onClick={handleLogout}>
-              <FiLogOut />
-              <span>Atsijungti</span>
+              <FiLogOut /> <span>Atsijungti</span>
             </LogoutRow>
           </LogoutDock>
         )}
