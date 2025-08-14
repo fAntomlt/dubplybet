@@ -6,6 +6,7 @@ import { Link } from 'react-router-dom';
 import { FiTrash2, FiEdit3, FiX, FiCheck } from 'react-icons/fi';
 
 export default function ChatDock({ open = false, onClose }) {
+  if(!open) return null;
   const [msg, setMsg] = useState('');
   const [sending, setSending] = useState(false);
   const [messages, setMessages] = useState([]);
