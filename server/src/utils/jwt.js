@@ -1,1 +1,18 @@
-import jwt from "jsonwebtoken"; export function requireAuth(req, res, next) { const h = req.headers.authorization || ""; const token = h.startsWith("Bearer ") ? h.slice(7) : null; if (!token) return res.status(401).json({ error: "Reikia prisijungti" }); try { const payload = jwt.verify(token, process.env.JWT_SECRET); { uid, role } req.user = payload; next(); } catch { return res.status(401).json({ error: "Neteisingas arba pasibaigęs prisijungimas" }); } } export function requireAdmin(req, res, next) { if (!req.user || req.user.role !== "admin") { return res.status(403).json({ error: "Reikalingos administratoriaus teisės" }); } next(); }
+// src/utils/jwt.js
+import jwt from "jsonwebtoken";
+
+/** Verify a JWT and return its payload, or null if invalid/expired. */
+export function verifyJwt(token) {
+  if (!token) return null;
+  try {
+    return jwt.verify(token, process.env.JWT_SECRET);
+  } catch {
+    return null;
+  }
+}
+
+/** Optional helper (not used by login route, safe to keep). */
+export function signJwt(payload, opts = {}) {
+  const expiresIn = opts.expiresIn || process.env.JWT_EXPIRES_IN || "7d";
+  return jwt.sign(payload, process.env.JWT_SECRET, { expiresIn });
+}
