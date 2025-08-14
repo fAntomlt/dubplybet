@@ -89,9 +89,8 @@ io.on("connection", async (socket) => {
 
     if (!token) throw new Error("missing token");
 
-    const payload = verifyJwt(token);
-    const userId = payload?.id ?? payload?.uid ?? payload?.userId;
-    if (!userId) throw new Error("token has no id/uid");
+    const payload = verifyJwt(token); // throws if invalid/expired/missing id
+    const userId = payload.id;        // guaranteed by verifyJwt()
 
     // verify user exists (also read role for admin permissions)
     const [rows] = await pool.query(
