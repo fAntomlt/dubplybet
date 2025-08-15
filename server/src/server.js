@@ -20,6 +20,8 @@ import gamePublicGuesses from "./routes/games.public.guesses.js";
 import leaderboardsPublic from "./routes/leaderboards.public.js";
 import { startLockGamesJob } from "./jobs/lockGames.js";
 import usersMeRoutes from "./routes/users.me.js";
+import mime from "mime-types";
+import fs from "fs";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -40,6 +42,8 @@ const corsOptions = {
   credentials: true,
 };
 
+const uploadsRoot = path.join(__dirname, "../uploads");
+
 // ORDER: parsers → cors → routes
 app.use(express.json({ limit: "1mb" }));
 app.use(express.urlencoded({ extended: false }));
@@ -53,6 +57,35 @@ app.use("/api/games", gamePublicGuesses);
 app.use("/api/leaderboards", leaderboardsPublic);
 app.use("/api/chat", chatPublic);
 app.use("/api/users", usersMeRoutes);
+app.use("/uploads", (req, res, next) => {
+  const filePath = path.join(uploadsRoot, req.path);
+
+  // Prevent path traversal
+  if (!filePath.startsWith(uploadsRoot)) return res.status(400).end();
+
+  fs.stat(filePath, (err, stat) => {
+    if (err || !stat.isFile()) return res.status(404).end();
+
+    // Set MIME type explicitly for the extensions we allow
+    const ext = path.extname(filePath).toLowerCase();
+    switch (ext) {
+      case ".jpg":
+      case ".jpeg":
+        res.type("image/jpeg");
+        break;
+      case ".png":
+        res.type("image/png");
+        break;
+      case ".webp":
+        res.type("image/webp");
+        break;
+      default:
+        // Unknown/blocked extension -> 415 Unsupported Media Type
+        return res.status(415).end();
+    }
+    res.sendFile(filePath);
+  });
+});
 
 const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,

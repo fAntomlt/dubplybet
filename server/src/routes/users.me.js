@@ -4,6 +4,11 @@ import pool from "../db.js";
 import { requireAuth } from "../middleware/auth.js";
 import { z } from "zod";
 import bcrypt from "bcryptjs";
+import path from "path";
+import fs from "fs/promises";
+import multer from "multer";
+import sharp from "sharp";
+import { fileURLToPath } from "url";
 
 const router = Router();
 
@@ -20,12 +25,108 @@ const DiscordSchema = z
 
 const PasswordSchema = z.string().min(8).max(100);
 
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+const upload = multer({
+  storage: multer.memoryStorage(),
+  limits: {
+    fileSize: 2 * 1024 * 1024, // 2MB max
+    files: 1,
+  },
+  fileFilter: (req, file, cb) => {
+    const ok =
+      file.mimetype === "image/jpeg" ||
+      file.mimetype === "image/png" ||
+      file.mimetype === "image/webp";
+    cb(ok ? null : new multer.MulterError("LIMIT_UNEXPECTED_FILE", "file"));
+  },
+});
+
+// Very small “magic number” sniff as an extra check
+function looksLikeImage(buffer) {
+  if (!buffer || buffer.length < 12) return false;
+  const sig = buffer.subarray(0, 12);
+
+  // JPEG: FF D8 FF
+  if (sig[0] === 0xff && sig[1] === 0xd8 && sig[2] === 0xff) return true;
+
+  // PNG: 89 50 4E 47 0D 0A 1A 0A
+  if (
+    sig[0] === 0x89 && sig[1] === 0x50 && sig[2] === 0x4e && sig[3] === 0x47 &&
+    sig[4] === 0x0d && sig[5] === 0x0a && sig[6] === 0x1a && sig[7] === 0x0a
+  ) return true;
+
+  // WEBP: "RIFF" .... "WEBP"
+  const str4 = (b, i) => String.fromCharCode(b[i], b[i+1], b[i+2], b[i+3]);
+  if (str4(sig, 0) === "RIFF" && str4(sig, 8) === "WEBP") return true;
+
+  return false;
+}
+
+const avatarsDir = path.join(__dirname, "../uploads/avatars");
+
+async function ensureDirs() {
+  await fs.mkdir(avatarsDir, { recursive: true });
+}
+ensureDirs().catch(() => { /* ignore on boot */ });
+
+// POST /api/users/me/avatar
+router.post("/me/avatar", requireAuth, upload.single("avatar"), async (req, res) => {
+  try {
+    const uid = req.user.uid ?? req.user.id ?? req.user.userId;
+    if (!req.file || !req.file.buffer) {
+      return res.status(400).json({ ok: false, error: "Nerastas bylos turinys." });
+    }
+
+    // Extra content sniff
+    if (!looksLikeImage(req.file.buffer)) {
+      return res.status(400).json({ ok: false, error: "Neleistinas paveikslėlio formatas." });
+    }
+
+    // Process with sharp: strip metadata, clamp size, square cover, convert to webp
+    const MAX_DIM = 512;  // keep a nice source
+    const AVATAR_DIM = 256; // final square avatar size
+
+    // First, normalize & limit to max bounds to avoid huge inputs
+    const normalized = sharp(req.file.buffer, { failOn: "none" })
+      .rotate()
+      .resize(MAX_DIM, MAX_DIM, { fit: "inside", withoutEnlargement: true })
+      .removeAlpha(); // normalize alpha channels
+
+    // Then produce a centered square avatar
+    const avatar = await normalized
+      .resize(AVATAR_DIM, AVATAR_DIM, { fit: "cover", position: "attention" })
+      .webp({ quality: 90 })
+      .toBuffer();
+
+    // Save with deterministic name per user (cache-bust with a version if you like)
+    const filename = `u_${uid}.webp`;
+    const outPath = path.join(avatarsDir, filename);
+    await fs.writeFile(outPath, avatar);
+
+    const publicUrl = `/uploads/avatars/${filename}`;
+
+    // Persist in DB (recommended)
+    await pool.query("UPDATE users SET avatar_url = ? WHERE id = ?", [publicUrl, uid]);
+
+    return res.json({ ok: true, url: publicUrl });
+  } catch (err) {
+    if (err instanceof multer.MulterError) {
+      // Size/type/etc
+      return res.status(400).json({ ok: false, error: "Netinkamas failas (dydis ar tipas)." });
+    }
+    console.error("avatar upload error:", err);
+    return res.status(500).json({ ok: false, error: "Serverio klaida." });
+  }
+});
+
 // GET /api/users/me
 router.get("/me", requireAuth, async (req, res) => {
   try {
     const uid = req.user.uid ?? req.user.id ?? req.user.userId;
     const [rows] = await pool.query(
-      "SELECT id, email, username, discord_username AS discordUsername, role FROM users WHERE id = ? LIMIT 1",
+      "SELECT id, email, username, discord_username AS discordUsername, role, avatar_url AS avatarUrl FROM users WHERE id = ? LIMIT 1",
       [uid]
     );
     if (!rows.length) return res.status(404).json({ error: "Vartotojas nerastas" });
