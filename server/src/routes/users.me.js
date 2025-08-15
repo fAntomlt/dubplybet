@@ -65,7 +65,7 @@ function looksLikeImage(buffer) {
   return false;
 }
 
-const avatarsDir = path.join(__dirname, "../uploads/avatars");
+const avatarsDir = path.join(__dirname, "../../uploads/avatars");
 
 async function ensureDirs() {
   await fs.mkdir(avatarsDir, { recursive: true });
