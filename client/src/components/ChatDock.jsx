@@ -31,6 +31,36 @@ export default function ChatDock({ open = false, onClose }) {
   const [cardLoading, setCardLoading] = useState(false);
   const [cardError, setCardError] = useState("");
 
+
+    // near other state
+  const [profileVisible, setProfileVisible] = useState(false);
+  const [animOpen, setAnimOpen] = useState(false); // drives the CSS transition
+
+  // when opening, make it visible immediately
+  useEffect(() => {
+  if (cardFor) {
+    setProfileVisible(true);      // mount the modal
+    setAnimOpen(false);           // start "closed"
+    let r1 = requestAnimationFrame(() => {
+      let r2 = requestAnimationFrame(() => setAnimOpen(true)); // then open → animate in
+      // cleanup nested RAF
+      return () => cancelAnimationFrame(r2);
+    });
+    return () => cancelAnimationFrame(r1);
+  }
+}, [cardFor]);
+
+  // when closing, wait for the animation to finish, then unmount
+  useEffect(() => {
+  if (!cardFor && profileVisible) {
+    setAnimOpen(false);           // triggers slide/opacity out
+    const t = setTimeout(() => setProfileVisible(false), 420); // match .92s
+    return () => clearTimeout(t);
+  }
+  }, [cardFor, profileVisible]);
+
+const closeProfile = () => setCardFor(null);
+
   // focus input on open
   useEffect(() => {
     if (open) setTimeout(() => inputRef.current?.focus(), 50);
@@ -168,6 +198,7 @@ export default function ChatDock({ open = false, onClose }) {
     // server will broadcast chat:updated → we sync then
   };
   const absUrl = (apiBase, url) => url ? (/^https?:\/\//i.test(url) ? url : `${apiBase}${url}`) : null;
+  const fmtDate = (d) => { try { return new Date(d).toLocaleDateString(); } catch { return ""; } };
 
   const loadProfile = async (userId) => {
   if (!userId) return;
@@ -221,8 +252,8 @@ export default function ChatDock({ open = false, onClose }) {
                         <Name
                           role="button"
                           onClick={() => {
-                            setCardFor(prev => (prev === m.id ? null : m.id));
-                            if (cardFor !== m.id) loadProfile(m.userId);
+                            setCardFor(prev => (prev === m.userId ? null : m.userId));
+                            if (cardFor !== m.userId) loadProfile(m.userId);
                           }}
                         >
                           {m.username}
@@ -246,27 +277,6 @@ export default function ChatDock({ open = false, onClose }) {
                       </Actions>
 
                     </MsgHead>
-                    {cardFor === m.id && (
-                      <UserCard>
-                        <CardClose onClick={() => setCardFor(null)} aria-label="Uždaryti">×</CardClose>
-                        {cardLoading && <CardMeta>Kraunama…</CardMeta>}
-                        {cardError && <CardMeta role="alert">{cardError}</CardMeta>}
-                        {!cardLoading && !cardError && (() => {
-                          const p = profiles.get(m.userId);
-                          if (!p) return null;
-                          const u = absUrl(API_URL, p.avatarUrl);
-                          return (
-                            <>
-                              <CardAvatarWrap>
-                                {u ? <CardAvatar src={u} alt="" /> : <CardAvatarFallback>{initials(p.username)}</CardAvatarFallback>}
-                              </CardAvatarWrap>
-                              <CardName>{p.username}</CardName>
-                              <CardMeta>Prisiregistravo: <b>{fmtDate(p.registeredAt)}</b></CardMeta>
-                            </>
-                          );
-                        })()}
-                      </UserCard>
-                    )}
                     {editingId === m.id ? (
                       <EditRow>
                         <EditInput
@@ -353,6 +363,49 @@ export default function ChatDock({ open = false, onClose }) {
           </Modal>
         </>
       )}
+      {cardFor && (
+  <>
+    <Backdrop onClick={() => setCardFor(null)} />
+    {profileVisible && (
+  <ProfileModal
+    $open={animOpen}
+    role="dialog"
+    aria-modal="true"
+    aria-labelledby="profile-title"
+    onClick={closeProfile}
+  >
+    <ProfileCard
+      $open={animOpen}
+      onClick={(e) => e.stopPropagation()}
+    >
+      <CloseX onClick={closeProfile} aria-label="Uždaryti">×</CloseX>
+
+      {cardLoading && <ProfileMeta>Kraunama…</ProfileMeta>}
+      {cardError && <ProfileMeta role="alert">{cardError}</ProfileMeta>}
+
+      {!cardLoading && !cardError && (() => {
+        const p = profiles.get(cardFor);
+        if (!p) return null;
+        const u = absUrl(API_URL, p.avatarUrl);
+        return (
+          <>
+            <ProfileAvatarWrap>
+              {u ? <ProfileAvatar src={u} alt="" /> : (
+                <ProfileAvatarFallback>{initials(p.username)}</ProfileAvatarFallback>
+              )}
+            </ProfileAvatarWrap>
+
+            <ProfileName id="profile-title">{p.username}</ProfileName>
+            <RoleBadge>{p.role === 'admin' ? 'Administratorius' : 'Narys'}</RoleBadge>
+            <ProfileMeta>Prisiregistravo: <b>{fmtDate(p.registeredAt)}</b></ProfileMeta>
+          </>
+        );
+      })()}
+    </ProfileCard>
+  </ProfileModal>
+)}
+  </>
+)}
     </Wrap>
   );
 }
@@ -426,7 +479,7 @@ const AvatarImg = styled.img`
   object-fit:cover; display:block;
   border:1px solid ${({theme})=>theme.colors.line}; `;
 const Meta = styled.div` display:flex; align-items:baseline; gap:8px; `;
-const Name = styled.span` font-weight:700; color:#0f172a; font-size:13px; `;
+const Name = styled.span` font-weight:700; color:#0f172a; font-size:13px; cursor: pointer;`;
 const Time = styled.span` color:${({theme})=>theme.colors.subtext}; font-size:12px; `;
 
 const Actions = styled.div`
@@ -626,6 +679,71 @@ const CardMeta = styled.div`
   text-align: center;
   color: ${({theme})=>theme.colors.subtext};
   font-size: 13px;
+`;
+
+const ProfileModal = styled.div`
+  position:absolute;
+  inset:0;
+  display:grid;
+  place-items:center;
+  z-index: 3;
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  opacity: ${({ $open }) => ($open ? 1 : 0)};
+  transition: opacity .42s cubic-bezier(.22,.61,.36,1);
+  will-change: opacity; /* smoother */
+`;
+
+const ProfileCard = styled.div`
+  position: relative;
+  background: rgba(255, 255, 255, 0.85);
+  border: 1px solid ${({ theme }) => theme.colors.line};
+  border-radius: 16px;
+  box-shadow: 0 10px 30px rgba(0,0,0,.14);
+  width: min(92vw, 320px);
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 6px;
+
+  transform: translateY(${({ $open }) => ($open ? '0' : '16px')});
+  opacity: ${({ $open }) => ($open ? 1 : 0)};
+  transition:
+    transform .42s cubic-bezier(.22,.61,.36,1),
+    opacity   .42s cubic-bezier(.22,.61,.36,1);
+  will-change: transform, opacity; /* smoother */
+`;
+
+const CloseX = styled.button`
+  position:absolute; top:8px; right:8px;
+  width:28px; height:28px; border-radius:8px;
+  border:1px solid ${({theme})=>theme.colors.line};
+  background:#fff; cursor:pointer; line-height:1; font-size:16px;
+`;
+
+const ProfileAvatarWrap = styled.div` margin-top: 6px; display:grid; place-items:center; `;
+const ProfileAvatar = styled.img`
+  width:64px; height:64px; border-radius:50%;
+  object-fit:cover; display:block;
+  border:1px solid ${({theme})=>theme.colors.line};
+`;
+const ProfileAvatarFallback = styled.div`
+  width:64px; height:64px; border-radius:50%;
+  display:grid; place-items:center;
+  background:#e8f1ff; color:#1f6feb; font-weight:800; font-size:18px;
+  border:1px solid ${({theme})=>theme.colors.line};
+`;
+const ProfileName = styled.div` margin-top:8px; font-weight:800; color:#0f172a; `;
+const ProfileMeta = styled.div` margin-top:4px; color:${({theme})=>theme.colors.subtext}; font-size:13px; text-align:center; `;
+
+const RoleBadge = styled.span`
+  display:inline-block;
+  padding:0px 8px;
+  font-size:12px;
+  font-weight:700;
+  color:#0f172a;
 `;
 
 /* style the modal card */

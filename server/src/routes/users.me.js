@@ -256,6 +256,7 @@ router.get("/public/:id", requireAuth, async (req, res) => {
     const [rows] = await pool.query(
       `SELECT id,
               username,
+              role,
               avatar_url AS avatarUrl,
               created_at AS registeredAt
          FROM users
