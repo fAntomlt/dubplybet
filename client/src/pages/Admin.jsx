@@ -426,10 +426,16 @@ function conditionText(g) {
   }
 }
 
-const Wrap = styled.div` display: grid; gap: 14px; `;
+const Wrap = styled.div` 
+  display: flex; 
+  gap: 14px; 
+  min-height: 100vh;
+  flex-direction: column;
+  justify-content: center;
+  `;
 const Header = styled.div`
   display:flex; align-items:baseline; gap:12px;
-  h1{ margin:0; font-size:22px; }
+  h1{ margin:0; font-size:30px; font-weight: 800}
   span{ color:#64748b; font-size:14px; }
 `;
 const TabRow = styled.div` display:flex; gap:8px; `;
