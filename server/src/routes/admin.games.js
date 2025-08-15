@@ -10,6 +10,7 @@ const GameSchema = z.object({
   team_a: z.string().min(1, "Reikalinga komanda A").max(120),
   team_b: z.string().min(1, "Reikalinga komanda B").max(120),
   tipoff_at: z.string(), // ISO or "YYYY-MM-DD HH:mm:ss"
+  stage: z.enum(["group", "playoff"]).optional().default("group"),
 });
 
 // List games by tournament
@@ -28,8 +29,8 @@ router.post("/games", async (req, res) => {
   try {
     const { tournament_id, team_a, team_b, tipoff_at } = GameSchema.parse(req.body);
     const [r] = await pool.query(
-      "INSERT INTO games (tournament_id, team_a, team_b, tipoff_at, status) VALUES (?,?,?,?, 'scheduled')",
-      [tournament_id, team_a, team_b, tipoff_at]
+      "INSERT INTO games (tournament_id, team_a, team_b, tipoff_at, status, stage) VALUES (?,?,?,?, 'scheduled', ?)",
+      [tournament_id, team_a, team_b, tipoff_at, req.body.stage || "group"]
     );
     return res.json({ ok: true, id: r.insertId, message: "Rungtynės sukurtos" });
   } catch (e) {
@@ -44,7 +45,7 @@ router.patch("/games/:id", async (req, res) => {
 
   const fields = [];
   const values = [];
-  for (const k of ["team_a", "team_b", "tipoff_at", "status"]) {
+  for (const k of ["team_a", "team_b", "tipoff_at", "status", "stage"]) {
     if (k in req.body) { fields.push(`${k} = ?`); values.push(req.body[k]); }
   }
   if (!fields.length) return res.status(400).json({ error: "Nėra ką atnaujinti" });

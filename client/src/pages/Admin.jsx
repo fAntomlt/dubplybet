@@ -247,6 +247,7 @@ function AdminGames() {
   const [teamA, setTeamA] = useState("");
   const [teamB, setTeamB] = useState("");
   const [tipoff, setTipoff] = useState(""); // "YYYY-MM-DDTHH:mm" -> will convert
+  const [stage, setStage] = useState("group"); // NEW
 
   useEffect(() => {
     (async () => {
@@ -255,7 +256,7 @@ function AdminGames() {
         setTournaments(data.tournaments || []);
         if (data.tournaments?.[0]) setTid(String(data.tournaments[0].id));
       } catch (e) {
-        // do nothing; section still usable once user picks another
+        // ignore; still usable once user picks another
       }
     })();
   }, []);
@@ -286,9 +287,15 @@ function AdminGames() {
     try {
       await api(`/api/admin/games`, {
         method: "POST",
-        json: { tournament_id: Number(tid), team_a: teamA, team_b: teamB, tipoff_at: iso },
+        json: {
+          tournament_id: Number(tid),
+          team_a: teamA,
+          team_b: teamB,
+          tipoff_at: iso,
+          stage, // NEW
+        },
       });
-      setTeamA(""); setTeamB(""); setTipoff("");
+      setTeamA(""); setTeamB(""); setTipoff(""); setStage("group");
       toast.success("Rungtynės sukurtos");
       loadGames();
     } catch (e) {
@@ -303,6 +310,16 @@ function AdminGames() {
       loadGames();
     } catch (e) {
       toast.error(e.message || "Klaida");
+    }
+  }
+
+  async function updateStage(id, newStage) { // NEW
+    try {
+      await api(`/api/admin/games/${id}`, { method: "PATCH", json: { stage: newStage } });
+      toast.success("Etapas atnaujintas");
+      loadGames();
+    } catch (e) {
+      toast.error(e.message || "Nepavyko atnaujinti etapo");
     }
   }
 
@@ -356,6 +373,10 @@ function AdminGames() {
           onChange={e => setTipoff(e.target.value)}
           title="UTC or your local — server expects a proper date string"
         />
+        <select value={stage} onChange={e => setStage(e.target.value)}>
+          <option value="group">Group</option>
+          <option value="playoff">Playoff</option>
+        </select>
         <button onClick={createGame}>Sukurti</button>
       </Flex>
 
@@ -367,35 +388,48 @@ function AdminGames() {
         <Table>
           <thead>
             <tr>
-                <th>ID</th><th>Komandos</th><th>Pradžia</th><th>Statusas</th>
-                <th>Rez.</th><th>Sąlyga</th><th>Veiksmai</th>
+              <th>ID</th><th>Komandos</th><th>Pradžia</th><th>Statusas</th>
+              <th>Rez.</th><th>Sąlyga</th><th>Etapas</th><th>Veiksmai</th>
             </tr>
           </thead>
           <tbody>
             {games.map(g => (
-                <tr key={g.id}>
+              <tr key={g.id}>
                 <td>{g.id}</td>
                 <td>{g.team_a} — {g.team_b}</td>
                 <td>{fmt(g.tipoff_at)}</td>
-                <td>{g.status}{g.stage ? ` / ${g.stage}` : ""}</td>
+                <td>{g.status}</td>
                 <td>{g.score_a == null ? "—" : g.score_a} : {g.score_b == null ? "—" : g.score_b}</td>
                 <td>{conditionText(g)}</td>
                 <td>
-                    {g.status !== "finished" && (
-                        <>
-                        <Small onClick={() => setStatus(g.id, "scheduled")}>Į „scheduled“</Small>{" "}
-                        <Small onClick={() => setStatus(g.id, "locked")}>Užrakinti</Small>{" "}
-                        <Small onClick={() => finishGame(g.id)}>Užbaigti</Small>{" "}
-                        </>
-                    )}
-                    <Small danger onClick={() => del(g.id)}>Trinti</Small>
+                  {g.status === "finished" ? (
+                    g.stage || "group"
+                  ) : (
+                    <select
+                      value={g.stage || "group"}
+                      onChange={(e) => updateStage(g.id, e.target.value)}
+                    >
+                      <option value="group">group</option>
+                      <option value="playoff">playoff</option>
+                    </select>
+                  )}
                 </td>
-                </tr>
+                <td>
+                  {g.status !== "finished" && (
+                    <>
+                      <Small onClick={() => setStatus(g.id, "scheduled")}>Į „scheduled“</Small>{" "}
+                      <Small onClick={() => setStatus(g.id, "locked")}>Užrakinti</Small>{" "}
+                      <Small onClick={() => finishGame(g.id)}>Užbaigti</Small>{" "}
+                    </>
+                  )}
+                  <Small danger onClick={() => del(g.id)}>Trinti</Small>
+                </td>
+              </tr>
             ))}
             {!games.length && (
-                <tr><td colSpan={7} style={{textAlign:"center", color:"#64748b"}}>Nėra rungtynių</td></tr>
+              <tr><td colSpan={8} style={{textAlign:"center", color:"#64748b"}}>Nėra rungtynių</td></tr>
             )}
-           </tbody>
+          </tbody>
         </Table>
       )}
     </Section>
