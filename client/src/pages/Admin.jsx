@@ -243,11 +243,17 @@ function AdminGames() {
   const [games, setGames] = useState([]);
   const [loading, setLoading] = useState(false);
 
-  // create/edit form
+  // create form
   const [teamA, setTeamA] = useState("");
   const [teamB, setTeamB] = useState("");
-  const [tipoff, setTipoff] = useState(""); // "YYYY-MM-DDTHH:mm" -> will convert
-  const [stage, setStage] = useState("group"); // NEW
+  const [tipoff, setTipoff] = useState(""); // "YYYY-MM-DDTHH:mm"
+  const [stage, setStage] = useState("group");
+
+  // inline edit state
+  const [editId, setEditId] = useState(null);
+  const [eTeamA, setETeamA] = useState("");
+  const [eTeamB, setETeamB] = useState("");
+  const [eTipoff, setETipoff] = useState(""); // "YYYY-MM-DDTHH:mm"
 
   useEffect(() => {
     (async () => {
@@ -255,9 +261,7 @@ function AdminGames() {
         const data = await api(`/api/admin/tournaments`);
         setTournaments(data.tournaments || []);
         if (data.tournaments?.[0]) setTid(String(data.tournaments[0].id));
-      } catch (e) {
-        // ignore; still usable once user picks another
-      }
+      } catch { /* ignore */ }
     })();
   }, []);
 
@@ -283,7 +287,7 @@ function AdminGames() {
 
   async function createGame() {
     if (!tid || !teamA || !teamB || !tipoff) return toast.error("Užpildykite laukus");
-    const iso = new Date(tipoff).toISOString().slice(0, 19).replace("T", " ");
+    const sqlTs = tipoffToSQL(tipoff);
     try {
       await api(`/api/admin/games`, {
         method: "POST",
@@ -291,8 +295,8 @@ function AdminGames() {
           tournament_id: Number(tid),
           team_a: teamA,
           team_b: teamB,
-          tipoff_at: iso,
-          stage, // NEW
+          tipoff_at: sqlTs,
+          stage,
         },
       });
       setTeamA(""); setTeamB(""); setTipoff(""); setStage("group");
@@ -313,7 +317,7 @@ function AdminGames() {
     }
   }
 
-  async function updateStage(id, newStage) { // NEW
+  async function updateStage(id, newStage) {
     try {
       await api(`/api/admin/games/${id}`, { method: "PATCH", json: { stage: newStage } });
       toast.success("Etapas atnaujintas");
@@ -351,6 +355,34 @@ function AdminGames() {
     }
   }
 
+  // ---- inline edit handlers ----
+  function startEdit(g) {
+    if (g.status === "finished") return;
+    setEditId(g.id);
+    setETeamA(g.team_a || "");
+    setETeamB(g.team_b || "");
+    setETipoff(sqlToLocalInput(g.tipoff_at));
+  }
+  function cancelEdit() {
+    setEditId(null);
+    setETeamA(""); setETeamB(""); setETipoff("");
+  }
+  async function saveEdit(id) {
+    if (!eTeamA || !eTeamB || !eTipoff) return toast.error("Užpildykite laukus");
+    const sqlTs = tipoffToSQL(eTipoff);
+    try {
+      await api(`/api/admin/games/${id}`, {
+        method: "PATCH",
+        json: { team_a: eTeamA, team_b: eTeamB, tipoff_at: sqlTs },
+      });
+      toast.success("Rungtynės atnaujintos");
+      cancelEdit();
+      loadGames();
+    } catch (e) {
+      toast.error(e.message || "Nepavyko atnaujinti");
+    }
+  }
+
   return (
     <Section>
       <Flex>
@@ -371,7 +403,7 @@ function AdminGames() {
           type="datetime-local"
           value={tipoff}
           onChange={e => setTipoff(e.target.value)}
-          title="UTC or your local — server expects a proper date string"
+          title="Pasirinkite vietinį laiką (saugomas tiesiogiai DB)"
         />
         <select value={stage} onChange={e => setStage(e.target.value)}>
           <option value="group">Group</option>
@@ -393,39 +425,85 @@ function AdminGames() {
             </tr>
           </thead>
           <tbody>
-            {games.map(g => (
-              <tr key={g.id}>
-                <td>{g.id}</td>
-                <td>{g.team_a} — {g.team_b}</td>
-                <td>{fmt(g.tipoff_at)}</td>
-                <td>{g.status}</td>
-                <td>{g.score_a == null ? "—" : g.score_a} : {g.score_b == null ? "—" : g.score_b}</td>
-                <td>{conditionText(g)}</td>
-                <td>
-                  {g.status === "finished" ? (
-                    g.stage || "group"
-                  ) : (
-                    <select
-                      value={g.stage || "group"}
-                      onChange={(e) => updateStage(g.id, e.target.value)}
-                    >
-                      <option value="group">group</option>
-                      <option value="playoff">playoff</option>
-                    </select>
-                  )}
-                </td>
-                <td>
-                  {g.status !== "finished" && (
-                    <>
-                      <Small onClick={() => setStatus(g.id, "scheduled")}>Į „scheduled“</Small>{" "}
-                      <Small onClick={() => setStatus(g.id, "locked")}>Užrakinti</Small>{" "}
-                      <Small onClick={() => finishGame(g.id)}>Užbaigti</Small>{" "}
-                    </>
-                  )}
-                  <Small danger onClick={() => del(g.id)}>Trinti</Small>
-                </td>
-              </tr>
-            ))}
+            {games.map(g => {
+              const isEditing = editId === g.id && g.status !== "finished";
+              return (
+                <tr key={g.id}>
+                  <td>{g.id}</td>
+
+                  {/* Teams */}
+                  <td>
+                    {isEditing ? (
+                      <div style={{display:"grid", gap:6}}>
+                        <input value={eTeamA} onChange={e=>setETeamA(e.target.value)} placeholder="Komanda A" />
+                        <input value={eTeamB} onChange={e=>setETeamB(e.target.value)} placeholder="Komanda B" />
+                      </div>
+                    ) : (
+                      `${g.team_a} — ${g.team_b}`
+                    )}
+                  </td>
+
+                  {/* Tipoff */}
+                  <td>
+                    {isEditing ? (
+                      <input
+                        type="datetime-local"
+                        value={eTipoff}
+                        onChange={e=>setETipoff(e.target.value)}
+                      />
+                    ) : (
+                      fmt(g.tipoff_at)
+                    )}
+                  </td>
+
+                  {/* Status */}
+                  <td>{g.status}</td>
+
+                  {/* Score */}
+                  <td>{g.score_a == null ? "—" : g.score_a} : {g.score_b == null ? "—" : g.score_b}</td>
+
+                  {/* Condition */}
+                  <td>{conditionText(g)}</td>
+
+                  {/* Stage */}
+                  <td>
+                    {g.status === "finished" ? (
+                      g.stage || "group"
+                    ) : isEditing ? (
+                      <span style={{color:"#64748b"}}>{g.stage || "group"}</span>
+                    ) : (
+                      <select
+                        value={g.stage || "group"}
+                        onChange={(e) => updateStage(g.id, e.target.value)}
+                      >
+                        <option value="group">group</option>
+                        <option value="playoff">playoff</option>
+                      </select>
+                    )}
+                  </td>
+
+                  {/* Actions */}
+                  <td>
+                    {g.status !== "finished" && (
+                      isEditing ? (
+                        <>
+                          <Small onClick={() => saveEdit(g.id)}>Išsaugoti</Small>{" "}
+                          <Small onClick={cancelEdit}>Atšaukti</Small>{" "}
+                        </>
+                      ) : (
+                        <>
+                          <Small onClick={() => startEdit(g)}>Redaguoti</Small>{" "}
+                          <Small onClick={() => setStatus(g.id, "scheduled")}>Į „scheduled“</Small>{" "}
+                          <Small onClick={() => setStatus(g.id, "locked")}>Užrakinti</Small>{" "}
+                          <Small onClick={() => finishGame(g.id)}>Užbaigti</Small>{" "}
+                        </>
+                      )
+                    )}
+                    <Small danger onClick={() => del(g.id)}>Trinti</Small>
+                  </td>
+                </tr>
+              );
+            })}
             {!games.length && (
               <tr><td colSpan={8} style={{textAlign:"center", color:"#64748b"}}>Nėra rungtynių</td></tr>
             )}
@@ -437,10 +515,59 @@ function AdminGames() {
 }
 
 /* ===================== utils & styles ===================== */
+
+// Show a human-friendly time without shifting it unintentionally.
+// If value is "YYYY-MM-DD HH:mm:ss" (MySQL DATETIME), show "YYYY-MM-DD HH:mm" as-is.
+// If it’s ISO, fall back to toLocaleString.
 function fmt(d) {
+  if (!d) return "";
+  if (typeof d === "string" && d.includes(" ")) {
+    // likely "YYYY-MM-DD HH:mm:ss"
+    return d.slice(0, 16).replace("T", " ");
+  }
   try {
-    return new Date(d).toLocaleString();
-  } catch { return d; }
+    return new Date(d).toLocaleString("lt-LT", {
+        timeZone: "UTC",
+        year: "numeric",
+        month: "2-digit",
+        day: "2-digit",
+        hour: "2-digit",
+        minute: "2-digit"
+    });
+  } catch {
+    return String(d);
+  }
+}
+
+// Convert "YYYY-MM-DDTHH:mm" (from <input type="datetime-local">) to "YYYY-MM-DD HH:mm:00"
+// Store exactly what admin picked (no timezone math).
+function tipoffToSQL(input) {
+  if (!input) return "";
+  return input.replace("T", " ") + ":00";
+}
+
+// Convert DB "YYYY-MM-DD HH:mm:ss" to "YYYY-MM-DDTHH:mm" for <input type="datetime-local">, no timezone shift.
+function sqlToLocalInput(value) {
+  if (!value) return "";
+  if (typeof value === "string") {
+    // "YYYY-MM-DD HH:mm:ss" -> "YYYY-MM-DDTHH:mm"
+    if (value.includes(" ")) return value.replace(" ", "T").slice(0, 16);
+    // already ISO-like -> trim to minutes
+    if (value.includes("T")) return value.slice(0, 16);
+  }
+  // Fallback: try to format a Date object without applying any extra logic
+  try {
+    const dt = new Date(value);
+    const pad = (n) => String(n).padStart(2, "0");
+    const yyyy = dt.getFullYear();
+    const mm = pad(dt.getMonth() + 1);
+    const dd = pad(dt.getDate());
+    const hh = pad(dt.getHours());
+    const mi = pad(dt.getMinutes());
+    return `${yyyy}-${mm}-${dd}T${hh}:${mi}`;
+  } catch {
+    return "";
+  }
 }
 
 function conditionText(g) {
@@ -455,7 +582,6 @@ function conditionText(g) {
   } else if (score_b > score_a) {
     return `${team_b} ${band} [${diff} pt.] (${score_a}–${score_b})`;
   } else {
-    // Just in case of a tie (shouldn’t happen in basketball, but safe-guard):
     return `Lygiosios [${diff} pt.] (${score_a}–${score_b})`;
   }
 }
@@ -466,7 +592,7 @@ const Wrap = styled.div`
   min-height: 100vh;
   flex-direction: column;
   justify-content: center;
-  `;
+`;
 const Header = styled.div`
   display:flex; align-items:baseline; gap:12px;
   h1{ margin:0; font-size:30px; font-weight: 800}
