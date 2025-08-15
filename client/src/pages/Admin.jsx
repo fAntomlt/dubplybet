@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import styled from "styled-components";
 import { api } from "../lib/api";
@@ -222,7 +222,7 @@ function AdminTournaments() {
                 <Small onClick={() => setStatus(t.id, "draft")}>Į „draft“</Small>{" "}
                 <Small onClick={() => setStatus(t.id, "active")}>Aktyvus</Small>{" "}
                 <Small onClick={() => finish(t.id)}>Užbaigti</Small>{" "}
-                <Small danger onClick={() => del(t.id)}>Trinti</Small>
+                <Small $danger onClick={() => del(t.id)}>Trinti</Small>
               </td>
             </tr>
           ))}
@@ -254,6 +254,8 @@ function AdminGames() {
   const [eTeamA, setETeamA] = useState("");
   const [eTeamB, setETeamB] = useState("");
   const [eTipoff, setETipoff] = useState(""); // "YYYY-MM-DDTHH:mm"
+  const [expandedRows, setExpandedRows] = useState(new Set()); // Set<number>
+  const [guessesByGame, setGuessesByGame] = useState({}); // { [gameId]: { loading: bool, items: Guess[] } }
 
   useEffect(() => {
     (async () => {
@@ -383,6 +385,68 @@ function AdminGames() {
     }
   }
 
+  function toggleExpand(gameId) {
+    setExpandedRows(prev => {
+      const next = new Set(prev);
+      if (next.has(gameId)) next.delete(gameId);
+      else next.add(gameId);
+      return next;
+    });
+    if (!guessesByGame[gameId]) loadGuesses(gameId);
+  }
+
+  async function loadGuesses(gameId) {
+    setGuessesByGame(prev => ({ ...prev, [gameId]: { loading: true, items: prev[gameId]?.items || [] } }));
+    try {
+      const d = await api(`/api/admin/games/${gameId}/guesses`);
+      setGuessesByGame(prev => ({ ...prev, [gameId]: { loading: false, items: d.guesses || [] } }));
+    } catch (e) {
+      toast.error(e.message || "Nepavyko užkrauti spėjimų");
+      setGuessesByGame(prev => ({ ...prev, [gameId]: { loading: false, items: prev[gameId]?.items || [] } }));
+    }
+  }
+
+  async function deleteGuess(guessId, gameId, isFinished) {
+    if (isFinished) return; // safeguard: no deletes after finished
+    if (!confirm("Ištrinti šį spėjimą?")) return;
+    try {
+      await api(`/api/admin/guesses/${guessId}`, { method: "DELETE" });
+      loadGuesses(gameId);
+    } catch (e) {
+      toast.error(e.message || "Nepavyko ištrinti spėjimo");
+    }
+  }
+
+  // Build condition text for a guess. If the game is finished and flags are present,
+  // bold only the qualified parts (winner/direction and margin band). Exact score not bolded.
+  function guessConditionText(game, guess) {
+    const { team_a, team_b, status } = game;
+    const { guess_a, guess_b, cond_ok, diff_ok, awarded_points } = guess;
+
+    const winner =
+      guess_a > guess_b ? team_a :
+      guess_b > guess_a ? team_b : "Lygiosios";
+
+    const diff = Math.abs(guess_a - guess_b);
+    const band = diff > 5 ? "> 5" : diff === 5 ? "= 5" : "< 5";
+    const pointsPart = awarded_points != null ? `[${awarded_points} pt.]` : "[—]";
+
+    const firstPart = `${winner} ${band}`;
+    const secondPart = `${pointsPart}`;
+    const finalPart = `(${guess_a}–${guess_b})`;
+
+    const finished = status === "finished";
+    const boldFirst = finished && cond_ok;
+    const boldSecond = finished && diff_ok;
+
+    const b = (s, on) => on ? <strong>{s}</strong> : s;
+    return (
+      <>
+        {b(firstPart, boldFirst)} {b(secondPart, boldSecond)} {finalPart}
+      </>
+    );
+  }
+
   return (
     <Section>
       <Flex>
@@ -420,6 +484,7 @@ function AdminGames() {
         <Table>
           <thead>
             <tr>
+              <th style={{width:36}}></th>
               <th>ID</th><th>Komandos</th><th>Pradžia</th><th>Statusas</th>
               <th>Rez.</th><th>Sąlyga</th><th>Etapas</th><th>Veiksmai</th>
             </tr>
@@ -428,84 +493,146 @@ function AdminGames() {
             {games.map(g => {
               const isEditing = editId === g.id && g.status !== "finished";
               return (
-                <tr key={g.id}>
-                  <td>{g.id}</td>
-
-                  {/* Teams */}
-                  <td>
-                    {isEditing ? (
-                      <div style={{display:"grid", gap:6}}>
-                        <input value={eTeamA} onChange={e=>setETeamA(e.target.value)} placeholder="Komanda A" />
-                        <input value={eTeamB} onChange={e=>setETeamB(e.target.value)} placeholder="Komanda B" />
-                      </div>
-                    ) : (
-                      `${g.team_a} — ${g.team_b}`
-                    )}
-                  </td>
-
-                  {/* Tipoff */}
-                  <td>
-                    {isEditing ? (
-                      <input
-                        type="datetime-local"
-                        value={eTipoff}
-                        onChange={e=>setETipoff(e.target.value)}
-                      />
-                    ) : (
-                      fmt(g.tipoff_at)
-                    )}
-                  </td>
-
-                  {/* Status */}
-                  <td>{g.status}</td>
-
-                  {/* Score */}
-                  <td>{g.score_a == null ? "—" : g.score_a} : {g.score_b == null ? "—" : g.score_b}</td>
-
-                  {/* Condition */}
-                  <td>{conditionText(g)}</td>
-
-                  {/* Stage */}
-                  <td>
-                    {g.status === "finished" ? (
-                      g.stage || "group"
-                    ) : isEditing ? (
-                      <span style={{color:"#64748b"}}>{g.stage || "group"}</span>
-                    ) : (
-                      <select
-                        value={g.stage || "group"}
-                        onChange={(e) => updateStage(g.id, e.target.value)}
+                <React.Fragment key={`row-${g.id}`}>
+                  <tr>
+                    <td>
+                      <button
+                        onClick={() => toggleExpand(g.id)}
+                        aria-label={expandedRows.has(g.id) ? "Slėpti spėjimus" : "Rodyti spėjimus"}
+                        style={{ border:"1px solid #e5e7eb", borderRadius:8, padding:"2px 6px", background:"#fff", cursor:"pointer" }}
                       >
-                        <option value="group">group</option>
-                        <option value="playoff">playoff</option>
-                      </select>
-                    )}
-                  </td>
+                        {expandedRows.has(g.id) ? "▾" : "▸"}
+                      </button>
+                    </td>
+                    <td>{g.id}</td>
 
-                  {/* Actions */}
-                  <td>
-                    {g.status !== "finished" && (
-                      isEditing ? (
-                        <>
-                          <Small onClick={() => saveEdit(g.id)}>Išsaugoti</Small>{" "}
-                          <Small onClick={cancelEdit}>Atšaukti</Small>{" "}
-                        </>
+                    {/* Teams */}
+                    <td>
+                      {isEditing ? (
+                        <div style={{display:"grid", gap:6}}>
+                          <input value={eTeamA} onChange={e=>setETeamA(e.target.value)} placeholder="Komanda A" />
+                          <input value={eTeamB} onChange={e=>setETeamB(e.target.value)} placeholder="Komanda B" />
+                        </div>
                       ) : (
-                        <>
-                          <Small onClick={() => startEdit(g)}>Redaguoti</Small>{" "}
-                          <Small onClick={() => setStatus(g.id, "scheduled")}>Į „scheduled“</Small>{" "}
-                          <Small onClick={() => setStatus(g.id, "locked")}>Užrakinti</Small>{" "}
-                          <Small onClick={() => finishGame(g.id)}>Užbaigti</Small>{" "}
-                        </>
-                      )
-                    )}
-                    <Small danger onClick={() => del(g.id)}>Trinti</Small>
-                  </td>
-                </tr>
+                        `${g.team_a} — ${g.team_b}`
+                      )}
+                    </td>
+
+                    {/* Tipoff */}
+                    <td>
+                      {isEditing ? (
+                        <input
+                          type="datetime-local"
+                          value={eTipoff}
+                          onChange={e=>setETipoff(e.target.value)}
+                        />
+                      ) : (
+                        fmt(g.tipoff_at)
+                      )}
+                    </td>
+
+                    {/* Status */}
+                    <td>{g.status}</td>
+
+                    {/* Score */}
+                    <td>{g.score_a == null ? "—" : g.score_a} : {g.score_b == null ? "—" : g.score_b}</td>
+
+                    {/* Condition */}
+                    <td>{conditionText(g)}</td>
+
+                    {/* Stage */}
+                    <td>
+                      {g.status === "finished" ? (
+                        g.stage || "group"
+                      ) : isEditing ? (
+                        <span style={{color:"#64748b"}}>{g.stage || "group"}</span>
+                      ) : (
+                        <select
+                          value={g.stage || "group"}
+                          onChange={(e) => updateStage(g.id, e.target.value)}
+                        >
+                          <option value="group">group</option>
+                          <option value="playoff">playoff</option>
+                        </select>
+                      )}
+                    </td>
+
+                    {/* Actions */}
+                    <td>
+                      {g.status !== "finished" && (
+                        isEditing ? (
+                          <>
+                            <Small onClick={() => saveEdit(g.id)}>Išsaugoti</Small>{" "}
+                            <Small onClick={cancelEdit}>Atšaukti</Small>{" "}
+                          </>
+                        ) : (
+                          <>
+                            <Small onClick={() => startEdit(g)}>Redaguoti</Small>{" "}
+                            <Small onClick={() => setStatus(g.id, "scheduled")}>Į „scheduled“</Small>{" "}
+                            <Small onClick={() => setStatus(g.id, "locked")}>Užrakinti</Small>{" "}
+                            <Small onClick={() => finishGame(g.id)}>Užbaigti</Small>{" "}
+                          </>
+                        )
+                      )}
+                      <Small $danger onClick={() => del(g.id)}>Trinti</Small>
+                    </td>
+                  </tr>
+
+                  {expandedRows.has(g.id) && (
+                    <tr key={`${g.id}-guesses`}>
+                      <td colSpan={9} style={{ background:"#fafbff", padding:0 }}>
+                        <div style={{ padding:"10px 8px", display:"grid", gap:8 }}>
+                          <div style={{fontWeight:800}}>Spėjimai</div>
+
+                          {(!guessesByGame[g.id] || guessesByGame[g.id]?.loading) && (
+                            <div style={{color:"#64748b"}}>Kraunama…</div>
+                          )}
+
+                          {guessesByGame[g.id] && !guessesByGame[g.id].loading && (
+                            guessesByGame[g.id].items.length ? (
+                              <table style={{ width:"100%", borderCollapse:"collapse", fontSize:14 }}>
+                                <thead>
+                                  <tr>
+                                    <th style={{textAlign:"left", borderBottom:"1px solid #eef2f7", padding:"6px"}}>Vartotojas</th>
+                                    <th style={{textAlign:"left", borderBottom:"1px solid #eef2f7", padding:"6px"}}>Sąlyga</th>
+                                    <th style={{textAlign:"left", borderBottom:"1px solid #eef2f7", padding:"6px"}}>Veiksmai</th>
+                                  </tr>
+                                </thead>
+                                <tbody>
+                                  {guessesByGame[g.id].items.map(gu => (
+                                    <tr key={gu.id}>
+                                      <td style={{borderBottom:"1px solid #eef2f7", padding:"6px"}}>
+                                        {gu.user_name || gu.username || gu.email || `#${gu.user_id}`}
+                                      </td>
+                                      <td style={{borderBottom:"1px solid #eef2f7", padding:"6px"}}>
+                                        {guessConditionText(g, gu)}
+                                      </td>
+                                      <td style={{borderBottom:"1px solid #eef2f7", padding:"6px"}}>
+                                        {g.status === "finished" ? (
+                                          <span style={{ color:"#64748b" }}>—</span>
+                                        ) : (
+                                          <Small onClick={() => deleteGuess(gu.id, g.id, g.status === "finished")}>
+                                            Trinti
+                                          </Small>
+                                        )}
+                                      </td>
+                                    </tr>
+                                  ))}
+                                </tbody>
+                              </table>
+                            ) : (
+                              <div style={{color:"#64748b"}}>Spėjimų nėra</div>
+                            )
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  )}
+                </React.Fragment>
               );
             })}
             {!games.length && (
-              <tr><td colSpan={8} style={{textAlign:"center", color:"#64748b"}}>Nėra rungtynių</td></tr>
+              <tr><td colSpan={9} style={{textAlign:"center", color:"#64748b"}}>Nėra rungtynių</td></tr>
             )}
           </tbody>
         </Table>
@@ -623,5 +750,5 @@ const Table = styled.table`
 `;
 const Small = styled.button`
   border:1px solid #e5e7eb; background:#fff; border-radius:8px; padding:6px 8px; cursor:pointer;
-  color:${p=>p.danger ? "#dc2626" : "#0f172a"}; font-weight:700; font-size:12px;
+  color:${p=>p.$danger ? "#dc2626" : "#0f172a"}; font-weight:700; font-size:12px;
 `;

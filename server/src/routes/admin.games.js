@@ -29,8 +29,8 @@ router.post("/games", async (req, res) => {
   try {
     const { tournament_id, team_a, team_b, tipoff_at } = GameSchema.parse(req.body);
     const [r] = await pool.query(
-      "INSERT INTO games (tournament_id, team_a, team_b, tipoff_at, status, stage) VALUES (?,?,?,?, 'scheduled', ?)",
-      [tournament_id, team_a, team_b, tipoff_at, req.body.stage || "group"]
+      "INSERT INTO games (tournament_id, team_a, team_b, tipoff_at, status) VALUES (?,?,?,?, 'scheduled')",
+      [tournament_id, team_a, team_b, tipoff_at]
     );
     return res.json({ ok: true, id: r.insertId, message: "Rungtynės sukurtos" });
   } catch (e) {
@@ -38,13 +38,14 @@ router.post("/games", async (req, res) => {
   }
 });
 
-// Edit game (names/time)
+// Edit game (names/time/status/stage)
 router.patch("/games/:id", async (req, res) => {
   const id = Number(req.params.id);
   if (!id) return res.status(400).json({ error: "Neteisingas ID" });
 
   const fields = [];
   const values = [];
+  // Allow stage updates (UI already calls this)
   for (const k of ["team_a", "team_b", "tipoff_at", "status", "stage"]) {
     if (k in req.body) { fields.push(`${k} = ?`); values.push(req.body[k]); }
   }
@@ -55,12 +56,74 @@ router.patch("/games/:id", async (req, res) => {
   return res.json({ ok: true, message: "Rungtynės atnaujintos" });
 });
 
-// Delete game (only before finished)
+// Delete game
 router.delete("/games/:id", async (req, res) => {
   const id = Number(req.params.id);
   if (!id) return res.status(400).json({ error: "Neteisingas ID" });
   await pool.query("DELETE FROM games WHERE id = ?", [id]);
   return res.json({ ok: true, message: "Rungtynės ištrintos" });
+});
+
+// ===== NEW: Admin guesses list for a game =====
+// GET /api/admin/games/:id/guesses
+router.get("/games/:id/guesses", async (req, res) => {
+  const gameId = Number(req.params.id || 0);
+  if (!gameId) return res.status(400).json({ error: "Neteisingas rungtynių ID" });
+
+  try {
+    const [rows] = await pool.query(
+      `SELECT
+         g.id,
+         g.user_id,
+         u.username AS user_name,
+         u.email,
+         g.guess_a,
+         g.guess_b,
+         g.cond_ok,
+         g.diff_ok,
+         g.exact_ok,
+         g.awarded_points,
+         g.created_at
+       FROM guesses g
+       JOIN users u ON u.id = g.user_id
+       WHERE g.game_id = ?
+       ORDER BY g.created_at ASC`,
+      [gameId]
+    );
+    return res.json({ ok: true, guesses: rows });
+  } catch (e) {
+    console.error("admin list guesses error:", e);
+    return res.status(500).json({ error: "Serverio klaida" });
+  }
+});
+
+// ===== NEW: Admin delete a guess (only if game not finished) =====
+// DELETE /api/admin/guesses/:id
+router.delete("/guesses/:id", async (req, res) => {
+  const guessId = Number(req.params.id || 0);
+  if (!guessId) return res.status(400).json({ error: "Neteisingas spėjimo ID" });
+
+  try {
+    // Find guess + its game
+    const [[guess]] = await pool.query(
+      `SELECT g.id, g.game_id, gm.status
+         FROM guesses g
+         JOIN games gm ON gm.id = g.game_id
+        WHERE g.id = ?
+        LIMIT 1`,
+      [guessId]
+    );
+    if (!guess) return res.status(404).json({ error: "Spėjimas nerastas" });
+    if (guess.status === "finished") {
+      return res.status(400).json({ error: "Negalima trinti: rungtynės jau užbaigtos" });
+    }
+
+    await pool.query("DELETE FROM guesses WHERE id = ?", [guessId]);
+    return res.json({ ok: true, message: "Spėjimas ištrintas" });
+  } catch (e) {
+    console.error("admin delete guess error:", e);
+    return res.status(500).json({ error: "Serverio klaida" });
+  }
 });
 
 // Finish game (sets final score + status=finished)
