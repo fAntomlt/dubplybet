@@ -9,6 +9,7 @@ import LeaderboardsAllTime from "./pages/LeaderboardsAllTime.jsx";
 import LeaderboardsByTournament from "./pages/LeaderboardsByTournament.jsx";
 import Profile from "./pages/Profile.jsx";
 import Admin from "./pages/Admin.jsx";
+import RequireAdmin from "./routes/RequireAdmin.jsx";
 import Login from "./pages/Login.jsx";
 import Register from "./pages/Register.jsx";
 import ForgotPassword from "./pages/ForgotPassword.jsx";
@@ -34,7 +35,11 @@ function AppRoutes() {
         },
 
         { path: "/profilis", element: <Profile /> },
-        { path: "/admin", element: <Admin /> },
+        { path: "/admin", element: (
+          <RequireAdmin>
+            <Admin />
+          </RequireAdmin>
+        ) },
       ],
     },
 

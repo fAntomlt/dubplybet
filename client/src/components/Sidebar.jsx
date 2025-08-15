@@ -134,9 +134,11 @@ export default function Sidebar({ onOpenChat }) {
           <FiMessageSquare /> <span>Chat</span>
         </ButtonItem>
 
-        <Item to="/admin" onClick={closeIfMobile}>
-          <FiShield /> <span>Admin</span>
-        </Item>
+        {auth.user?.role === "admin" && (
+          <Item to="/admin" onClick={closeIfMobile}>
+            <FiShield /> <span>Admin</span>
+          </Item>
+        )}
 
         {auth.user && (
           <LogoutDock>
