@@ -419,33 +419,43 @@ function AdminGames() {
 
   // Build condition text for a guess. If the game is finished and flags are present,
   // bold only the qualified parts (winner/direction and margin band). Exact score not bolded.
-  function guessConditionText(game, guess) {
-    const { team_a, team_b, status } = game;
-    const { guess_a, guess_b, cond_ok, diff_ok, awarded_points } = guess;
+  // Build condition text for a guess. Middle shows the *guessed point difference*.
+// When finished, we bold winner+band if cond_ok and the margin bracket if diff_ok.
+// Shows: "<Winner> <band> [<margin> pt.] (<A>–<B>)"
+// Bold parts that are correct once the game is finished:
+// - cond_ok  -> winner+band
+// - diff_ok  -> margin bracket
+// - exact_ok -> exact score
+function guessConditionText(game, guess) {
+  const { team_a, team_b, status } = game;
+  const { guess_a, guess_b, cond_ok, diff_ok, exact_ok, awarded_points } = guess;
 
-    const winner =
-      guess_a > guess_b ? team_a :
-      guess_b > guess_a ? team_b : "Lygiosios";
+  const winner =
+    guess_a > guess_b ? team_a :
+    guess_b > guess_a ? team_b : "Lygiosios";
 
-    const diff = Math.abs(guess_a - guess_b);
-    const band = diff > 5 ? "> 5" : diff === 5 ? "= 5" : "< 5";
-    const pointsPart = awarded_points != null ? `[${awarded_points} pt.]` : "[—]";
+  const diff = Math.abs(guess_a - guess_b);
+  const band = diff > 5 ? "> 5" : diff === 5 ? "= 5" : "< 5";
 
-    const firstPart = `${winner} ${band}`;
-    const secondPart = `${pointsPart}`;
-    const finalPart = `(${guess_a}–${guess_b})`;
+  const finished = status === "finished";
+  const b = (content, on) => (on ? <strong>{content}</strong> : content);
 
-    const finished = status === "finished";
-    const boldFirst = finished && cond_ok;
-    const boldSecond = finished && diff_ok;
+  const firstPart  = `${winner} ${band}`;
+  const middlePart = `[${diff} pt.]`;
+  const finalPart  = `(${guess_a}–${guess_b})`;
 
-    const b = (s, on) => on ? <strong>{s}</strong> : s;
-    return (
-      <>
-        {b(firstPart, boldFirst)} {b(secondPart, boldSecond)} {finalPart}
-      </>
-    );
-  }
+  return (
+    <>
+      {b(firstPart,  finished && cond_ok)}{" "}
+      {b(middlePart, finished && diff_ok)}{" "}
+      {b(finalPart,  finished && exact_ok)}
+      {/* Optional: show awarded points after finish */}
+      {finished && awarded_points != null ? (
+        <span style={{ color:"#64748b" }}> [{awarded_points}p]</span>
+      ) : null}
+    </>
+  );
+}
 
   return (
     <Section>
