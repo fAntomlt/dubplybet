@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState, useRef, useLayoutEffect  } from "react";
 import styled from "styled-components";
-import { FiUser, FiHash, FiLock, FiEdit3, FiX, FiCheck } from "react-icons/fi";
+import { FiUser, FiHash, FiLock, FiEdit3, FiX, FiCheck, FiUpload } from "react-icons/fi";
 import logoImg from "../assets/icriblogo.png";
 import { useToast } from "../components/ToastProvider";
 import { setAuth, getAuth } from "../store/auth";
@@ -18,7 +18,7 @@ export default function Profile() {
   const [loading, setLoading] = useState(true);
   const [serverError, setServerError] = useState("");
 
-  const [me, setMe] = useState(null); // { id,email,username,discordUsername,role }
+  const [me, setMe] = useState(null); // { id,email,username,discordUsername,role,avatarUrl? }
   const [edit, setEdit] = useState({
     field: null, // 'username' | 'discord' | 'password' | null
   });
@@ -44,46 +44,46 @@ export default function Profile() {
   const ALLOWED_SYMBOLS = `! @ # $ % ^ & * ( ) _ - + = [ ] { } ; : ' " , . < > / ? \\ | \``;
 
   const rightRef = useRef(null);
-const [leftBaseMinH, setLeftBaseMinH] = useState(0);
-const collapseTimerRef = useRef(null);
-const COLLAPSE_MS = 350; // keep in sync with Expand transition
+  const [leftBaseMinH, setLeftBaseMinH] = useState(0);
+  const collapseTimerRef = useRef(null);
+  const COLLAPSE_MS = 350; // keep in sync with Expand transition
 
-const measureBaseHeights = () => {
-  if (!rightRef.current) return;
-  const h = rightRef.current.getBoundingClientRect().height;
-  setLeftBaseMinH(h);
-};
-
-// 2) measure once after load (non-edit state), and on window resize
-useEffect(() => {
-  if (!loading && !serverError) {
-    requestAnimationFrame(measureBaseHeights);
-  }
-}, [loading, serverError]);
-
-useEffect(() => {
-  const onResize = () => {
-    if (edit.field === null) measureBaseHeights();
+  const measureBaseHeights = () => {
+    if (!rightRef.current) return;
+    const h = rightRef.current.getBoundingClientRect().height;
+    setLeftBaseMinH(h);
   };
-  window.addEventListener("resize", onResize);
-  return () => window.removeEventListener("resize", onResize);
-}, [edit.field]);
 
-// keep delayed re-measure AFTER collapse finishes
-useEffect(() => {
-  if (edit.field === null) {
-    if (collapseTimerRef.current) clearTimeout(collapseTimerRef.current);
-    collapseTimerRef.current = setTimeout(() => {
+  // 2) measure once after load (non-edit state), and on window resize
+  useEffect(() => {
+    if (!loading && !serverError) {
       requestAnimationFrame(measureBaseHeights);
-    }, COLLAPSE_MS);
-  }
-  return () => {
-    if (collapseTimerRef.current) {
-      clearTimeout(collapseTimerRef.current);
-      collapseTimerRef.current = null;
     }
-  };
-}, [edit.field]);
+  }, [loading, serverError]);
+
+  useEffect(() => {
+    const onResize = () => {
+      if (edit.field === null) measureBaseHeights();
+    };
+    window.addEventListener("resize", onResize);
+    return () => window.removeEventListener("resize", onResize);
+  }, [edit.field]);
+
+  // keep delayed re-measure AFTER collapse finishes
+  useEffect(() => {
+    if (edit.field === null) {
+      if (collapseTimerRef.current) clearTimeout(collapseTimerRef.current);
+      collapseTimerRef.current = setTimeout(() => {
+        requestAnimationFrame(measureBaseHeights);
+      }, COLLAPSE_MS);
+    }
+    return () => {
+      if (collapseTimerRef.current) {
+        clearTimeout(collapseTimerRef.current);
+        collapseTimerRef.current = null;
+      }
+    };
+  }, [edit.field]);
 
   // load me
   useEffect(() => {
@@ -116,12 +116,12 @@ useEffect(() => {
   }, [API, token]);
 
   const [isMobile, setIsMobile] = useState(window.matchMedia('(max-width: 441px)').matches);
-    useEffect(() => {
+  useEffect(() => {
     const mql = window.matchMedia('(max-width: 441px)');
     const handler = (e) => setIsMobile(e.matches);
     mql.addEventListener('change', handler);
     return () => mql.removeEventListener('change', handler);
-    }, []);
+  }, []);
 
   const startEdit = (field) => {
     setEdit({ field });
@@ -273,6 +273,81 @@ useEffect(() => {
     }
   };
 
+  // ===== Avatar upload =====
+  const fileRef = useRef(null);
+  const [uploading, setUploading] = useState(false);
+  const MAX_SIZE = 2 * 1024 * 1024; // 2MB
+  const ACCEPT = ["image/jpeg","image/png","image/webp"];
+
+  const avatarUrlAbs = (url) => {
+    if (!url) return null;
+    if (/^https?:\/\//i.test(url)) return url;
+    return `${API}${url}`;
+  };
+
+  const triggerFile = () => {
+    if (uploading) return;
+    fileRef.current?.click();
+  };
+
+  const handleAvatarChange = async (e) => {
+    const file = e.target.files?.[0];
+    // allow re-selecting same file again
+    e.target.value = "";
+    setServerError("");
+
+    if (!file) return;
+    if (!ACCEPT.includes(file.type)) {
+      const msg = "Netinkamas formatas. Leidžiami: JPG, PNG, WEBP.";
+      setServerError(msg);
+      toast.error(msg);
+      return;
+    }
+    if (file.size > MAX_SIZE) {
+      const msg = "Failas per didelis. Maksimalus dydis: 2 MB.";
+      setServerError(msg);
+      toast.error(msg);
+      return;
+    }
+
+    try {
+      setUploading(true);
+      const fd = new FormData();
+      fd.append("avatar", file);
+
+      const res = await fetch(`${API}/api/users/me/avatar`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}` },
+        body: fd,
+      });
+      const data = await res.json();
+
+      if (!res.ok || !data?.ok) {
+        const msg = data?.error || "Nepavyko įkelti avataro.";
+        setServerError(msg);
+        toast.error(msg);
+        return;
+      }
+
+      // cache-bust to ensure fresh image
+      const newUrl = `${data.url}?t=${Date.now()}`;
+      const updated = { ...me, avatarUrl: data.url };
+      setMe(updated);
+
+      // propagate to auth store for navbar/sidebar etc.
+      const { token: currentToken } = getAuth();
+      setAuth({ user: updated, token: currentToken });
+
+      // optimistic swap in DOM (uses cache-busted version)
+      toast.success("Avataras atnaujintas");
+    } catch (err) {
+      setServerError("Serverio klaida įkeliant avatarą. Bandykite vėliau.");
+      toast.error("Serverio klaida įkeliant avatarą.");
+    } finally {
+      setUploading(false);
+    }
+  };
+
   if (loading) return <Load>Kraunama…</Load>;
   if (serverError && !me) {
     return <Load role="alert">{serverError}</Load>;
@@ -287,9 +362,26 @@ useEffect(() => {
         <Grid>
           {/* Left */}
           <Left style={{ minHeight: !isMobile && leftBaseMinH ? `${leftBaseMinH}px` : undefined }}>
-            <Avatar>
-              <img src={logoImg} alt="Avatar" />
-            </Avatar>
+            <AvatarWrap onClick={triggerFile} role="button" title={uploading ? "Įkeliama…" : "Įkelti avatarą"}>
+              <AvatarImage
+                src={me?.avatarUrl ? avatarUrlAbs(me.avatarUrl) : logoImg}
+                alt="Avatar"
+                $uploading={uploading}
+              />
+              <Overlay>
+                <OverlayInner>
+                  <FiUpload />
+                  <span>{uploading ? "Įkeliama…" : "Įkelti"}</span>
+                </OverlayInner>
+              </Overlay>
+              <HiddenFile
+                type="file"
+                accept={ACCEPT.join(",")}
+                onChange={handleAvatarChange}
+                ref={fileRef}
+                aria-label="Pasirinkti avataro failą"
+              />
+            </AvatarWrap>
             <Name>{name}</Name>
             <Role>{roleLT(me?.role)}</Role>
           </Left>
@@ -554,19 +646,59 @@ const Left = styled.div`
   }
 `;
 
-const Avatar = styled.div`
+/* === Avatar with hover overlay === */
+const AvatarWrap = styled.div`
   width: 120px;
   height: 120px;
   border-radius: 50%;
+  position: relative;
   overflow: hidden;
   background: #f6f8fc;
   border: 1px solid #e7edf6;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
+  cursor: pointer;
 
-  img { width: 100%; height: 100%; object-fit: cover; }
+  &:hover ${'' /* show overlay and blur image on hover */} {
+    & > div[data-overlay="layer"] { opacity: 1; }
+    img { filter: blur(2px) brightness(0.9); transform: scale(1.02); }
+  }
+`;
+
+const AvatarImage = styled.img`
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transition: filter .2s ease, transform .2s ease;
+  pointer-events: none;
+  opacity: ${({ $uploading }) => ($uploading ? 0.7 : 1)};
+`;
+
+const Overlay = styled.div.attrs({ "data-overlay": "layer" })`
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  background: rgba(15, 23, 42, 0.45);
+  color: #fff;
+  opacity: 0;
+  transition: opacity .15s ease;
+`;
+
+const OverlayInner = styled.div`
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  font-weight: 800;
+  font-size: 12px;
+
+  svg { font-size: 22px; }
+`;
+
+const HiddenFile = styled.input`
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  pointer-events: none;
 `;
 
 const Name = styled.h2`
