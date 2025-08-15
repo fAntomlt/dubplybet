@@ -7,11 +7,25 @@ import {
 } from "react-icons/fi";
 import logoImg from "../assets/icriblogo.png";
 import { useToast } from "../components/ToastProvider";
-import { getAuth, subscribe, clearAuth } from "../store/auth";
+import { getAuth, subscribe, clearAuth, setAuth } from "../store/auth";
 
-const AvatarSmall = ({ name }) => {
-  const initials = (name || "?").split(" ").map(w => w[0]).slice(0, 2).join("").toUpperCase();
-  return <AvatarBadge aria-hidden>{initials}</AvatarBadge>;
+/* --- small avatar next to username in the menu --- */
+const AvatarSmall = ({ name, url, apiBase }) => {
+  const initials = (name || "?")
+    .split(" ")
+    .map(w => w[0])
+    .slice(0, 2)
+    .join("")
+    .toUpperCase();
+
+  const absUrl =
+    url && /^https?:\/\//i.test(url) ? url : url ? `${apiBase}${url}` : null;
+
+  return absUrl ? (
+    <AvatarImg src={absUrl} alt="" />
+  ) : (
+    <AvatarBadge aria-hidden>{initials}</AvatarBadge>
+  );
 };
 
 export default function Sidebar({ onOpenChat }) {
@@ -24,6 +38,8 @@ export default function Sidebar({ onOpenChat }) {
     return () => unsub();
   }, []);
 
+  const API = import.meta.env.VITE_API_URL;
+
   const toast = useToast();
   const closeIfMobile = () => { if (mobileOpen) setMobileOpen(false); };
 
@@ -33,6 +49,28 @@ export default function Sidebar({ onOpenChat }) {
     toast.info("Sėkmingai atsijungėtę");
     closeIfMobile();
   };
+
+  useEffect(() => {
+  const { token, user } = getAuth();
+  if (!token) return;
+
+  // Only hydrate if avatarUrl is missing/undefined
+  if (!user || typeof user.avatarUrl === "undefined") {
+    (async () => {
+      try {
+        const res = await fetch(`${API}/api/users/me`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        const data = await res.json();
+        if (res.ok && data?.ok) {
+          setAuth({ user: data.user, token }); // updates store -> Sidebar re-renders
+        }
+      } catch {
+        // ignore – Sidebar can still show initials
+      }
+    })();
+  }
+}, []);
 
   return (
     <>
@@ -59,7 +97,11 @@ export default function Sidebar({ onOpenChat }) {
 
           {auth.user ? (
             <Item to="/profilis" onClick={closeIfMobile}>
-              <AvatarSmall name={auth.user?.username} />
+              <AvatarSmall
+                name={auth.user?.username}
+                url={auth.user?.avatarUrl}
+                apiBase={API}
+              />
               <span>{auth.user?.username || "Profilis"}</span>
             </Item>
           ) : (
@@ -292,6 +334,14 @@ const AvatarBadge = styled.span`
   color: #1f6feb;
   font-size: 12px;
   font-weight: 800;
+`;
+
+const AvatarImg = styled.img`
+  width: 22px; height: 22px;
+  border-radius: 50%;
+  object-fit: cover;
+  display: block;
+  border: 1px solid #e2e8f0;
 `;
 
 const LogoutDock = styled.div`
