@@ -129,7 +129,7 @@ io.on("connection", async (socket) => {
 
     // verify user exists (also read role for admin permissions)
     const [rows] = await pool.query(
-      "SELECT id, username, role FROM users WHERE id = ? LIMIT 1",
+      "SELECT id, username, role, avatar_url AS avatarUrl FROM users WHERE id = ? LIMIT 1",
       [userId]
     );
     if (!rows.length) throw new Error("user not found");
@@ -159,6 +159,7 @@ io.on("connection", async (socket) => {
         id: result.insertId,
         userId: user.id,
         username: user.username,
+        avatarUrl: user.avatarUrl || null,
         content,
         createdAt: new Date().toISOString(),
       };

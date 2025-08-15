@@ -15,7 +15,8 @@ router.get("/history", async (req, res) => {
          cm.content,
          cm.created_at   AS createdAt,
          cm.edited_at    AS editedAt,
-         u.username
+         u.username,
+         u.avatar_url    AS avatarUrl
        FROM chat_messages cm
        JOIN users u ON u.id = cm.user_id
        ORDER BY cm.id ASC

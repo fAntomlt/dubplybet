@@ -51,6 +51,7 @@ export default function ChatDock({ open = false, onClose }) {
               id: m.id,
               userId: m.userId,
               username: m.username,
+              avatarUrl: m.avatarUrl || null,
               text: m.content,
               ts: new Date(m.createdAt).getTime(),
               edited: !!m.editedAt,
@@ -79,6 +80,7 @@ export default function ChatDock({ open = false, onClose }) {
           id: msg.id,
           userId: msg.userId,
           username: msg.username,
+          avatarUrl: msg.avatarUrl || null,
           text: msg.content,
           ts: new Date(msg.createdAt).getTime(),
           edited: false,
@@ -160,6 +162,7 @@ export default function ChatDock({ open = false, onClose }) {
     socketRef.current.emit('chat:update', { id: editingId, content: text });
     // server will broadcast chat:updated → we sync then
   };
+  const absUrl = (apiBase, url) => url ? (/^https?:\/\//i.test(url) ? url : `${apiBase}${url}`) : null;
 
   return (
     <Wrap $open={open}>
@@ -180,7 +183,11 @@ export default function ChatDock({ open = false, onClose }) {
                 return (
                   <Msg key={m.id}>
                     <MsgHead>
-                      <Avatar>{initials(m.username)}</Avatar>
+                      {m.avatarUrl ? (
+                      <AvatarImg src={absUrl(API_URL, m.avatarUrl)} alt="" />
+                      ) : (
+                        <Avatar>{initials(m.username)}</Avatar>
+                      )}
                       <Meta>
                         <Name>{m.username}</Name>
                         <Time>
@@ -356,8 +363,11 @@ const Avatar = styled.div`
   width:32px;height:32px;border-radius:50%;
   display:grid;place-items:center;
   background:#e8f1ff;color:#1f6feb;font-weight:800;font-size:12px;
-  border:1px solid ${({theme})=>theme.colors.line};
-`;
+  border:1px solid ${({theme})=>theme.colors.line}; `;
+const AvatarImg = styled.img`
+  width:32px;height:32px;border-radius:50%;
+  object-fit:cover; display:block;
+  border:1px solid ${({theme})=>theme.colors.line}; `;
 const Meta = styled.div` display:flex; align-items:baseline; gap:8px; `;
 const Name = styled.span` font-weight:700; color:#0f172a; font-size:13px; `;
 const Time = styled.span` color:${({theme})=>theme.colors.subtext}; font-size:12px; `;
