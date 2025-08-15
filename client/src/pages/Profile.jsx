@@ -331,10 +331,8 @@ export default function Profile() {
 
       // cache-bust to ensure fresh image
       const newUrl = `${data.url}?t=${Date.now()}`;
-      const updated = { ...me, avatarUrl: data.url };
+      const updated = { ...me, avatarUrl: newUrl };
       setMe(updated);
-
-      // propagate to auth store for navbar/sidebar etc.
       const { token: currentToken } = getAuth();
       setAuth({ user: updated, token: currentToken });
 

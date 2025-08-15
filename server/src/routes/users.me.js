@@ -35,12 +35,13 @@ const upload = multer({
     files: 1,
   },
   fileFilter: (req, file, cb) => {
-    const ok =
-      file.mimetype === "image/jpeg" ||
-      file.mimetype === "image/png" ||
-      file.mimetype === "image/webp";
-    cb(ok ? null : new multer.MulterError("LIMIT_UNEXPECTED_FILE", "file"));
-  },
+  const ok =
+    file.mimetype === "image/jpeg" ||
+    file.mimetype === "image/png" ||
+    file.mimetype === "image/webp";
+  if (ok) return cb(null, true);
+  return cb(new multer.MulterError("LIMIT_UNEXPECTED_FILE", "avatar"));
+},
 });
 
 // Very small “magic number” sniff as an extra check
