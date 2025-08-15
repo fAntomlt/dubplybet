@@ -26,6 +26,11 @@ export default function ChatDock({ open = false, onClose }) {
   const myName = authUser?.username || null;
   const isAdmin = authUser?.role === 'admin';
 
+  const [profiles, setProfiles] = useState(new Map());
+  const [cardFor, setCardFor] = useState(null);
+  const [cardLoading, setCardLoading] = useState(false);
+  const [cardError, setCardError] = useState("");
+
   // focus input on open
   useEffect(() => {
     if (open) setTimeout(() => inputRef.current?.focus(), 50);
@@ -164,6 +169,30 @@ export default function ChatDock({ open = false, onClose }) {
   };
   const absUrl = (apiBase, url) => url ? (/^https?:\/\//i.test(url) ? url : `${apiBase}${url}`) : null;
 
+  const loadProfile = async (userId) => {
+  if (!userId) return;
+  if (profiles.has(userId)) return; // cached
+
+  setCardLoading(true);
+  setCardError("");
+  try {
+    const res = await fetch(`${API_URL}/api/users/public/${userId}`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    const data = await res.json();
+    if (!res.ok || !data?.ok) {
+      setCardError(data?.error || "Nepavyko užkrauti profilio");
+      return;
+    }
+    setProfiles(prev => new Map(prev).set(userId, data.user));
+  } catch {
+    setCardError("Serverio klaida įkeliant profilį");
+  } finally {
+    setCardLoading(false);
+  }
+};
+
+
   return (
     <Wrap $open={open}>
       {/* blur all content if confirm modal is open */}
@@ -189,7 +218,15 @@ export default function ChatDock({ open = false, onClose }) {
                         <Avatar>{initials(m.username)}</Avatar>
                       )}
                       <Meta>
-                        <Name>{m.username}</Name>
+                        <Name
+                          role="button"
+                          onClick={() => {
+                            setCardFor(prev => (prev === m.id ? null : m.id));
+                            if (cardFor !== m.id) loadProfile(m.userId);
+                          }}
+                        >
+                          {m.username}
+                        </Name>
                         <Time>
                           {formatTime(m.ts)} {m.edited ? '· Redaguota' : ''}
                         </Time>
@@ -209,7 +246,27 @@ export default function ChatDock({ open = false, onClose }) {
                       </Actions>
 
                     </MsgHead>
-
+                    {cardFor === m.id && (
+                      <UserCard>
+                        <CardClose onClick={() => setCardFor(null)} aria-label="Uždaryti">×</CardClose>
+                        {cardLoading && <CardMeta>Kraunama…</CardMeta>}
+                        {cardError && <CardMeta role="alert">{cardError}</CardMeta>}
+                        {!cardLoading && !cardError && (() => {
+                          const p = profiles.get(m.userId);
+                          if (!p) return null;
+                          const u = absUrl(API_URL, p.avatarUrl);
+                          return (
+                            <>
+                              <CardAvatarWrap>
+                                {u ? <CardAvatar src={u} alt="" /> : <CardAvatarFallback>{initials(p.username)}</CardAvatarFallback>}
+                              </CardAvatarWrap>
+                              <CardName>{p.username}</CardName>
+                              <CardMeta>Prisiregistravo: <b>{fmtDate(p.registeredAt)}</b></CardMeta>
+                            </>
+                          );
+                        })()}
+                      </UserCard>
+                    )}
                     {editingId === m.id ? (
                       <EditRow>
                         <EditInput
@@ -517,6 +574,58 @@ const Ghost = styled.button`
   border-radius:10px;
   font-weight:700;
   cursor:pointer;
+`;
+
+const UserCard = styled.div`
+  position: relative;
+  margin: -6px 0 6px 40px; /* aligns under header, offset past avatar */
+  width: 220px;
+  background: #fff;
+  border: 1px solid ${({theme})=>theme.colors.line};
+  border-radius: 14px;
+  box-shadow: 0 10px 24px rgba(0,0,0,.08);
+  padding: 14px 14px 12px;
+`;
+
+const CardClose = styled.button`
+  position: absolute;
+  top: 6px; right: 6px;
+  width: 26px; height: 26px;
+  border-radius: 8px;
+  border: 1px solid ${({theme})=>theme.colors.line};
+  background: #fff;
+  line-height: 1; font-size: 16px; color: #0f172a;
+  cursor: pointer;
+`;
+
+const CardAvatarWrap = styled.div`
+  margin-top: 6px; display: grid; place-items: center;
+`;
+
+const CardAvatar = styled.img`
+  width: 64px; height: 64px; border-radius: 50%;
+  object-fit: cover; display: block;
+  border: 1px solid ${({theme})=>theme.colors.line};
+`;
+
+const CardAvatarFallback = styled.div`
+  width: 64px; height: 64px; border-radius: 50%;
+  display: grid; place-items: center;
+  background: #e8f1ff; color: #1f6feb; font-weight: 800; font-size: 18px;
+  border:1px solid ${({theme})=>theme.colors.line};
+`;
+
+const CardName = styled.div`
+  margin-top: 8px;
+  text-align: center;
+  font-weight: 800; color: #0f172a;
+`;
+
+const CardMeta = styled.div`
+  margin-top: 4px;
+  text-align: center;
+  color: ${({theme})=>theme.colors.subtext};
+  font-size: 13px;
 `;
 
 /* style the modal card */

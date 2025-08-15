@@ -246,4 +246,34 @@ router.post("/change-password", requireAuth, async (req, res) => {
   }
 });
 
+router.get("/public/:id", requireAuth, async (req, res) => {
+  try {
+    const id = Number(req.params.id);
+    if (!Number.isInteger(id) || id <= 0) {
+      return res.status(400).json({ ok: false, error: "Blogas vartotojo ID" });
+    }
+
+    const [rows] = await pool.query(
+      `SELECT id,
+              username,
+              avatar_url AS avatarUrl,
+              created_at AS registeredAt
+         FROM users
+        WHERE id = ?
+        LIMIT 1`,
+      [id]
+    );
+
+    if (!rows.length) {
+      return res.status(404).json({ ok: false, error: "Vartotojas nerastas" });
+    }
+
+    // Return only minimal public data
+    return res.json({ ok: true, user: rows[0] });
+  } catch (err) {
+    console.error("GET /users/public/:id error:", err);
+    return res.status(500).json({ ok: false, error: "Serverio klaida" });
+  }
+});
+
 export default router;
