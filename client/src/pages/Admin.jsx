@@ -417,7 +417,12 @@ function AdminTournaments() {
           </thead>
           <tbody>
             {rows.map(t => (
-              <tr key={t.id}>
+              <tr key={t.id} style={{
+                backgroundColor:
+                  t.status === "draft" ? "#f9fafb" :
+                  t.status === "active" ? "#ecfdf5" :
+                  t.status === "archived" ? "#fef2f2" : ""
+              }}>
                 <td>{t.id}</td>
                 <td>{t.name}</td>
                 <td>
@@ -763,7 +768,12 @@ function AdminGames() {
                 const isEditing = editId === g.id && g.status !== "finished";
                 return (
                   <React.Fragment key={`row-${g.id}`}>
-                    <tr>
+                    <tr style={{
+  backgroundColor:
+    g.status === "scheduled" ? "#ecfdf5" :   // light green
+    g.status === "locked" ? "#fefce8" :      // light yellow
+    g.status === "finished" ? "#f9fafb" : "" // light gray
+}}>
                       <td>
                         <IconButton
                           onClick={() => toggleExpand(g.id)}
@@ -1061,8 +1071,6 @@ const Header = styled.header`
     flex-direction: column;
     align-items: flex-start;
     gap: 6px;
-    h1 { font-size: 22px; }
-    p  { font-size: 13px; }
   }
 `;
 
