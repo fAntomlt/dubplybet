@@ -3,13 +3,17 @@ import styled, { keyframes } from "styled-components";
 import { useNavigate } from "react-router-dom";
 import { api } from "../lib/api";
 
-// Global fallback image (you can set :root { --ball-img:url('/uploads/basketball.jpg'); })
-
+const API_ORIGIN = (import.meta.env.VITE_API_URL || "").replace(/\/+$/, "");
+const toUploadUrl = (p) => {
+  if (!p) return null;
+  if (/^https?:\/\//i.test(p)) return p;              // already absolute
+  if (p.startsWith("/uploads")) return `${API_ORIGIN}${p}`;
+  return p;
+};
+const FALLBACK_IMG = `url('${API_ORIGIN}/uploads/basketball.jpg')`;
 
 const blurIn = keyframes`from{filter:blur(0)}to{filter:blur(3px)}`;
 
-
-const FALLBACK_IMG = "url('/uploads/basketball.jpg)";
 const ImageLayer = styled.div`
   position:absolute; inset:0;
   background:${p=>p.$bg || FALLBACK_IMG}; background-size:cover; background-position:center;
@@ -19,7 +23,13 @@ const Overlay = styled.div`
   position:absolute; inset:0; background:rgba(255,255,255,.22); transition:background .2s ease;
 `;
 const HeroContent = styled.div`
-  position:relative; z-index:2; color:#0f172a; padding:18px 20px; display:grid; gap:6px;
+  position:relative; z-index:2; 
+  color:#0f172a;
+  padding:18px 20px;
+  display:grid;
+  place-items:center;       /* center hero text as well */
+  gap:6px;
+  text-align:center;
 `;
 const Title = styled.h2`margin:0; font-size:clamp(22px,4vw,32px); font-weight:900; letter-spacing:-.02em;`;
 const Dates = styled.div`font-weight:700;`;
@@ -41,8 +51,11 @@ const CTA = styled.button`
 /* Shared card bits */
 const CardBase = styled.div`position:relative; height:200px; border-radius:16px; overflow:hidden; background:#000;`;
 const CardContent = styled.div`
-  position:absolute; inset:0; z-index:2; display:grid; align-content:center; justify-items:center;
-  text-align:center; color:#0f172a; gap:6px; padding:12px;
+  position:absolute; inset:0; z-index:2;
+  display:grid;
+  place-items:center;        /* centers both vertically + horizontally */
+  text-align:center; 
+  color:#0f172a; gap:6px; padding:12px;
 `;
 const CardTitle = styled.div`font-size:clamp(18px,2.3vw,22px); font-weight:900; letter-spacing:-.01em;`;
 const CardDates = styled.div`font-weight:700;`;
@@ -119,6 +132,7 @@ export default function Turnyrai() {
   const navigate = useNavigate();
   const [rows, setRows] = useState([]);
   const [loading, setLoading] = useState(true);
+  const d10 = (v) => String(v || '').slice(0, 10);
 
   useEffect(() => {
     (async () => {
@@ -151,7 +165,10 @@ export default function Turnyrai() {
     };
   }, [rows]);
 
-  const bgOf = t => (t?.cover_url ? `url('${t.cover_url}')` : FALLBACK_IMG);
+  const bgOf = (t) => {
+  const u = toUploadUrl(t?.cover_url);
+  return u ? `url('${u}')` : FALLBACK_IMG;
+};
   const goTo = t => navigate(`/tournaments/${t.id}`);
 
   if (loading) {
@@ -183,7 +200,7 @@ export default function Turnyrai() {
             <Overlay />
             <HeroContent>
               <Title>{heroActive.name}</Title>
-              <Dates>{heroActive.start_date} – {heroActive.end_date}</Dates>
+              <Dates>{d10(heroActive.start_date)} – {d10(heroActive.end_date)}</Dates>
               <LiveRow><LiveDot /> <span>GYVAI</span></LiveRow>
             </HeroContent>
             <CTA>DALYVAUTI</CTA>
@@ -204,7 +221,7 @@ export default function Turnyrai() {
                   <Overlay />
                   <CardContent>
                     <CardTitle>{t.name}</CardTitle>
-                    <CardDates>{t.start_date} – {t.end_date}</CardDates>
+                    <CardDates>{d10(t.start_date)} – {d10(t.end_date)}</CardDates>
                     <CardLive><LiveDot /> <span>GYVAI</span></CardLive>
                   </CardContent>
                   <MiniCTA>DALYVAUTI</MiniCTA>
@@ -227,7 +244,7 @@ export default function Turnyrai() {
               <Overlay />
               <CardContent>
                 <CardTitle>{t.name}</CardTitle>
-                <CardDates>{t.start_date} – {t.end_date}</CardDates>
+                <CardDates>{d10(t.start_date)} – {d10(t.end_date)}</CardDates>
                 <SoonRow><span aria-hidden>⏳</span> <span>JAU GREITAI</span></SoonRow>
               </CardContent>
             </DraftCard>
@@ -252,7 +269,7 @@ export default function Turnyrai() {
               <Overlay />
               <CardContent>
                 <CardTitle>{t.name}</CardTitle>
-                <CardDates>{t.start_date} – {t.end_date}</CardDates>
+                <CardDates>{d10(t.start_date)} – {d10(t.end_date)}</CardDates>
               </CardContent>
               <CTA>PERŽIŪRĖTI</CTA>
             </ArchivedCard>
