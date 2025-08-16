@@ -12,7 +12,7 @@ const BG_ARCHIVED = `url('${joinApi(import.meta.env.VITE_TOURNAMENT_BG_ARCHIVED 
 
 const toUploadUrl = (p) => {
   if (!p) return null;
-  if (/^https?:\/\//i.test(p)) return p;              // already absolute
+  if (/^https?:\/\//i.test(p)) return p;
   if (p.startsWith("/uploads")) return `${API_ORIGIN}${p}`;
   return p;
 };
@@ -26,7 +26,7 @@ const ImageLayer = styled.div`
   transition:transform .2s ease, filter .2s ease;
 `;
 const Overlay = styled.div`
-  position:absolute; inset:0; background:rgba(255,255,255,.22); transition:background .2s ease; z-index: 1;
+  position:absolute; inset:0; background:rgba(255, 255, 255, 0.03); transition:background .2s ease; z-index: 1;
 `;
 const HeroContent = styled.div`
   position:absolute; z-index:2; inset:0;
@@ -57,7 +57,6 @@ const CTA = styled.button`
   background:#1f6feb; color:#fff; box-shadow:0 8px 20px rgba(31,111,235,.35); cursor:pointer;
 `;
 
-/* Shared card bits */
 const CardBase = styled.div`position:relative; height:200px; border-radius:16px; overflow:hidden; background:#000;`;
 const CardContent = styled.div`
   position:absolute; inset:0; z-index:2;
@@ -66,23 +65,18 @@ const CardContent = styled.div`
   text-align:center; 
   color:#fff; gap:6px; padding:12px;
 `;
-const CardTitle = styled.div`font-size:clamp(18px,2.3vw,22px); font-weight:900; letter-spacing:-.01em;`;
-const CardDates = styled.div`font-weight:700;`;
+const CardTitle = styled.div`font-size:clamp(18px,2.3vw,22px); font-weight:900; letter-spacing:-.01em; text-shadow: 0 2px 6px rgba(0,0,0,0.6);`; 
+const CardDates = styled.div`font-weight:700; text-shadow: 0 2px 8px rgba(0, 0, 0, 0.7);`;
 
 const SectionHeader = styled.h3`margin:0; font-size:16px; letter-spacing:.08em; font-weight:900; color:#0f172a;`;
 const Grid = styled.div`display:grid; grid-template-columns:repeat(auto-fill,minmax(280px,1fr)); gap:14px;`;
 const EmptyHint = styled.div`color:#64748b; font-weight:600;`;
 const EmptySmall = styled.div`color:#94a3b8; font-size:14px;`;
 
-/* Active small */
-
 const CardLive = styled.div`
-  display:inline-flex; align-items:center; gap:8px; font-weight:900; color:#b91c1c;
+  display:inline-flex; align-items:center; gap:8px; font-weight:900; color:#b91c1c; text-shadow: 0 1px 3px rgba(0,0,0,0.4);
   background:rgba(255,255,255,.7); border-radius:999px; padding:3px 8px;
 `;
-
-
-/* Draft */
 const DraftCard = styled(CardBase)`
   pointer-events:none; box-shadow:0 4px 12px rgba(2,6,23,.08);
   &:hover ${ImageLayer}{ transform:scale(1.03); filter:saturate(1.05); }
@@ -93,10 +87,6 @@ const SoonRow = styled.div`
   background:rgba(255,255,255,.7); border-radius:999px; padding:3px 8px;
 `;
 
-/* Archived */
-
-
-/* Skeletons */
 const shimmer = keyframes`0%{background-position:-200px 0}100%{background-position:calc(200px + 100%) 0}`;
 const SkeletonHero = styled.div`
   height:220px; width:100%; border-radius:18px; background:#f3f4f6; position:relative; overflow:hidden;
@@ -108,8 +98,6 @@ const SkeletonCard = styled.div`
   &:after{content:""; position:absolute; inset:0; background:linear-gradient(90deg,transparent,rgba(255,255,255,.5),transparent);
     background-size:200px 100%; animation:${shimmer} 1.2s infinite;}
 `;
-
-
 
 const HeroCard = styled.div`
   position:relative; width:100%; min-height:220px; border-radius:18px; overflow:hidden;
@@ -135,6 +123,40 @@ const ArchivedCard = styled(CardBase)`
   &:hover ${ImageLayer}{ transform:scale(1.03); filter:blur(2px); }
   &:hover ${Overlay}{ background:rgba(255,255,255,.26); }
   &:hover ${CTA}{ opacity:1; transform:translate(-50%,-50%) scale(1); }
+`;
+
+const CenterStack = styled.div`
+  display: grid;
+  gap: 4px;
+`;
+
+const WinnerRow = styled.div`
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  font-weight: 900;
+  color: #ffffffff;
+  border-radius: 999px;
+  padding: 4px 10px;
+`;
+
+const Trophy = styled.span`
+  display: inline-block;
+  font-size: 16px;
+`;
+
+const PageHeader = styled.h1`
+  font-size: clamp(28px, 6vw, 36px);
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  color: #0f172a;
+`;
+
+const Divider = styled.div`
+  height: 1px;
+  background: #eceff3;
+  margin: 10px 0 30px 0;
 `;
 
 export default function Turnyrai() {
@@ -200,6 +222,7 @@ export default function Turnyrai() {
 
   return (
     <Wrap>
+      <PageHeader>Turnyrai</PageHeader>
       {/* ACTIVE */}
       {heroActive ? (
         <>
@@ -246,6 +269,7 @@ export default function Turnyrai() {
               ))}
             </Grid>
           )}
+          <Divider />
         </>
       ) : (
         <EmptyHint>Šiuo metu aktyvių turnyrų nėra.</EmptyHint>
@@ -260,8 +284,10 @@ export default function Turnyrai() {
               <ImageLayer $bg={bgOf(t)} />
               <Overlay />
               <CardContent>
+                <CenterStack>
                 <CardTitle>{t.name}</CardTitle>
                 <CardDates>{d10(t.start_date)} – {d10(t.end_date)}</CardDates>
+                </CenterStack>
                 <SoonRow><span aria-hidden>⏳</span> <span>JAU GREITAI</span></SoonRow>
               </CardContent>
             </DraftCard>
@@ -285,8 +311,16 @@ export default function Turnyrai() {
               <ImageLayer $bg={bgOf(t)} />
               <Overlay />
               <CardContent>
+                <CenterStack>
                 <CardTitle>{t.name}</CardTitle>
                 <CardDates>{d10(t.start_date)} – {d10(t.end_date)}</CardDates>
+                </CenterStack>
+                {t.winner_team && (
+                  <WinnerRow title="Turnyro nugalėtojas">
+                    <Trophy aria-hidden>🏆</Trophy>
+                    <span>{t.winner_team}</span>
+                  </WinnerRow>
+                )}
               </CardContent>
               <CTA>PERŽIŪRĖTI</CTA>
             </ArchivedCard>
@@ -301,4 +335,3 @@ export default function Turnyrai() {
 
 const Wrap = styled.div`display:grid; gap:24px;`;
 
-/* Hero */
