@@ -158,6 +158,19 @@ const Trophy = styled.span`
   font-size: 16px;
 `;
 
+const PageHeader = styled.h1`
+  font-size: clamp(28px, 6vw, 36px);
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  color: #0f172a;
+`;
+
+const Divider = styled.div`
+  height: 1px;
+  background: #eceff3;
+  margin: 10px 0 30px 0;
+`;
+
 export default function Turnyrai() {
   const navigate = useNavigate();
   const [rows, setRows] = useState([]);
@@ -221,6 +234,7 @@ export default function Turnyrai() {
 
   return (
     <Wrap>
+      <PageHeader>Turnyrai</PageHeader>
       {/* ACTIVE */}
       {heroActive ? (
         <>
@@ -267,6 +281,7 @@ export default function Turnyrai() {
               ))}
             </Grid>
           )}
+          <Divider />
         </>
       ) : (
         <EmptyHint>Šiuo metu aktyvių turnyrų nėra.</EmptyHint>
@@ -332,4 +347,3 @@ export default function Turnyrai() {
 
 const Wrap = styled.div`display:grid; gap:24px;`;
 
-/* Hero */
