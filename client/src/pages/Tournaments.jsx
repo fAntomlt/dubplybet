@@ -12,7 +12,7 @@ const BG_ARCHIVED = `url('${joinApi(import.meta.env.VITE_TOURNAMENT_BG_ARCHIVED 
 
 const toUploadUrl = (p) => {
   if (!p) return null;
-  if (/^https?:\/\//i.test(p)) return p;              // already absolute
+  if (/^https?:\/\//i.test(p)) return p;
   if (p.startsWith("/uploads")) return `${API_ORIGIN}${p}`;
   return p;
 };
@@ -57,7 +57,6 @@ const CTA = styled.button`
   background:#1f6feb; color:#fff; box-shadow:0 8px 20px rgba(31,111,235,.35); cursor:pointer;
 `;
 
-/* Shared card bits */
 const CardBase = styled.div`position:relative; height:200px; border-radius:16px; overflow:hidden; background:#000;`;
 const CardContent = styled.div`
   position:absolute; inset:0; z-index:2;
@@ -74,15 +73,10 @@ const Grid = styled.div`display:grid; grid-template-columns:repeat(auto-fill,min
 const EmptyHint = styled.div`color:#64748b; font-weight:600;`;
 const EmptySmall = styled.div`color:#94a3b8; font-size:14px;`;
 
-/* Active small */
-
 const CardLive = styled.div`
   display:inline-flex; align-items:center; gap:8px; font-weight:900; color:#b91c1c; text-shadow: 0 1px 3px rgba(0,0,0,0.4);
   background:rgba(255,255,255,.7); border-radius:999px; padding:3px 8px;
 `;
-
-
-/* Draft */
 const DraftCard = styled(CardBase)`
   pointer-events:none; box-shadow:0 4px 12px rgba(2,6,23,.08);
   &:hover ${ImageLayer}{ transform:scale(1.03); filter:saturate(1.05); }
@@ -93,10 +87,6 @@ const SoonRow = styled.div`
   background:rgba(255,255,255,.7); border-radius:999px; padding:3px 8px;
 `;
 
-/* Archived */
-
-
-/* Skeletons */
 const shimmer = keyframes`0%{background-position:-200px 0}100%{background-position:calc(200px + 100%) 0}`;
 const SkeletonHero = styled.div`
   height:220px; width:100%; border-radius:18px; background:#f3f4f6; position:relative; overflow:hidden;
@@ -108,8 +98,6 @@ const SkeletonCard = styled.div`
   &:after{content:""; position:absolute; inset:0; background:linear-gradient(90deg,transparent,rgba(255,255,255,.5),transparent);
     background-size:200px 100%; animation:${shimmer} 1.2s infinite;}
 `;
-
-
 
 const HeroCard = styled.div`
   position:relative; width:100%; min-height:220px; border-radius:18px; overflow:hidden;
