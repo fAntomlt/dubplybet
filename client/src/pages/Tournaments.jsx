@@ -4,6 +4,12 @@ import { useNavigate } from "react-router-dom";
 import { api } from "../lib/api";
 
 const API_ORIGIN = (import.meta.env.VITE_API_URL || "").replace(/\/+$/, "");
+const joinApi = (p) => (p?.startsWith("/uploads") ? `${API_ORIGIN}${p}` : p || "");
+
+const BG_ACTIVE   = `url('${joinApi(import.meta.env.VITE_TOURNAMENT_BG_ACTIVE   || "/uploads/turnyras-active.jpg")}')`;
+const BG_DRAFT    = `url('${joinApi(import.meta.env.VITE_TOURNAMENT_BG_DRAFT    || "/uploads/turnyras-draft.jpg")}')`;
+const BG_ARCHIVED = `url('${joinApi(import.meta.env.VITE_TOURNAMENT_BG_ARCHIVED || "/uploads/turnyras-archived.jpg")}')`;
+
 const toUploadUrl = (p) => {
   if (!p) return null;
   if (/^https?:\/\//i.test(p)) return p;              // already absolute
@@ -20,22 +26,25 @@ const ImageLayer = styled.div`
   transition:transform .2s ease, filter .2s ease;
 `;
 const Overlay = styled.div`
-  position:absolute; inset:0; background:rgba(255,255,255,.22); transition:background .2s ease;
+  position:absolute; inset:0; background:rgba(255,255,255,.22); transition:background .2s ease; z-index: 1;
 `;
 const HeroContent = styled.div`
-  position:relative; z-index:2; 
-  color:#0f172a;
+  position:absolute; z-index:2; inset:0;
+  color:#fff;
   padding:18px 20px;
-  display:grid;
-  place-items:center;       /* center hero text as well */
-  gap:6px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
   text-align:center;
+  gap: 8px;
 `;
-const Title = styled.h2`margin:0; font-size:clamp(22px,4vw,32px); font-weight:900; letter-spacing:-.02em;`;
+const Title = styled.h2`margin:0; font-size:clamp(22px,4vw,45px); font-weight:900; letter-spacing:-.02em;`;
 const Dates = styled.div`font-weight:700;`;
 const LiveRow = styled.div`
   display:inline-flex; align-items:center; gap:8px; font-weight:900; color:#b91c1c;
   background:rgba(255,255,255,.7); border-radius:999px; padding:4px 10px; width:fit-content;
+  margin-top:20px;
 `;
 const LiveDot = styled.span`
   width:8px; height:8px; border-radius:50%; background:#ef4444; display:inline-block;
@@ -55,7 +64,7 @@ const CardContent = styled.div`
   display:grid;
   place-items:center;        /* centers both vertically + horizontally */
   text-align:center; 
-  color:#0f172a; gap:6px; padding:12px;
+  color:#fff; gap:6px; padding:12px;
 `;
 const CardTitle = styled.div`font-size:clamp(18px,2.3vw,22px); font-weight:900; letter-spacing:-.01em;`;
 const CardDates = styled.div`font-weight:700;`;
@@ -165,10 +174,16 @@ export default function Turnyrai() {
     };
   }, [rows]);
 
-  const bgOf = (t) => {
-  const u = toUploadUrl(t?.cover_url);
-  return u ? `url('${u}')` : FALLBACK_IMG;
-};
+
+  const bgForStatus = (status) => {
+    switch (status) {
+      case "active":   return BG_ACTIVE;
+      case "draft":    return BG_DRAFT;
+      case "archived": return BG_ARCHIVED;
+      default:         return FALLBACK_IMG;
+    }
+  };
+  const bgOf = (t) => bgForStatus(t?.status);
   const goTo = t => navigate(`/tournaments/${t.id}`);
 
   if (loading) {
@@ -199,8 +214,10 @@ export default function Turnyrai() {
             <ImageLayer $bg={bgOf(heroActive)} />
             <Overlay />
             <HeroContent>
-              <Title>{heroActive.name}</Title>
-              <Dates>{d10(heroActive.start_date)} – {d10(heroActive.end_date)}</Dates>
+              <div>
+                <Title>{heroActive.name}</Title>
+                <Dates>{d10(heroActive.start_date)} – {d10(heroActive.end_date)}</Dates>
+              </div>
               <LiveRow><LiveDot /> <span>GYVAI</span></LiveRow>
             </HeroContent>
             <CTA>DALYVAUTI</CTA>
