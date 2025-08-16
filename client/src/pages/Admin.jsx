@@ -307,6 +307,8 @@ function AdminTournaments() {
   const [start, setStart] = useState("");
   const [end, setEnd] = useState("");
 
+  const T_STATUS_ORDER = { active: 0, draft: 1, archived: 2, finished: 2 };
+
   // Modals
   const [finishId, setFinishId] = useState(null);
   const [winnerTeam, setWinnerTeam] = useState("");
@@ -317,6 +319,13 @@ function AdminTournaments() {
       setLoading(true);
       const data = await api(`/api/admin/tournaments`);
       setRows(data.tournaments || []);
+      const sorted = [...(data.tournaments || [])].sort((a, b) => {
+      const sa = T_STATUS_ORDER[a.status] ?? 99;
+      const sb = T_STATUS_ORDER[b.status] ?? 99;
+      if (sa !== sb) return sa - sb;
+      return String(a.name).localeCompare(String(b.name));
+    });
+    setRows(sorted);
     } catch (e) {
       toast.error(e.message || "Nepavyko užkrauti turnyrų");
     } finally {
@@ -503,6 +512,41 @@ function AdminGames() {
   const [scoreA, setScoreA] = useState("");
   const [scoreB, setScoreB] = useState("");
   const [deleteGameId, setDeleteGameId] = useState(null);
+
+  const G_STATUS_ORDER = { scheduled: 0, locked: 1, finished: 2 };
+  const G_STAGE_ORDER  = { playoff: 0, group: 1 };
+
+
+  const [gq, setGq] = useState(""); // search by team name
+
+  const displayGames = useMemo(() => {
+  const q = gq.trim().toLowerCase();
+  let list = games;
+
+  if (q) {
+    list = list.filter(g =>
+      String(g.team_a || "").toLowerCase().includes(q) ||
+      String(g.team_b || "").toLowerCase().includes(q)
+    );
+  }
+
+  return [...list].sort((a, b) => {
+    const sa = G_STATUS_ORDER[a.status] ?? 99;
+    const sb = G_STATUS_ORDER[b.status] ?? 99;
+    if (sa !== sb) return sa - sb;
+
+    const sta = G_STAGE_ORDER[a.stage] ?? 99;
+    const stb = G_STAGE_ORDER[b.stage] ?? 99;
+    if (sta !== stb) return sta - stb;
+
+    // tipoff ascending (handles strings "YYYY-MM-DD HH:mm:ss" or ISO)
+    const ta = new Date(String(a.tipoff_at).replace(" ", "T")).getTime() || 0;
+    const tb = new Date(String(b.tipoff_at).replace(" ", "T")).getTime() || 0;
+    if (ta !== tb) return ta - tb;
+
+    return (a.id ?? 0) - (b.id ?? 0);
+  });
+}, [games, gq]);
 
   useEffect(() => {
     (async () => {
@@ -742,7 +786,11 @@ function AdminGames() {
       </Flex>
 
       <Divider />
-
+          <SearchInput
+    value={gq}
+    onChange={e => setGq(e.target.value)}
+    placeholder="Paieška pagal komandos pavadinimą…"
+  />
       <BlockTitle>Rungtynės {selected ? `— ${selected.name}` : ""}</BlockTitle>
 
       {loading ? (
@@ -764,7 +812,7 @@ function AdminGames() {
               </tr>
             </thead>
             <tbody>
-              {games.map(g => {
+              {displayGames.map(g => {
                 const isEditing = editId === g.id && g.status !== "finished";
                 return (
                   <React.Fragment key={`row-${g.id}`}>
@@ -906,7 +954,7 @@ function AdminGames() {
                   </React.Fragment>
                 );
               })}
-              {!games.length && (
+              {!displayGames.length && (
                 <tr>
                   <td colSpan={9} style={{ textAlign: "center", color: "#64748b", padding: 20 }}>
                     Nėra rungtynių
