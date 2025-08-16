@@ -26,7 +26,7 @@ const ImageLayer = styled.div`
   transition:transform .2s ease, filter .2s ease;
 `;
 const Overlay = styled.div`
-  position:absolute; inset:0; background:rgba(255,255,255,.22); transition:background .2s ease; z-index: 1;
+  position:absolute; inset:0; background:rgba(255, 255, 255, 0.03); transition:background .2s ease; z-index: 1;
 `;
 const HeroContent = styled.div`
   position:absolute; z-index:2; inset:0;
@@ -135,6 +135,27 @@ const ArchivedCard = styled(CardBase)`
   &:hover ${ImageLayer}{ transform:scale(1.03); filter:blur(2px); }
   &:hover ${Overlay}{ background:rgba(255,255,255,.26); }
   &:hover ${CTA}{ opacity:1; transform:translate(-50%,-50%) scale(1); }
+`;
+
+const CenterStack = styled.div`
+  display: grid;
+  gap: 4px;
+`;
+
+const WinnerRow = styled.div`
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  font-weight: 900;
+  color: #ffffffff;
+  border-radius: 999px;
+  padding: 4px 10px;
+`;
+
+const Trophy = styled.span`
+  display: inline-block;
+  font-size: 16px;
 `;
 
 export default function Turnyrai() {
@@ -260,8 +281,10 @@ export default function Turnyrai() {
               <ImageLayer $bg={bgOf(t)} />
               <Overlay />
               <CardContent>
+                <CenterStack>
                 <CardTitle>{t.name}</CardTitle>
                 <CardDates>{d10(t.start_date)} – {d10(t.end_date)}</CardDates>
+                </CenterStack>
                 <SoonRow><span aria-hidden>⏳</span> <span>JAU GREITAI</span></SoonRow>
               </CardContent>
             </DraftCard>
@@ -285,8 +308,16 @@ export default function Turnyrai() {
               <ImageLayer $bg={bgOf(t)} />
               <Overlay />
               <CardContent>
+                <CenterStack>
                 <CardTitle>{t.name}</CardTitle>
                 <CardDates>{d10(t.start_date)} – {d10(t.end_date)}</CardDates>
+                </CenterStack>
+                {t.winner_team && (
+                  <WinnerRow title="Turnyro nugalėtojas">
+                    <Trophy aria-hidden>🏆</Trophy>
+                    <span>{t.winner_team}</span>
+                  </WinnerRow>
+                )}
               </CardContent>
               <CTA>PERŽIŪRĖTI</CTA>
             </ArchivedCard>
