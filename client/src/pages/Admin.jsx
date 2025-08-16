@@ -60,11 +60,21 @@ function Tabs() {
 }
 
 /* ===================== Users ===================== */
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const DISCORD_RE = /^(?!.*\.\.)[a-z0-9._]{2,32}$/; // same rule you use on backend
+
 function AdminUsers() {
   const toast = useToast();
   const [q, setQ] = useState("");
   const [loading, setLoading] = useState(false);
   const [rows, setRows] = useState([]);
+
+  // inline edit state (single-row edit)
+  const [editId, setEditId] = useState(null);
+  const [eEmail, setEEmail] = useState("");
+  const [eUsername, setEUsername] = useState("");
+  const [eDiscord, setEDiscord] = useState("");
+  const [savingId, setSavingId] = useState(null);
 
   async function load() {
     try {
@@ -79,6 +89,72 @@ function AdminUsers() {
   }
 
   useEffect(() => { load(); /* initial */ }, []); // eslint-disable-line
+
+  function startEdit(u) {
+    setEditId(u.id);
+    setEEmail(String(u.email || "").trim());
+    setEUsername(String(u.username || "").trim());
+    setEDiscord(String(u.discord_username || "").trim().toLowerCase());
+  }
+  function cancelEdit() {
+    setEditId(null);
+    setEEmail("");
+    setEUsername("");
+    setEDiscord("");
+    setSavingId(null);
+  }
+
+  async function saveEdit(id) {
+    const email = eEmail.trim().toLowerCase();
+    const username = eUsername.trim();
+    const discord = eDiscord.trim().toLowerCase();
+
+    if (!username || username.length < 3 || username.length > 50) {
+      return toast.error("Vardas turi būti 3–50 simbolių");
+    }
+    if (!EMAIL_RE.test(email) || email.length > 191) {
+      return toast.error("Neteisingas el. pašto formatas");
+    }
+    if (!DISCORD_RE.test(discord)) {
+      return toast.error("Neteisingas Discord vardas (2–32 simboliai, mažosios raidės, taškai ir pabraukimai; be dviejų taškų iš eilės)");
+    }
+
+    try {
+      setSavingId(id);
+      await api(`/api/admin/users/${id}`, {
+        method: "PATCH",
+        json: {
+          email,
+          username,
+          discord_username: discord,
+        },
+      });
+      toast.success("Vartotojas atnaujintas");
+      // optimistic update
+      setRows(prev => prev.map(r => r.id === id ? { ...r, email, username, discord_username: discord } : r));
+      cancelEdit();
+    } catch (e) {
+      toast.error(e?.message || "Nepavyko atnaujinti");
+      setSavingId(null);
+    }
+  }
+
+  async function deleteUser(id, isAdmin) {
+    if (isAdmin) {
+      const sure = confirm("Šis vartotojas yra administratorius. Ar tikrai norite tęsti?");
+      if (!sure) return;
+    }
+    if (!confirm("Ištrinti paskyrą? Veiksmas negrįžtamas.")) return;
+    try {
+      await api(`/api/admin/users/${id}`, { method: "DELETE" });
+      toast.success("Paskyra ištrinta");
+      // optimistic update
+      setRows(prev => prev.filter(r => r.id !== id));
+      if (editId === id) cancelEdit();
+    } catch (e) {
+      toast.error(e?.message || "Nepavyko ištrinti");
+    }
+  }
 
   return (
     <Section>
@@ -95,23 +171,82 @@ function AdminUsers() {
         <thead>
           <tr>
             <th>ID</th><th>El. paštas</th><th>Vardas</th><th>Discord</th>
-            <th>Rolė</th><th>Patvirtintas</th><th>Sukurta</th>
+            <th>Rolė</th><th>Patvirtintas</th><th>Sukurta</th><th>Veiksmai</th>
           </tr>
         </thead>
         <tbody>
-          {rows.map(u => (
-            <tr key={u.id}>
-              <td>{u.id}</td>
-              <td>{u.email}</td>
-              <td>{u.username}</td>
-              <td>{u.discord_username}</td>
-              <td>{u.role}</td>
-              <td>{u.email_verified ? "Taip" : "Ne"}</td>
-              <td>{fmt(u.created_at)}</td>
-            </tr>
-          ))}
+          {rows.map(u => {
+            const isEditing = editId === u.id;
+            return (
+              <tr key={u.id}>
+                <td>{u.id}</td>
+
+                {/* Email */}
+                <td>
+                  {isEditing ? (
+                    <input
+                      value={eEmail}
+                      onChange={e => setEEmail(e.target.value)}
+                      placeholder="el. paštas"
+                      style={{ width: "220px" }}
+                    />
+                  ) : u.email}
+                </td>
+
+                {/* Username */}
+                <td>
+                  {isEditing ? (
+                    <input
+                      value={eUsername}
+                      onChange={e => setEUsername(e.target.value)}
+                      placeholder="vartotojo vardas"
+                      style={{ width: "180px" }}
+                    />
+                  ) : u.username}
+                </td>
+
+                {/* Discord */}
+                <td>
+                  {isEditing ? (
+                    <input
+                      value={eDiscord}
+                      onChange={e => setEDiscord(e.target.value)}
+                      placeholder="discord"
+                      style={{ width: "160px" }}
+                    />
+                  ) : u.discord_username}
+                </td>
+
+                <td>{u.role}</td>
+                <td>{u.email_verified ? "Taip" : "Ne"}</td>
+                <td>{fmt(u.created_at)}</td>
+
+                {/* Actions */}
+                <td>
+                  {isEditing ? (
+                    <>
+                      <Small onClick={() => saveEdit(u.id)} disabled={savingId === u.id}>
+                        {savingId === u.id ? "Saugojama…" : "Išsaugoti"}
+                      </Small>{" "}
+                      <Small onClick={cancelEdit}>Atšaukti</Small>{" "}
+                      <Small $danger onClick={() => deleteUser(u.id, u.role === "admin")}>
+                        Trinti
+                      </Small>
+                    </>
+                  ) : (
+                    <>
+                      <Small onClick={() => startEdit(u)}>Redaguoti</Small>{" "}
+                      <Small $danger onClick={() => deleteUser(u.id, u.role === "admin")}>
+                        Trinti
+                      </Small>
+                    </>
+                  )}
+                </td>
+              </tr>
+            );
+          })}
           {!rows.length && (
-            <tr><td colSpan={7} style={{textAlign:"center", color:"#64748b"}}>Nėra rezultatų</td></tr>
+            <tr><td colSpan={8} style={{textAlign:"center", color:"#64748b"}}>Nėra rezultatų</td></tr>
           )}
         </tbody>
       </Table>
@@ -417,45 +552,37 @@ function AdminGames() {
     }
   }
 
-  // Build condition text for a guess. If the game is finished and flags are present,
-  // bold only the qualified parts (winner/direction and margin band). Exact score not bolded.
   // Build condition text for a guess. Middle shows the *guessed point difference*.
-// When finished, we bold winner+band if cond_ok and the margin bracket if diff_ok.
-// Shows: "<Winner> <band> [<margin> pt.] (<A>–<B>)"
-// Bold parts that are correct once the game is finished:
-// - cond_ok  -> winner+band
-// - diff_ok  -> margin bracket
-// - exact_ok -> exact score
-function guessConditionText(game, guess) {
-  const { team_a, team_b, status } = game;
-  const { guess_a, guess_b, cond_ok, diff_ok, exact_ok, awarded_points } = guess;
+  // When finished, we bold winner+band if cond_ok, the margin bracket if diff_ok, and the exact score if exact_ok.
+  function guessConditionText(game, guess) {
+    const { team_a, team_b, status } = game;
+    const { guess_a, guess_b, cond_ok, diff_ok, exact_ok, awarded_points } = guess;
 
-  const winner =
-    guess_a > guess_b ? team_a :
-    guess_b > guess_a ? team_b : "Lygiosios";
+    const winner =
+      guess_a > guess_b ? team_a :
+      guess_b > guess_a ? team_b : "Lygiosios";
 
-  const diff = Math.abs(guess_a - guess_b);
-  const band = diff > 5 ? "> 5" : diff === 5 ? "= 5" : "< 5";
+    const diff = Math.abs(guess_a - guess_b);
+    const band = diff > 5 ? "> 5" : diff === 5 ? "= 5" : "< 5";
 
-  const finished = status === "finished";
-  const b = (content, on) => (on ? <strong>{content}</strong> : content);
+    const finished = status === "finished";
+    const b = (content, on) => (on ? <strong>{content}</strong> : content);
 
-  const firstPart  = `${winner} ${band}`;
-  const middlePart = `[${diff} pt.]`;
-  const finalPart  = `(${guess_a}–${guess_b})`;
+    const firstPart  = `${winner} ${band}`;
+    const middlePart = `[${diff} pt.]`;
+    const finalPart  = `(${guess_a}–${guess_b})`;
 
-  return (
-    <>
-      {b(firstPart,  finished && cond_ok)}{" "}
-      {b(middlePart, finished && diff_ok)}{" "}
-      {b(finalPart,  finished && exact_ok)}
-      {/* Optional: show awarded points after finish */}
-      {finished && awarded_points != null ? (
-        <span style={{ color:"#64748b" }}> [{awarded_points}p]</span>
-      ) : null}
-    </>
-  );
-}
+    return (
+      <>
+        {b(firstPart,  finished && cond_ok)}{" "}
+        {b(middlePart, finished && diff_ok)}{" "}
+        {b(finalPart,  finished && exact_ok)}
+        {finished && awarded_points != null ? (
+          <span style={{ color:"#64748b" }}> [{awarded_points}p]</span>
+        ) : null}
+      </>
+    );
+  }
 
   return (
     <Section>
