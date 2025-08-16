@@ -66,8 +66,8 @@ const CardContent = styled.div`
   text-align:center; 
   color:#fff; gap:6px; padding:12px;
 `;
-const CardTitle = styled.div`font-size:clamp(18px,2.3vw,22px); font-weight:900; letter-spacing:-.01em;`;
-const CardDates = styled.div`font-weight:700;`;
+const CardTitle = styled.div`font-size:clamp(18px,2.3vw,22px); font-weight:900; letter-spacing:-.01em; text-shadow: 0 2px 6px rgba(0,0,0,0.6);`; 
+const CardDates = styled.div`font-weight:700; text-shadow: 0 2px 8px rgba(0, 0, 0, 0.7);`;
 
 const SectionHeader = styled.h3`margin:0; font-size:16px; letter-spacing:.08em; font-weight:900; color:#0f172a;`;
 const Grid = styled.div`display:grid; grid-template-columns:repeat(auto-fill,minmax(280px,1fr)); gap:14px;`;
@@ -77,7 +77,7 @@ const EmptySmall = styled.div`color:#94a3b8; font-size:14px;`;
 /* Active small */
 
 const CardLive = styled.div`
-  display:inline-flex; align-items:center; gap:8px; font-weight:900; color:#b91c1c;
+  display:inline-flex; align-items:center; gap:8px; font-weight:900; color:#b91c1c; text-shadow: 0 1px 3px rgba(0,0,0,0.4);
   background:rgba(255,255,255,.7); border-radius:999px; padding:3px 8px;
 `;
 
