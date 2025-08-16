@@ -22,6 +22,7 @@ import { startLockGamesJob } from "./jobs/lockGames.js";
 import usersMeRoutes from "./routes/users.me.js";
 import mime from "mime-types";
 import fs from "fs";
+import tournamentsPublic from "./routes/tournaments.public.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -86,6 +87,7 @@ app.use("/uploads", (req, res, next) => {
     res.sendFile(filePath);
   });
 });
+app.use("/api/tournaments", tournamentsPublic);
 
 const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
