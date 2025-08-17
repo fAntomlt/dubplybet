@@ -8,7 +8,7 @@ import { guessConditionPretty } from "../lib/conditions";
 import { FiLock, FiChevronDown, FiCheck } from "react-icons/fi";
 import { FaFire } from "react-icons/fa";
 import { getAuth } from "../store/auth";
-import { useToast } from "../components/toastprovider";
+import { useToast } from "../components/ToastProvider";
 
 const PAGE_SIZE = 15;
 
