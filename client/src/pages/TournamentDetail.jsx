@@ -5,7 +5,7 @@ import { useParams } from "react-router-dom";
 import { api } from "../lib/api";
 import { flagForTeam, stageLabel, bandFromDiff } from "../lib/flags";
 import { guessConditionPretty } from "../lib/conditions";
-import { FiLock, FiChevronDown } from "react-icons/fi";
+import { FiLock, FiChevronDown, FiCheck } from "react-icons/fi";
 import { getAuth } from "../store/auth";
 
 const PAGE_SIZE = 15;
@@ -69,13 +69,19 @@ export default function TournamentDetail(){
 
   // UI helpers for compact header + date lines
     const dOWMMMDD = (s) => {
-    // Wed, Aug 27
-    const dt = new Date(s);
-    return dt.toLocaleDateString("en-US", {
+    // use only the date part to avoid TZ shifts
+    const [y, m, d] = String(s || "").slice(0, 10).split("-").map(Number);
+    if (!y || !m || !d) return "";
+    // noon UTC for that calendar date => no DST/offset jumps
+    const dt = new Date(Date.UTC(y, m - 1, d, 12, 0, 0));
+    return dt
+        .toLocaleDateString("lt-LT", {
         weekday: "short",
         month: "short",
         day: "2-digit",
-    });
+        timeZone: "UTC",
+        })
+        .toUpperCase();
     };
     const phaseTiny = (stage) =>
         stage === "playoff" ? "PLAYOFFS" : "GROUP PHASE";
@@ -235,7 +241,7 @@ export default function TournamentDetail(){
             </MetaBlock>
 
             <DividerV />
-            <TimeBadge><FiLock style={{verticalAlign:"middle"}} /> {t5(g.tipoff_at)}</TimeBadge>
+            <LockedBadge><FiLock style={{verticalAlign:"middle"}} /> Vyksta </LockedBadge>
             </RightCol>
 
             <FullWidth>
@@ -298,7 +304,7 @@ export default function TournamentDetail(){
                 <SmallMeta>{dOWMMMDD(g.tipoff_at).toUpperCase()}</SmallMeta>
             </MetaBlock>
             <DividerV />
-            <TimeBadge>{t5(g.tipoff_at)}</TimeBadge>
+            <DoneBadge><FiCheck style={{verticalAlign:"middle"}} /> Baigta</DoneBadge>
             </RightCol>
 
             <FullWidth>
@@ -710,4 +716,18 @@ const SubTitle = styled.div`
   opacity: .7;
   text-transform: uppercase;
   margin-bottom: 6px;
+`;
+
+const LockedBadge = styled(TimeBadge)`
+  background: #ce5b5bff; /* green */
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+`;
+
+const DoneBadge = styled(TimeBadge)`
+  background: #16a34a; /* green */
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
 `;
