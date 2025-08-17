@@ -303,7 +303,7 @@ export default function TournamentDetail(){
 
             <ModalGrid>
               <Side>
-                <Flag>{flagForTeam(modal.game.team_a)}</Flag>
+                <Flag>{flagForTeam(modal.game.team_a, 22)}</Flag>
                 <TeamName>{modal.game.team_a}</TeamName>
                 <ScoreInput
                   inputMode="numeric"
@@ -313,7 +313,7 @@ export default function TournamentDetail(){
                 />
               </Side>
               <Side>
-                <Flag>{flagForTeam(modal.game.team_b)}</Flag>
+                <Flag>{flagForTeam(modal.game.team_b, 22)}</Flag>
                 <TeamName>{modal.game.team_b}</TeamName>
                 <ScoreInput
                   inputMode="numeric"
