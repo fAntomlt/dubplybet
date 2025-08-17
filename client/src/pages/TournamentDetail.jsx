@@ -146,7 +146,7 @@ export default function TournamentDetail(){
       <Section>
         <H3>ARTĖJANTYS ŽAIDIMAI</H3>
         {upcoming.length ? upcoming.map(g => (
-          <GameCard key={g.id}>
+          <GameCard key={g.id} $clickable onClick={() => openGuess(g)}>
             <LeftCol>
               <CardTinyHeader>{phaseTiny(g.stage)}</CardTinyHeader>
                 <Teams>
@@ -186,16 +186,12 @@ export default function TournamentDetail(){
                 </MyGuessBox>
             </FullWidth>
               ) : null}
-
-              {/* CTA (hover shows change/create) */}
-              <HoverCta onClick={()=>openGuess(g)} title={g.my_guess ? "KEISTI SPĖJIMĄ" : "SPĖTI REZULTATĄ"}>
-                {g.my_guess ? "KEISTI SPĖJIMĄ" : "SPĖTI REZULTATĄ"}
-              </HoverCta>
-
-              <ExpandBtn onClick={()=>toggle(g.id)} aria-expanded={expanded.has(g.id)}>
-                <FiChevronDown />
-              </ExpandBtn>
-
+            <ExpandBtn
+            onClick={(e) => { e.stopPropagation(); toggle(g.id); }}
+            aria-expanded={expanded.has(g.id)}
+            >
+            <FiChevronDown />
+            </ExpandBtn>
             <ExpandArea $open={expanded.has(g.id)}>
             <ExpandInner $open={expanded.has(g.id)}>
                 {guesses[g.id] ? (
@@ -499,24 +495,30 @@ const GameCard = styled.div`
   gap: 12px;
   border: 1px solid #e7eaf0;
   background: #fff;
-  
   border-radius: 10px;
-  border-top-right-radius: 0;
-  border-bottom-right-radius: 0;
-  border-bottom-left-radius: 0;
-
   padding: 10px 12px;
   position: relative;
-
   margin-right: 56px;
   overflow: visible;
+  transition: transform .18s ease, border-color .15s ease, box-shadow .15s ease, background .15s ease;
 
-  transition: border-color .15s ease, box-shadow .15s ease, background .15s ease;
-  &:hover {
-    background: #fbfdff;
-    border-color: #dbe2ea;
-    box-shadow: 0 6px 18px rgba(2,6,23,.08);
-  }
+  ${({ $clickable }) =>
+    $clickable &&
+    `
+    cursor: pointer;
+
+    /* Apply hover effect ONLY when not hovering the ExpandBtn */
+    &:hover:not(:has(${ExpandBtn}:hover)) {
+      transform: translateY(-3px) scale(1.02);
+      background: #f9fbff;
+      border-color: #c9d6ec;
+      box-shadow: 0 8px 24px rgba(2,6,23,.12);
+    }
+
+    &:active {
+      transform: translateY(-1px) scale(0.99);
+    }
+  `}
 `;
 const LeftCol = styled.div`display:grid; gap:6px;`;
 const RightCol = styled.div`
@@ -616,16 +618,6 @@ const GuessPair = styled.div`
   .score { font-weight: 900; }
 `;
 const When = styled.div`display:inline-flex; align-items:center; gap:10px; font-weight:800;`;
-const HoverCta = styled.button`
-  position:absolute; left:50%; bottom:8px; transform:translate(-50%,8px);
-  background:#1f6feb; color:#fff; font-weight:900; border:0; border-radius:999px; padding:8px 12px; cursor:pointer;
-  box-shadow:0 8px 20px rgba(31,111,235,.25);
-  opacity:1; transition:opacity .18s ease, transform .18s ease; z-index:3;
-  &:hover {
-    transform: translate(-50%, -1px);
-    box-shadow: 0 10px 24px rgba(31,111,235,.3);
-  }
-`;
 const ExpandBtn = styled.button`
   position: absolute;
   top: -1px;               /* align borders perfectly */
