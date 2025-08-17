@@ -196,11 +196,19 @@ export default function TournamentDetail(){
                 <FiChevronDown />
               </ExpandBtn>
 
-            {expanded.has(g.id) && (
-              <ExpandArea>
-                <GuessesList game={g} guesses={guesses[g.id]} fetch={()=>fetchGuesses(g.id, "team")} finished={false} teamOrder />
-              </ExpandArea>
-            )}
+            <ExpandArea $open={expanded.has(g.id)}>
+            <ExpandInner $open={expanded.has(g.id)}>
+                {guesses[g.id] ? (
+                <GuessesList
+                    game={g}
+                    guesses={guesses[g.id]}
+                    fetch={() => fetchGuesses(g.id, "team")}
+                    finished={false}
+                    teamOrder
+                />
+                ) : null}
+            </ExpandInner>
+            </ExpandArea>
           </GameCard>
         )) : <Empty>Nėra artėjančių rungtynių.</Empty>}
       </Section>
@@ -250,11 +258,19 @@ export default function TournamentDetail(){
             <FiChevronDown />
             </ExpandBtn>
 
-            {expanded.has(g.id) && (
-              <ExpandArea>
-                <GuessesList game={g} guesses={guesses[g.id]} fetch={()=>fetchGuesses(g.id, "team")} finished={false} teamOrder />
-              </ExpandArea>
-            )}
+            <ExpandArea $open={expanded.has(g.id)}>
+            <ExpandInner $open={expanded.has(g.id)}>
+                {guesses[g.id] ? (
+                <GuessesList
+                    game={g}
+                    guesses={guesses[g.id]}
+                    fetch={() => fetchGuesses(g.id, "team")}
+                    finished={false}
+                    teamOrder
+                />
+                ) : null}
+            </ExpandInner>
+            </ExpandArea>
           </GameCard>
         )) : <Empty>Nėra vykstančių rungtynių.</Empty>}
       </Section>
@@ -316,11 +332,18 @@ export default function TournamentDetail(){
             <ExpandBtn onClick={()=>toggle(g.id)} aria-expanded={expanded.has(g.id)}>
                 <FiChevronDown />
             </ExpandBtn>
-            {expanded.has(g.id) && (
-              <ExpandArea>
-                <GuessesList game={g} guesses={guesses[g.id]} fetch={()=>fetchGuesses(g.id, "points")} finished />
-              </ExpandArea>
-            )}
+            <ExpandArea $open={expanded.has(g.id)}>
+            <ExpandInner $open={expanded.has(g.id)}>
+                {guesses[g.id] ? (
+                <GuessesList
+                    game={g}
+                    guesses={guesses[g.id]}
+                    fetch={() => fetchGuesses(g.id, "points")}
+                    finished
+                />
+                ) : null}
+            </ExpandInner>
+            </ExpandArea>
           </GameCard>
         )) : <Empty>Nėra praėjusių rungtynių.</Empty>}
 
@@ -416,6 +439,8 @@ function GuessesList({ game, guesses, fetch, finished, teamOrder }){
   }
 
   return (
+    <>
+    <SubTitle>KITŲ ŽMONIŲ SPĖJIMAI</SubTitle>
     <GuessTable>
       <thead>
         <tr>
@@ -446,6 +471,7 @@ function GuessesList({ game, guesses, fetch, finished, teamOrder }){
         ))}
       </tbody>
     </GuessTable>
+    </>
   );
 }
 
@@ -484,6 +510,13 @@ const GameCard = styled.div`
 
   margin-right: 56px;
   overflow: visible;
+
+  transition: border-color .15s ease, box-shadow .15s ease, background .15s ease;
+  &:hover {
+    background: #fbfdff;
+    border-color: #dbe2ea;
+    box-shadow: 0 6px 18px rgba(2,6,23,.08);
+  }
 `;
 const LeftCol = styled.div`display:grid; gap:6px;`;
 const RightCol = styled.div`
@@ -587,8 +620,11 @@ const HoverCta = styled.button`
   position:absolute; left:50%; bottom:8px; transform:translate(-50%,8px);
   background:#1f6feb; color:#fff; font-weight:900; border:0; border-radius:999px; padding:8px 12px; cursor:pointer;
   box-shadow:0 8px 20px rgba(31,111,235,.25);
-  opacity:0; transition:opacity .18s ease, transform .18s ease; z-index:3;
-  &.hoverCta{}
+  opacity:1; transition:opacity .18s ease, transform .18s ease; z-index:3;
+  &:hover {
+    transform: translate(-50%, -1px);
+    box-shadow: 0 10px 24px rgba(31,111,235,.3);
+  }
 `;
 const ExpandBtn = styled.button`
   position: absolute;
@@ -615,8 +651,33 @@ const ExpandBtn = styled.button`
   /* subtle hover */
   transition: background .15s ease;
   &:hover { background: #f9fafb; }
+  svg { transition: transform .25s ease; }
+  &[aria-expanded="true"] svg { transform: rotate(180deg); }
 `;
-const ExpandArea = styled.div`grid-column:1 / -1; border-top:1px dashed #e5e7eb; padding-top:10px;`;
+// replaces your current ExpandArea
+const ExpandArea = styled.div`
+  grid-column: 1 / -1;
+  display: grid;
+  grid-template-rows: ${p => (p.$open ? "1fr" : "0fr")};
+  transition: grid-template-rows .34s cubic-bezier(.22,.61,.36,1); /* smooth */
+  will-change: grid-template-rows;
+`;
+
+// inner wrapper handles fade/slide + padding without affecting layout calc
+const ExpandInner = styled.div`
+  overflow: hidden;                 /* hide while collapsed */
+  border-top: 1px dashed #e5e7eb;
+
+  opacity: ${p => (p.$open ? 1 : 0)};
+  transform: translateY(${p => (p.$open ? "0" : "-4px")});
+  padding-top: ${p => (p.$open ? "10px" : "0")};
+
+  transition:
+    opacity .22s ease,
+    transform .28s ease,
+    padding-top .22s ease;
+  will-change: opacity, transform;
+`;
 const Flag = styled.span`font-size:22px;`;
 const TeamName = styled.div`font-weight:900;`;
 const ScoreInput = styled.input`
@@ -647,4 +708,14 @@ const Side = styled.div`display:grid; gap:6px; align-items:center; justify-items
 const Primary = styled.button`
   border:0; border-radius:10px; padding:10px 12px; cursor:pointer; font-weight:900; background:#1f6feb; color:#fff;
   &:disabled{opacity:.6; cursor:not-allowed;}
+`;
+
+const SubTitle = styled.div`
+  font-size: 12px;
+  letter-spacing: .12em;
+  font-weight: 800;
+  color: #0f172a;
+  opacity: .7;
+  text-transform: uppercase;
+  margin-bottom: 6px;
 `;
