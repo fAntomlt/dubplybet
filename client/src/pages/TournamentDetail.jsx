@@ -6,6 +6,7 @@ import { api } from "../lib/api";
 import { flagForTeam, stageLabel, bandFromDiff } from "../lib/flags";
 import { guessConditionPretty } from "../lib/conditions";
 import { FiLock, FiChevronDown, FiCheck } from "react-icons/fi";
+import { FaFire } from "react-icons/fa";
 import { getAuth } from "../store/auth";
 
 const PAGE_SIZE = 15;
@@ -24,6 +25,18 @@ export default function TournamentDetail(){
   const [expanded, setExpanded] = useState(new Set());
   const [guesses, setGuesses] = useState({}); // {gameId: {loading, items}}
   const [modal, setModal] = useState({ open:false, game:null, a:"", b:"", err:"", saving:false });
+
+  // remove " [5p]" (or any "[Xp]") fragments the formatter appends
+    const cleanPointsTag = (s) => String(s).replace(/\s*\[\d+p\]/g, "");
+
+    // LT points word: 1 taškas, 2-9 taškai (except 11-19), 0/5-... taškų
+    const pointsWordLT = (n) => {
+    const abs = Math.abs(n ?? 0);
+    const mod10 = abs % 10, mod100 = abs % 100;
+    if (mod10 === 1 && mod100 !== 11) return "Taškas";
+    if (mod10 >= 2 && mod10 <= 9 && !(mod100 >= 12 && mod100 <= 19)) return "Taškai";
+    return "taškų";
+    };
 
   useEffect(() => {
     // tournament
@@ -308,12 +321,13 @@ export default function TournamentDetail(){
             </RightCol>
 
             <FullWidth>
-            <MyGuessBox>
+            <MyGuessBoxFinished>
+            <div>
                 <strong>TAVO SPĖJIMAS</strong>
                 {g.my_guess ? (
-                <div style={{display:"grid",gap:6}}>
-                    <div style={{whiteSpace:"pre-wrap", fontSize:14}}>
+                <CondText>
                     {renderMarkdownInline(
+                    cleanPointsTag(
                         guessConditionPretty({
                         team_a: g.team_a,
                         team_b: g.team_b,
@@ -325,11 +339,26 @@ export default function TournamentDetail(){
                         exact_ok: g.my_guess.exact_ok,
                         awarded_points: g.my_guess.awarded_points,
                         })
+                    )
                     )}
-                    </div>
-                </div>
-                ) : <span style={{color:"#64748b"}}>Šio žaidimo nespėjai</span>}
-            </MyGuessBox>
+                </CondText>
+                ) : (
+                <span style={{ color: "#64748b" }}>Šio žaidimo nespėjai</span>
+                )}
+            </div>
+
+            {g.my_guess && (
+                <PointsAside>
+                <PointsHeader>TAŠKAI</PointsHeader>
+                <PointsValue>
+                    <strong>
+                        {g.my_guess.awarded_points ?? 0}{" "}
+                        {pointsWordLT(g.my_guess.awarded_points ?? 0)}
+                    </strong>
+                </PointsValue>
+                </PointsAside>
+            )}
+            </MyGuessBoxFinished>
             </FullWidth>
             <ExpandBtn onClick={()=>toggle(g.id)} aria-expanded={expanded.has(g.id)}>
                 <FiChevronDown />
@@ -409,6 +438,18 @@ function GuessesList({ game, guesses, fetch, finished, teamOrder }){
   if (guesses?.loading) return <Loading>Kraunama…</Loading>;
   if (!items.length) return <Muted>Spėjimų nėra</Muted>;
 
+  // remove " [5p]" (or any "[Xp]") fragments the formatter appends
+    const cleanPointsTag = (s) => String(s).replace(/\s*\[\d+p\]/g, "");
+
+    // LT points word: 1 taškas, 2-9 taškai (except 11-19), 0/5-... taškų
+    const pointsWordLT = (n) => {
+    const abs = Math.abs(n ?? 0);
+    const mod10 = abs % 10, mod100 = abs % 100;
+    if (mod10 === 1 && mod100 !== 11) return "Taškas";
+    if (mod10 >= 2 && mod10 <= 9 && !(mod100 >= 12 && mod100 <= 19)) return "Taškai";
+    return "taškų";
+    };
+
   // Sort rules for upcoming/ongoing:
   // by team (winner guess A group first, then A<, A=; then B> B< B=).
   let sorted = items;
@@ -455,20 +496,42 @@ function GuessesList({ game, guesses, fetch, finished, teamOrder }){
         {sorted.map((gu, i) => (
           <tr key={i}>
             <td>{gu.username || `#${gu.user_id}`}</td>
-            <td>{renderMarkdownInline(
-              guessConditionPretty({
-                team_a: game.team_a,
-                team_b: game.team_b,
-                a: gu.guess_a,
-                b: gu.guess_b,
-                finished,
-                cond_ok: gu.cond_ok,
-                diff_ok: gu.diff_ok,
-                exact_ok: gu.exact_ok,
-                awarded_points: gu.awarded_points,
-              })
-            )}</td>
-            {finished && <td style={{whiteSpace:"nowrap"}}>{gu.awarded_points ?? 0}p</td>}
+            <td>
+  <CondRow>
+    <CondText>
+      {renderMarkdownInline(
+        cleanPointsTag(
+          guessConditionPretty({
+            team_a: game.team_a,
+            team_b: game.team_b,
+            a: gu.guess_a,
+            b: gu.guess_b,
+            finished,
+            cond_ok: gu.cond_ok,
+            diff_ok: gu.diff_ok,
+            exact_ok: gu.exact_ok,
+            awarded_points: gu.awarded_points,
+          })
+        )
+      )}
+    </CondText>
+
+    {/* Flame if ALL conditions are met */}
+    {finished && gu?.cond_ok && gu?.diff_ok && gu?.exact_ok ? (
+      <Flame title="Atspėjo galutinį rezultata!">
+        <FaFire />
+      </Flame>
+    ) : null}
+  </CondRow>
+</td>
+            {finished && (
+            <td style={{ whiteSpace: "nowrap" }}>
+                <strong>
+                    {gu.awarded_points ?? 0}{" "}
+                    {pointsWordLT(gu.awarded_points ?? 0)}
+                </strong>
+            </td>
+            )}
           </tr>
         ))}
       </tbody>
@@ -730,4 +793,61 @@ const DoneBadge = styled(TimeBadge)`
   display: inline-flex;
   align-items: center;
   gap: 6px;
+`;
+
+// Stronger emphasis + green for met conditions returned as **...**
+const CondText = styled.div`
+  white-space: pre-wrap;
+  font-size: 14px;
+  strong {
+    font-weight: 900;
+  }
+`;
+
+// Finished "TAVO SPĖJIMAS" box with right-side points
+const MyGuessBoxFinished = styled(MyGuessBox)`
+  grid-template-columns: 1fr auto;
+  align-items: start;
+  @media (max-width: 520px) {
+    grid-template-columns: 1fr;
+    gap: 10px;
+  }
+`;
+
+const PointsAside = styled.div`
+  padding-left: 12px;
+  margin-left: 12px;
+  border-left: 1px dashed #e5e7eb;
+  display: grid;
+  gap: 6px;
+  align-content: start;
+`;
+
+const PointsHeader = styled.div`
+  font-size: 11px;
+  letter-spacing: .08em;
+  font-weight: 800;
+  color: #0f172a;
+  opacity: .8;
+  text-transform: uppercase;
+`;
+
+const PointsValue = styled.div`
+  font-size: 14px;
+  display: inline-flex;
+  gap: 6px;
+  align-items: baseline;
+`;
+
+const CondRow = styled.div`
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+`;
+
+const Flame = styled.span`
+  display: inline-flex;
+  align-items: center;
+  line-height: 1;
+  color: #ef4444;
 `;
