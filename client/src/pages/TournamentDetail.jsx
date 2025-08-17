@@ -67,6 +67,19 @@ export default function TournamentDetail(){
   const t5  = s => String(s||"").slice(11,16).replace("T"," "); // HH:mm from "YYYY-MM-DD HH:mm:ss"
   const toggle = id => setExpanded(prev => { const n = new Set(prev); n.has(id) ? n.delete(id) : n.add(id); if(!guesses[id]) fetchGuesses(id); return n; });
 
+  // UI helpers for compact header + date lines
+    const dOWMMMDD = (s) => {
+    // Wed, Aug 27
+    const dt = new Date(s);
+    return dt.toLocaleDateString("en-US", {
+        weekday: "short",
+        month: "short",
+        day: "2-digit",
+    });
+    };
+    const phaseTiny = (stage) =>
+        stage === "playoff" ? "PLAYOFFS" : "GROUP PHASE";
+
   async function fetchGuesses(gameId, order="team"){
     setGuesses(prev => ({...prev, [gameId]: {loading:true, items: prev[gameId]?.items || []}}));
     const d = await api(`/api/games/${gameId}/guesses?order=${order}`);
@@ -135,48 +148,53 @@ export default function TournamentDetail(){
         {upcoming.length ? upcoming.map(g => (
           <GameCard key={g.id}>
             <LeftCol>
-              <PhasePill>{stageLabel(g.stage)}</PhasePill>
-              <Teams>
-                <TeamRow><span className="flag">{flagForTeam(g.team_a)}</span><span className="name">{g.team_a}</span></TeamRow>
-                <TeamRow><span className="flag">{flagForTeam(g.team_b)}</span><span className="name">{g.team_b}</span></TeamRow>
-              </Teams>
+              <CardTinyHeader>{phaseTiny(g.stage)}</CardTinyHeader>
+                <Teams>
+                    <TeamRow>
+                    <FlagDot>{flagForTeam(g.team_a, 18)}</FlagDot>
+                    <span className="name">{g.team_a}</span>
+                    </TeamRow>
+                    <TeamRow>
+                    <FlagDot>{flagForTeam(g.team_b, 18)}</FlagDot>
+                    <span className="name">{g.team_b}</span>
+                    </TeamRow>
+                </Teams>
             </LeftCol>
             <RightCol>
-              <When>
-                <span>{d10(g.tipoff_at)}</span>
-                <DividerV />
-                <span>{t5(g.tipoff_at)}</span>
-              </When>
+              <MetaBlock>
+                <SmallMeta>{dOWMMMDD(g.tipoff_at).toUpperCase()}</SmallMeta>
+              </MetaBlock>
+            <DividerV />
+            <TimeBadge>{t5(g.tipoff_at)}</TimeBadge>
+            </RightCol>
 
               {/* My guess summary if exists */}
               {g.my_guess ? (
+                <FullWidth>
                 <MyGuessBox>
-                  <strong>TAVO SPĖJIMAS</strong>
-                  <GuessPair>
-                    <span className="flag">{flagForTeam(g.team_a)}</span>
+                <strong>TAVO SPĖJIMAS</strong>
+                <GuessPair>
+                    <FlagDot>{flagForTeam(g.team_a, 16)}</FlagDot>
                     <span className="name">{g.team_a}</span>
                     <span className="score">{g.my_guess.guess_a}</span>
-                  </GuessPair>
-                  <GuessPair>
-                    <span className="flag">{flagForTeam(g.team_b)}</span>
+                </GuessPair>
+                <GuessPair>
+                    <FlagDot>{flagForTeam(g.team_b, 16)}</FlagDot>
                     <span className="name">{g.team_b}</span>
                     <span className="score">{g.my_guess.guess_b}</span>
-                  </GuessPair>
+                </GuessPair>
                 </MyGuessBox>
+            </FullWidth>
               ) : null}
 
               {/* CTA (hover shows change/create) */}
-              <HoverCta
-                onClick={()=>openGuess(g)}
-                title={g.my_guess ? "KEISTI SPĖJIMĄ" : "SPĖTI REZULTATĄ"}
-              >
+              <HoverCta onClick={()=>openGuess(g)} title={g.my_guess ? "KEISTI SPĖJIMĄ" : "SPĖTI REZULTATĄ"}>
                 {g.my_guess ? "KEISTI SPĖJIMĄ" : "SPĖTI REZULTATĄ"}
               </HoverCta>
 
               <ExpandBtn onClick={()=>toggle(g.id)} aria-expanded={expanded.has(g.id)}>
                 <FiChevronDown />
               </ExpandBtn>
-            </RightCol>
 
             {expanded.has(g.id) && (
               <ExpandArea>
@@ -195,33 +213,42 @@ export default function TournamentDetail(){
         {ongoing.length ? ongoing.map(g => (
           <GameCard key={g.id}>
             <LeftCol>
-              <PhasePill>{stageLabel(g.stage)}</PhasePill>
-              <Teams>
-                <TeamRow><span className="flag">{flagForTeam(g.team_a)}</span><span className="name">{g.team_a}</span></TeamRow>
-                <TeamRow><span className="flag">{flagForTeam(g.team_b)}</span><span className="name">{g.team_b}</span></TeamRow>
-              </Teams>
+            <CardTinyHeader>{phaseTiny(g.stage)}</CardTinyHeader>
+            <Teams>
+                <TeamRow>
+                <FlagDot>{flagForTeam(g.team_a, 18)}</FlagDot>
+                <span className="name">{g.team_a}</span>
+                </TeamRow>
+                <TeamRow>
+                <FlagDot>{flagForTeam(g.team_b, 18)}</FlagDot>
+                <span className="name">{g.team_b}</span>
+                </TeamRow>
+            </Teams>
             </LeftCol>
             <RightCol>
-              <When>
-                <span>{d10(g.tipoff_at)}</span>
-                <DividerV />
-                <span className="lock"><FiLock /></span>
-              </When>
+            <MetaBlock>
+                <SmallMeta>{dOWMMMDD(g.tipoff_at).toUpperCase()}</SmallMeta>
+            </MetaBlock>
 
-              <MyGuessBox>
+            <DividerV />
+            <TimeBadge><FiLock style={{verticalAlign:"middle"}} /> {t5(g.tipoff_at)}</TimeBadge>
+            </RightCol>
+
+            <FullWidth>
+            <MyGuessBox>
                 <strong>TAVO SPĖJIMAS</strong>
                 {g.my_guess ? (
-                  <>
-                    <GuessPair><span className="flag">{flagForTeam(g.team_a)}</span><span className="name">{g.team_a}</span><span className="score">{g.my_guess.guess_a}</span></GuessPair>
-                    <GuessPair><span className="flag">{flagForTeam(g.team_b)}</span><span className="name">{g.team_b}</span><span className="score">{g.my_guess.guess_b}</span></GuessPair>
-                  </>
+                <>
+                    <GuessPair><FlagDot>{flagForTeam(g.team_a, 16)}</FlagDot><span className="name">{g.team_a}</span><span className="score">{g.my_guess.guess_a}</span></GuessPair>
+                    <GuessPair><FlagDot>{flagForTeam(g.team_b, 16)}</FlagDot><span className="name">{g.team_b}</span><span className="score">{g.my_guess.guess_b}</span></GuessPair>
+                </>
                 ) : <span style={{color:"#64748b"}}>ŠIO ŽAIDIMO REZULTATO NESPĖLIOJAI</span>}
-              </MyGuessBox>
+            </MyGuessBox>
+            </FullWidth>
 
-              <ExpandBtn onClick={()=>toggle(g.id)} aria-expanded={expanded.has(g.id)}>
-                <FiChevronDown />
-              </ExpandBtn>
-            </RightCol>
+            <ExpandBtn onClick={()=>toggle(g.id)} aria-expanded={expanded.has(g.id)}>
+            <FiChevronDown />
+            </ExpandBtn>
 
             {expanded.has(g.id) && (
               <ExpandArea>
@@ -240,42 +267,55 @@ export default function TournamentDetail(){
         {finished.length ? finished.map(g => (
           <GameCard key={g.id}>
             <LeftCol>
-              <PhasePill>{stageLabel(g.stage)}</PhasePill>
-              <Teams>
-                <TeamRow><span className="flag">{flagForTeam(g.team_a)}</span><span className="name">{g.team_a}</span><span className="scoreFinal">{g.score_a}</span></TeamRow>
-                <TeamRow><span className="flag">{flagForTeam(g.team_b)}</span><span className="name">{g.team_b}</span><span className="scoreFinal">{g.score_b}</span></TeamRow>
-              </Teams>
+              <CardTinyHeader>{phaseTiny(g.stage)}</CardTinyHeader>
+                <Teams>
+                    <TeamRow>
+                    <FlagDot>{flagForTeam(g.team_a, 18)}</FlagDot>
+                    <span className="name">{g.team_a}</span>
+                    <span className="scoreFinal">{g.score_a}</span>
+                    </TeamRow>
+                    <TeamRow>
+                    <FlagDot>{flagForTeam(g.team_b, 18)}</FlagDot>
+                    <span className="name">{g.team_b}</span>
+                    <span className="scoreFinal">{g.score_b}</span>
+                    </TeamRow>
+                </Teams>
             </LeftCol>
             <RightCol>
-              <MyGuessBox>
-                <strong>TAVO SPĖJIMAS</strong>
-                {g.my_guess ? (
-                  <div style={{display:"grid",gap:6}}>
-                    <div style={{whiteSpace:"pre-wrap", fontSize:14}}>
-                      {/* Pretty with bolding rules */}
-                      {renderMarkdownInline(
-                        guessConditionPretty({
-                          team_a: g.team_a,
-                          team_b: g.team_b,
-                          a: g.my_guess.guess_a,
-                          b: g.my_guess.guess_b,
-                          finished: true,
-                          cond_ok: g.my_guess.cond_ok,
-                          diff_ok: g.my_guess.diff_ok,
-                          exact_ok: g.my_guess.exact_ok,
-                          awarded_points: g.my_guess.awarded_points,
-                        })
-                      )}
-                    </div>
-                  </div>
-                ) : <span style={{color:"#64748b"}}>Šio žaidimo nespėjai</span>}
-              </MyGuessBox>
-
-              <ExpandBtn onClick={()=>toggle(g.id)} aria-expanded={expanded.has(g.id)}>
-                <FiChevronDown />
-              </ExpandBtn>
+            <MetaBlock>
+                <SmallMeta>{dOWMMMDD(g.tipoff_at).toUpperCase()}</SmallMeta>
+            </MetaBlock>
+            <DividerV />
+            <TimeBadge>{t5(g.tipoff_at)}</TimeBadge>
             </RightCol>
 
+            <FullWidth>
+            <MyGuessBox>
+                <strong>TAVO SPĖJIMAS</strong>
+                {g.my_guess ? (
+                <div style={{display:"grid",gap:6}}>
+                    <div style={{whiteSpace:"pre-wrap", fontSize:14}}>
+                    {renderMarkdownInline(
+                        guessConditionPretty({
+                        team_a: g.team_a,
+                        team_b: g.team_b,
+                        a: g.my_guess.guess_a,
+                        b: g.my_guess.guess_b,
+                        finished: true,
+                        cond_ok: g.my_guess.cond_ok,
+                        diff_ok: g.my_guess.diff_ok,
+                        exact_ok: g.my_guess.exact_ok,
+                        awarded_points: g.my_guess.awarded_points,
+                        })
+                    )}
+                    </div>
+                </div>
+                ) : <span style={{color:"#64748b"}}>Šio žaidimo nespėjai</span>}
+            </MyGuessBox>
+            </FullWidth>
+            <ExpandBtn onClick={()=>toggle(g.id)} aria-expanded={expanded.has(g.id)}>
+                <FiChevronDown />
+            </ExpandBtn>
             {expanded.has(g.id) && (
               <ExpandArea>
                 <GuessesList game={g} guesses={guesses[g.id]} fetch={()=>fetchGuesses(g.id, "points")} finished />
@@ -303,7 +343,7 @@ export default function TournamentDetail(){
 
             <ModalGrid>
               <Side>
-                <Flag>{flagForTeam(modal.game.team_a)}</Flag>
+                <Flag>{flagForTeam(modal.game.team_a, 22)}</Flag>
                 <TeamName>{modal.game.team_a}</TeamName>
                 <ScoreInput
                   inputMode="numeric"
@@ -313,7 +353,7 @@ export default function TournamentDetail(){
                 />
               </Side>
               <Side>
-                <Flag>{flagForTeam(modal.game.team_b)}</Flag>
+                <Flag>{flagForTeam(modal.game.team_b, 22)}</Flag>
                 <TeamName>{modal.game.team_b}</TeamName>
                 <ScoreInput
                   inputMode="numeric"
@@ -427,23 +467,122 @@ const H3 = styled.h3`margin:0; font-size:14px; letter-spacing:.12em; color:#0f17
 const DividerH = styled.div`height:1px; background:#eceff3; margin:2px 0 8px;`;
 
 const GameCard = styled.div`
-  display:grid; grid-template-columns:1fr auto; gap:16px; align-items:center;
-  border:1px solid #e5e7eb; border-radius:14px; padding:12px 12px; background:#fff;
-  position:relative; overflow:hidden;
-  &:hover .hoverCta{ opacity:1; transform:translateY(0); }
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: center;
+  gap: 12px;
+  border: 1px solid #e7eaf0;
+  background: #fff;
+  
+  border-radius: 10px;
+  border-top-right-radius: 0;
+  border-bottom-right-radius: 0;
+  border-bottom-left-radius: 0;
+
+  padding: 10px 12px;
+  position: relative;
+
+  margin-right: 56px;
+  overflow: visible;
 `;
-const LeftCol = styled.div`display:grid; gap:8px;`;
-const RightCol = styled.div`display:grid; gap:10px; justify-items:end;`;
+const LeftCol = styled.div`display:grid; gap:6px;`;
+const RightCol = styled.div`
+  display: grid;
+  grid-auto-flow: column;
+  align-items: center;
+  gap: 12px;
+  justify-content: end;
+`;
+const CardTinyHeader = styled.div`
+  font-size: 11px;
+  letter-spacing: .12em;
+  color: #6b7280;
+  font-weight: 800;
+  text-transform: uppercase;
+`;
 const PhasePill = styled.div`display:inline-flex; align-items:center; gap:8px; font-weight:800; font-size:12px; background:#f3f6fc; padding:4px 8px; border-radius:999px;`;
 const Teams = styled.div`display:grid; gap:6px;`;
 const TeamRow = styled.div`
   display:grid; grid-template-columns:auto 1fr auto; align-items:center; gap:8px;
-  .flag{font-size:18px}
-  .name{font-weight:900}
-  .scoreFinal{font-weight:900}
+  .name{font-weight:800}
+  .scoreFinal{font-weight:900; font-size: 14px;}
+`;
+const FlagDot = styled.span`
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: #f3f4f6;
+  display: grid;
+  place-items: center;
+
+  // children (SVG or emoji) centered
+  & > * { display: inline-block; }
+`;
+
+// right meta block (venue/date lines)
+const MetaBlock = styled.div`
+  display: grid;
+  justify-items: end;
+  gap: 2px;
+  min-width: 120px;
+`;
+
+const SmallMeta = styled.div`
+  font-size: 11px;
+  color: #94a3b8;
+  font-weight: 700;
+`;
+
+const DividerV = styled.span`
+  width: 1px;
+  height: 28px;
+  background: #e5e7eb;
+  display: inline-block;
+`;
+
+const TimeBadge = styled.div`
+  background: #0b1324;
+  color: #fff;
+  font-weight: 800;
+  border-radius: 8px;
+  padding: 6px 10px;
+  font-size: 13px;
+  line-height: 1;
+`;
+
+// ensure blocks below the two-column header span full width
+const FullWidth = styled.div`
+  grid-column: 1 / -1;
+`;
+
+// Keep MyGuessBox but tighten
+const MyGuessBox = styled.div`
+  width: 100%;
+  border: 1px solid #e5e7eb;
+  border-top: 0;                 /* seamless joint to the card */
+  background: #f9fafb;
+
+  /* only bottom corners rounded; the card's bottom corners are flat */
+  border-radius: 0 0 10px 10px;
+
+  padding: 8px 10px;
+  display: grid;
+  gap: 6px;
+
+  /* ensure it spans below the whole card row */
+  grid-column: 1 / -1;
+
+  strong { font-size: 11px; letter-spacing: .08em; }
+`;
+
+const GuessPair = styled.div`
+  display: grid;
+  grid-template-columns: 22px 1fr auto;
+  gap: 8px;
+  align-items: center;
+  .score { font-weight: 900; }
 `;
 const When = styled.div`display:inline-flex; align-items:center; gap:10px; font-weight:800;`;
-const DividerV = styled.span`width:1px; height:14px; background:#e5e7eb; display:inline-block;`;
 const HoverCta = styled.button`
   position:absolute; left:50%; bottom:8px; transform:translate(-50%,8px);
   background:#1f6feb; color:#fff; font-weight:900; border:0; border-radius:999px; padding:8px 12px; cursor:pointer;
@@ -452,14 +591,32 @@ const HoverCta = styled.button`
   &.hoverCta{}
 `;
 const ExpandBtn = styled.button`
-  border:1px solid #e5e7eb; background:#fff; border-radius:10px; width:36px; height:32px; display:grid; place-items:center; cursor:pointer;
+  position: absolute;
+  top: -1px;               /* align borders perfectly */
+  right: -44px;            /* sit outside the card, attached */
+  height: calc(100% + 2px);/* cover the card's full height */
+  width: 44px;
+
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+
+  background: #fff;
+  color: #0f172a;
+  border: 1px solid #e5e7eb;
+  border-left: 0;          /* seamless connection to the card */
+
+  /* rounded only on the outer-right side */
+  border-top-right-radius: 10px;
+  border-bottom-right-radius: 10px;
+  border-top-left-radius: 0;
+  border-bottom-left-radius: 0;
+
+  /* subtle hover */
+  transition: background .15s ease;
+  &:hover { background: #f9fafb; }
 `;
 const ExpandArea = styled.div`grid-column:1 / -1; border-top:1px dashed #e5e7eb; padding-top:10px;`;
-const MyGuessBox = styled.div`
-  width:100%; min-width:260px; border:1px solid #e5e7eb; background:#f9fafb; border-radius:12px; padding:8px 10px; display:grid; gap:6px;
-  strong{font-size:12px; letter-spacing:.08em;}
-`;
-const GuessPair = styled.div`display:grid; grid-template-columns:18px 1fr auto; gap:8px; align-items:center; .score{font-weight:900}`;
 const Flag = styled.span`font-size:22px;`;
 const TeamName = styled.div`font-weight:900;`;
 const ScoreInput = styled.input`
