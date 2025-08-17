@@ -206,7 +206,7 @@ export default function Turnyrai() {
     }
   };
   const bgOf = (t) => bgForStatus(t?.status);
-  const goTo = t => navigate(`/tournaments/${t.id}`);
+  const goTo = (t) => navigate(`/turnyrai/${t.id}`);
 
   if (loading) {
     return (
