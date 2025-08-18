@@ -495,7 +495,7 @@ function renderPodium(top3) {
             >
             <FiChevronDown />
             </ExpandBtn>
-            <ExpandArea $open={expanded.has(g.id)}>
+            <ExpandArea $open={expanded.has(g.id)} onClick={(e) => e.stopPropagation()}>
             <ExpandInner $open={expanded.has(g.id)}>
                 {guesses[g.id] ? (
                 <GuessesList
@@ -975,15 +975,15 @@ const GameCard = styled.div`
     `
     cursor: pointer;
 
-    /* Apply hover effect ONLY when not hovering the ExpandBtn */
-    &:hover:not(:has(${ExpandBtn}:hover)) {
+    /* Disable hover/active when over expand button OR expanded guesses area */
+    &:hover:not(:has(${ExpandBtn}:hover)):not(:has(${ExpandArea}:hover)) {
       transform: translateY(-3px) scale(1.02);
       background: #f9fbff;
       border-color: #c9d6ec;
       box-shadow: 0 8px 24px rgba(2,6,23,.12);
     }
 
-    &:active {
+    &:active:not(:has(${ExpandBtn}:active)):not(:has(${ExpandArea}:active)) {
       transform: translateY(-1px) scale(0.99);
     }
   `}
@@ -1154,6 +1154,7 @@ const ExpandArea = styled.div`
   grid-template-rows: ${p => (p.$open ? "1fr" : "0fr")};
   transition: grid-template-rows .34s cubic-bezier(.22,.61,.36,1); /* smooth */
   will-change: grid-template-rows;
+  cursor: default;
 `;
 
 // inner wrapper handles fade/slide + padding without affecting layout calc
