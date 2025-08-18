@@ -23,6 +23,7 @@ import usersMeRoutes from "./routes/users.me.js";
 import mime from "mime-types";
 import fs from "fs";
 import tournamentsPublic from "./routes/tournaments.public.js";
+import tournamentsWinnerPicks from "./routes/tournaments.winner-picks.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -97,6 +98,8 @@ const authLimiter = rateLimit({
   message: { error: "Per daug užklausų. Bandykite dar kartą vėliau." }
 });
 app.use("/api/auth", authLimiter, authRoutes);
+app.use("/api/tournaments", tournamentsPublic);
+app.use("/api/tournaments", tournamentsWinnerPicks);
 
 app.get("/api/health", (req, res) => {
   res.json({ ok: true, uptime: process.uptime() });

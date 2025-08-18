@@ -20,6 +20,19 @@ const BG_DRAFT    = `url('${joinApi(import.meta.env.VITE_TOURNAMENT_BG_DRAFT    
 const BG_ARCHIVED = `url('${joinApi(import.meta.env.VITE_TOURNAMENT_BG_ARCHIVED || "/uploads/turnyras-archived.jpg")}')`;
 const FALLBACK_IMG = `url('${API_ORIGIN}/uploads/basketball.jpg')`;
 
+  // Winner-pick modal
+  const [pickModal, setPickModal] = useState({ open: false, team: "", saving: false, error: "" });
+
+  // Build a unique team list from games you already load
+  const allTeams = useMemo(() => {
+    const set = new Set();
+    [...upcomingLocked, ...finished].forEach(g => {
+      if (g?.team_a) set.add(g.team_a);
+      if (g?.team_b) set.add(g.team_b);
+    });
+    return Array.from(set).sort((a, b) => String(a).localeCompare(String(b)));
+  }, [upcomingLocked, finished]);
+
 const bgForStatus = (status) => {
   switch (status) {
     case "active":   return BG_ACTIVE;
@@ -182,6 +195,45 @@ export default function TournamentDetail(){
       </AvatarWrap>
     );
   };
+
+    useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      if (!token || !tid) return;                 // only logged-in users
+      try {
+        // If user already picked: 200 — do nothing.
+        // If not picked: 404 — we'll open the modal.
+        await api(`/api/tournaments/${tid}/winner-pick`, {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        // already picked -> nothing
+      } catch (e) {
+        const status = e?.status || e?.response?.status;
+        if (!cancelled && status === 404) {
+          setPickModal(p => ({ ...p, open: true }));
+        }
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [tid, token]);
+
+    async function submitWinnerPick() {
+    const team = String(pickModal.team || "").trim();
+    if (!team) return setPickModal(p => ({ ...p, error: "Pasirinkite komandą" }));
+    try {
+      setPickModal(p => ({ ...p, saving: true, error: "" }));
+      await api(`/api/tournaments/${tid}/winner-pick`, {
+        method: "POST",
+        json: { team },
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+      });
+      setPickModal({ open: false, team: "", saving: false, error: "" });
+      toast.success(`Pasirinkote nugalėtoją: ${team}`);
+    } catch (e) {
+      const msg = e?.message || "Nepavyko išsaugoti";
+      setPickModal(p => ({ ...p, saving: false, error: msg }));
+    }
+  }
 
   // Renders the 1–3 podium exactly like the image
 function renderPodium(top3) {
@@ -631,6 +683,87 @@ function renderPodium(top3) {
     </Primary>
   </ModalShell>
 )}
+
+        {/* Winner pick modal (shown once per tournament until user picks) */}
+      {pickModal.open && (
+        <ModalShell onClose={() => setPickModal(p => ({ ...p, open: false }))}>
+          <ModalHeader>
+            <h3>PASIRINKITE TURNYRO NUGALĖTOJĄ</h3>
+            <CloseX onClick={() => setPickModal(p => ({ ...p, open: false }))}>×</CloseX>
+          </ModalHeader>
+
+          {/* Simple searchable picker */}
+          <div style={{ display: "grid", gap: 10 }}>
+            <label style={{ fontWeight: 800, fontSize: 12, letterSpacing: ".08em", opacity: .9 }}>
+              KOMANDA
+            </label>
+
+            {/* Search filter (optional) */}
+            <input
+              type="text"
+              placeholder="Ieškoti..."
+              value={pickModal.search || ""}
+              onChange={(e) => {
+                const s = e.target.value;
+                setPickModal(p => ({ ...p, search: s }));
+              }}
+              style={{
+                border: "1px solid #e5e7eb", borderRadius: 10, padding: "8px 10px",
+                fontWeight: 600
+              }}
+            />
+
+            <div
+              style={{
+                maxHeight: 260, overflow: "auto", border: "1px solid #e5e7eb",
+                borderRadius: 10, padding: 6, background: "#fff"
+              }}
+              role="listbox"
+            >
+              {(allTeams.length ? allTeams : [pickModal.team || ""]).filter(name => {
+                if (!pickModal.search) return true;
+                const q = pickModal.search.toLowerCase();
+                return String(name).toLowerCase().includes(q);
+              }).map((name) => (
+                <button
+                  type="button"
+                  key={name}
+                  onClick={() => setPickModal(p => ({ ...p, team: name }))}
+                  aria-selected={pickModal.team === name}
+                  style={{
+                    width: "100%", textAlign: "left", display: "grid",
+                    gridTemplateColumns: "24px 1fr auto", alignItems: "center",
+                    gap: 10, padding: "8px 10px", borderRadius: 8, cursor: "pointer",
+                    background: pickModal.team === name ? "#eef5ff" : "#fff",
+                    border: "1px solid transparent"
+                  }}
+                >
+                  <span style={{
+                    width: 22, height: 22, borderRadius: "50%", display: "grid",
+                    placeItems: "center", background: "#f3f4f6"
+                  }}>
+                    {flagForTeam(name, 18)}
+                  </span>
+                  <span style={{ fontWeight: 800 }}>{name}</span>
+                  {pickModal.team === name ? <FiCheck /> : null}
+                </button>
+              ))}
+            </div>
+
+            {!!pickModal.error && (
+              <InlineErr>{pickModal.error}</InlineErr>
+            )}
+
+            <Primary onClick={submitWinnerPick} disabled={pickModal.saving || !pickModal.team}>
+              IŠSAUGOTI PASIRINKIMĄ
+            </Primary>
+
+            <div style={{ fontSize: 12, color: "#64748b" }}>
+              * Pasirinkimas vienkartinis ir negalės būti keičiamas vėliau.
+            </div>
+          </div>
+        </ModalShell>
+      )}
     </Wrap>
   );
 }
