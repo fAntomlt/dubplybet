@@ -4,6 +4,7 @@ import { HiOutlineXMark } from 'react-icons/hi2';
 import { io } from 'socket.io-client';
 import { Link } from 'react-router-dom';
 import { FiTrash2, FiEdit3, FiX, FiCheck } from 'react-icons/fi';
+import { flagForTeam } from '../lib/flags';
 
 export default function ChatDock({ open = false, onClose }) {
   if(!open) return null;
@@ -207,7 +208,20 @@ const closeProfile = () => setCardFor(null);
   setCardLoading(true);
   setCardError("");
   try {
-    const res = await fetch(`${API_URL}/api/users/public/${userId}`, {
+    let tid = null;
+    try {
+      const tRes = await fetch(`${API_URL}/api/tournaments`);
+      const tData = await tRes.json();
+      const list = tData?.tournaments || [];
+      const active = list.find(t => t.status === 'active') || list[0];
+      tid = active?.id || null;
+    } catch {}
+
+    const url = tid
+      ? `${API_URL}/api/users/public/${userId}?tournament_id=${tid}`
+      : `${API_URL}/api/users/public/${userId}`;
+
+    const res = await fetch(url, {
       headers: { Authorization: `Bearer ${token}` },
     });
     const data = await res.json();
@@ -398,6 +412,20 @@ const closeProfile = () => setCardFor(null);
             <ProfileName id="profile-title">{p.username}</ProfileName>
             <RoleBadge>{p.role === 'admin' ? 'Administratorius' : 'Narys'}</RoleBadge>
             <ProfileMeta>Prisiregistravo: <b>{fmtDate(p.registeredAt)}</b></ProfileMeta>
+            {p.winnerPickTeam && (
+              <ProfileMeta style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                Pasirinktas nugalėtojas:
+                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                  <span style={{
+                    display: 'inline-grid', placeItems: 'center',
+                    width: 18, height: 18, borderRadius: '50%', background: '#f3f4f6'
+                  }}>
+                    {flagForTeam(p.winnerPickTeam, 16)}
+                  </span>
+                  <b>{p.winnerPickTeam}</b>
+                </span>
+              </ProfileMeta>
+            )}
           </>
         );
       })()}
