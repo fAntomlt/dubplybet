@@ -51,8 +51,19 @@ function ModalShell({ onClose, children}){
 export default function TournamentDetail(){
   const { id } = useParams(); // :id
   const tid = Number(id);
-  const { token } = getAuth() || {};
   const toast = useToast();
+  const [authToken, setAuthToken] = useState(
+    () => getAuth()?.token || localStorage.getItem("token") || ""
+  );
+  useEffect(() => {
+    const refresh = () => {
+      setAuthToken(getAuth()?.token || localStorage.getItem("token") || "");
+    };
+    refresh(); // run once on mount
+    window.addEventListener("storage", refresh); // keep in sync if token changes in another tab
+    return () => window.removeEventListener("storage", refresh);
+  }, []);
+
 
   const [tournament, setTournament] = useState(null);
   const [upcomingLocked, setUpcomingLocked] = useState([]); // scheduled+locked (from /upcoming)
@@ -70,7 +81,7 @@ export default function TournamentDetail(){
   const [leaderboard, setLeaderboard] = useState([]); // [{user_id, username, avatarUrl, points}]
 
   // Winner-pick modal
-  const [pickModal, setPickModal] = useState({ open: false, team: "", saving: false, error: "" });
+   const [pickModal, setPickModal] = useState({ open: false, team: "", saving: false, error: "", search: "" });
 
   // Build a unique team list from games you already load
   const allTeams = useMemo(() => {
@@ -153,24 +164,28 @@ export default function TournamentDetail(){
     })();
   }, [tid]);
 
-  useEffect(() => {
+   useEffect(() => {
     // upcoming + locked
     (async () => {
-      const d = await api(`/api/games/upcoming?tournament_id=${tid}`, { headers: token ? { Authorization:`Bearer ${token}` } : {} });
+      const d = await api(`/api/games/upcoming?tournament_id=${tid}`, {
+        headers: authToken ? { Authorization:`Bearer ${authToken}` } : {}
+      });
       setUpcomingLocked(d.games || []);
     })();
-  }, [tid, token]);
+  }, [tid, authToken]);
 
   useEffect(() => {
     loadFinished(finPage);
-  }, [tid, token, finPage]);
+  }, [tid, authToken, finPage]);
 
   async function loadFinished(page){
     const offset = (page-1)*PAGE_SIZE;
-    const d = await api(`/api/games/finished?tournament_id=${tid}&limit=${PAGE_SIZE}&offset=${offset}`, { headers: token ? { Authorization:`Bearer ${token}` } : {} });
+    const d = await api(
+      `/api/games/finished?tournament_id=${tid}&limit=${PAGE_SIZE}&offset=${offset}`,
+      { headers: authToken ? { Authorization:`Bearer ${authToken}` } : {} }
+    );
     setFinished(d.games || []);
-    // if you later return total, update finTotal; for now we’ll paginate while there are 15
-    setFinTotal((d.games || []).length < PAGE_SIZE && page>1 ? (offset + (d.games || []).length) : (offset + PAGE_SIZE + 1)); // cheap way to keep paginator clickable next if full page
+    setFinTotal((d.games || []).length < PAGE_SIZE && page>1 ? (offset + (d.games || []).length) : (offset + PAGE_SIZE + 1));
   }
 
   // split upcoming list
@@ -197,25 +212,26 @@ export default function TournamentDetail(){
   };
 
     useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      if (!token || !tid) return;                 // only logged-in users
-      try {
-        // If user already picked: 200 — do nothing.
-        // If not picked: 404 — we'll open the modal.
-        await api(`/api/tournaments/${tid}/winner-pick`, {
-          headers: { Authorization: `Bearer ${token}` }
-        });
-        // already picked -> nothing
-      } catch (e) {
-        const status = e?.status || e?.response?.status;
-        if (!cancelled && status === 404) {
-          setPickModal(p => ({ ...p, open: true }));
-        }
+  let cancelled = false;
+  (async () => {
+    if (!authToken || !tid) return; // must be logged in
+    try {
+      const d = await api(`/api/tournaments/${tid}/winner-pick`, {
+        headers: { Authorization: `Bearer ${authToken}` },
+      });
+      if (!cancelled && d && d.ok && d.picked === false) {
+        setPickModal(p => ({ ...p, open: true }));
       }
-    })();
-    return () => { cancelled = true; };
-  }, [tid, token]);
+    } catch (e) {
+      // keep this only if you *haven’t* changed the server and still use 404
+      const status = e?.status || e?.response?.status;
+      if (!cancelled && status === 404) {
+        setPickModal(p => ({ ...p, open: true }));
+      }
+    }
+  })();
+  return () => { cancelled = true; };
+}, [tid, authToken]);
 
     async function submitWinnerPick() {
     const team = String(pickModal.team || "").trim();
@@ -225,9 +241,9 @@ export default function TournamentDetail(){
       await api(`/api/tournaments/${tid}/winner-pick`, {
         method: "POST",
         json: { team },
-        headers: token ? { Authorization: `Bearer ${token}` } : {},
+        headers: authToken ? { Authorization: `Bearer ${authToken}` } : {},
       });
-      setPickModal({ open: false, team: "", saving: false, error: "" });
+      setPickModal({ open: false, team: "", saving: false, error: "", search: "" });
       toast.success(`Pasirinkote nugalėtoją: ${team}`);
     } catch (e) {
       const msg = e?.message || "Nepavyko išsaugoti";
@@ -334,10 +350,12 @@ function renderPodium(top3) {
       await api(`/api/games/${modal.game.id/1}/guess`, {
         method:"POST",
         json:{ guess_a: ga, guess_b: gb },
-        headers: token ? { Authorization:`Bearer ${token}` } : {},
+        headers: authToken ? { Authorization:`Bearer ${authToken}` } : {},
       });
       // refresh upcoming list to get my_guess
-      const d = await api(`/api/games/upcoming?tournament_id=${tid}`, { headers: token ? { Authorization:`Bearer ${token}` } : {} });
+      const d = await api(`/api/games/upcoming?tournament_id=${tid}`, {
+        headers: authToken ? { Authorization:`Bearer ${authToken}` } : {}
+      });
       setUpcomingLocked(d.games || []);
       closeModal();
       toast.success(`Spėjimas išsaugotas: ${g.team_a} ${ga}–${gb} ${g.team_b}`);
@@ -692,13 +710,11 @@ function renderPodium(top3) {
             <CloseX onClick={() => setPickModal(p => ({ ...p, open: false }))}>×</CloseX>
           </ModalHeader>
 
-          {/* Simple searchable picker */}
           <div style={{ display: "grid", gap: 10 }}>
             <label style={{ fontWeight: 800, fontSize: 12, letterSpacing: ".08em", opacity: .9 }}>
               KOMANDA
             </label>
 
-            {/* Search filter (optional) */}
             <input
               type="text"
               placeholder="Ieškoti..."
