@@ -33,6 +33,31 @@ router.get("/:tid/winner-pick", requireAuth, async (req, res) => {
   }
 });
 
+router.get("/:tid/winner-picks/correct", async (req, res) => {
+  const tid = Number(req.params.tid || 0);
+  if (!tid) return res.status(400).json({ error: "Neteisingas turnyro ID" });
+
+  const [[t]] = await pool.query(
+    "SELECT winner_team FROM tournaments WHERE id = ? LIMIT 1",
+    [tid]
+  );
+  if (!t) return res.status(404).json({ error: "Turnyras nerastas" });
+  if (!t.winner_team) return res.json({ ok: true, picks: [] });
+
+  const [rows] = await pool.query(`
+    SELECT p.user_id, u.username, u.avatar_url AS avatarUrl, p.team,
+           COALESCE(ts.points, 0) AS points
+      FROM tournament_winner_picks p
+      JOIN users u ON u.id = p.user_id
+      LEFT JOIN tournament_scores ts
+        ON ts.tournament_id = p.tournament_id AND ts.user_id = p.user_id
+     WHERE p.tournament_id = ? AND p.team = ?
+     ORDER BY ts.points DESC, u.username ASC
+  `, [tid, t.winner_team]);
+
+  return res.json({ ok: true, picks: rows });
+});
+
 // POST /api/tournaments/:tid/winner-pick  { team }
 // One-shot: reject if already exists. (Admin could add a PUT later if you want edits.)
 router.post("/:tid/winner-pick", requireAuth, async (req, res) => {
