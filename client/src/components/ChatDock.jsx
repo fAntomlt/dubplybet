@@ -414,7 +414,6 @@ const closeProfile = () => setCardFor(null);
             <ProfileMeta>Prisiregistravo: <b>{fmtDate(p.registeredAt)}</b></ProfileMeta>
             {p.winnerPickTeam && (
               <ProfileMeta style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                Pasirinktas nugalėtojas:
                 <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
                   <span style={{
                     display: 'inline-grid', placeItems: 'center',
