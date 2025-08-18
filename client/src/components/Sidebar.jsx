@@ -197,7 +197,14 @@ const Nav = styled.aside`
   display: flex; flex-direction: column; gap: 8px;
 
   @media (min-width: ${MOBILE_BP}px) {
-    position: relative; left: 0; height: auto; box-shadow: none; transition: none;
+    position: sticky;
+    top: 0;
+    align-self: start;   /* ensure sticky inside grid cell */
+    height: 100vh;       /* occupy viewport height */
+    overflow: auto;      /* sidebar gets its own scroll if content is tall */
+    left: 0;
+    box-shadow: none;
+    transition: none;
   }
 
   /* Off-canvas under the top bar */
