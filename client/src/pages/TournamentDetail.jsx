@@ -1019,10 +1019,10 @@ const ModalBackdrop = styled.div`
   display: grid;
   place-items: center;
   z-index: 1000;
-
   opacity: ${p => (p.$show ? 1 : 0)};
   transition: opacity 180ms ease-out;
   will-change: opacity;
+  padding: 3vw;
 `;
 const ModalHeader = styled.div`display:flex; align-items:center; justify-content:space-between; h3{margin:0; font-size:16px; font-weight:900;}`;
 const CloseX = styled.button`border:0; background:transparent; font-size:22px; color:#64748b; cursor:pointer; &:hover{color:#0f172a}`;
@@ -1141,59 +1141,65 @@ const Flame = styled.span`
 
 /* Modal sizing tweaks */
 const ModalCard = styled.div`
-  width: 100%;
-  max-width: 720px;
+  /* Fit within the Backdrop's padding so both sides have equal gap */
+  width: min(100%, 720px);
+  box-sizing: border-box;
+
   background: #fff;
   border: 1px solid #e5e7eb;
   border-radius: 16px;
-  padding: 22px;
+  padding: clamp(12px, 3vw, 22px);
   box-shadow: 0 16px 40px rgba(2, 6, 23, 0.2);
   display: grid;
-  gap: 18px;
+  gap: clamp(10px, 2.5vw, 18px);
 
   opacity: ${p => (p.$show ? 1 : 0)};
   transform: ${p => (p.$show ? "scale(1) translateY(0)" : "scale(.985) translateY(6px)")};
   transition: opacity 220ms cubic-bezier(.22,.61,.36,1),
               transform 220ms cubic-bezier(.22,.61,.36,1);
   will-change: opacity, transform;
+
+  max-height: 92vh;
+  overflow: auto;
 `;
 
 const ModalGrid = styled.div`
   display: grid;
-  grid-template-columns: 1fr auto 1fr; /* left | center | right */
+  /* keep the SAME 3-column layout at all widths */
+  grid-template-columns: minmax(0,1fr) auto minmax(0,1fr);
   align-items: start;
-  gap: 28px;                              /* bigger gaps */
+  gap: clamp(12px, 3.5vw, 28px);
 `;
 
 const Side = styled.div`
   display: grid;
-  gap: 14px;                              /* bigger gaps in side */
+  gap: clamp(8px, 2.5vw, 14px);
   align-items: center;
   justify-items: center;
 `;
 
 const BigFlag = styled.span`
-  /* flagForTeam respects the size arg; this ensures emoji/svg align nicely */
   display: inline-grid;
   place-items: center;
   line-height: 1;
+  max-width: 100%;
 `;
 
 const ModalTeamName = styled.div`
-  font-weight: 600;     /* not bold-bold */
-  font-size: 18px;      /* bigger font */
+  font-weight: 600;
+  font-size: clamp(14px, 2.4vw, 18px);
   text-align: center;
   color: #0f172a;
 `;
 
 const BigScoreInput = styled.input`
-  width: 100px;
+  width: clamp(64px, 18vw, 110px);
   border: 1px solid #e5e7eb;
   border-radius: 12px;
-  padding: 10px 12px;
-  text-align: center;             /* looks nicer in modal */
+  padding: clamp(8px, 1.8vw, 10px) clamp(10px, 2vw, 12px);
+  text-align: center;
   font-weight: 800;
-  font-size: 18px;                /* larger numerals */
+  font-size: clamp(16px, 3.5vw, 18px);
   &:focus {
     outline: none;
     border-color: #99b9ff;
@@ -1206,13 +1212,13 @@ const MidCol = styled.div`
   display: grid;
   gap: 8px;
   align-content: start;
-  justify-items: center;          /* center everything */
-  min-width: 180px;
-  margin-top: 15px;                /* nudge down to align with flag height */
+  justify-items: center;
+  min-width: 0;                   /* allow center column to shrink */
+  margin-top: clamp(0px, 2vw, 15px);
 `;
 
 const PhaseTiny = styled.div`
-  font-size: 11px;
+  font-size: clamp(10px, 2vw, 11px);
   letter-spacing: .12em;
   color: #6b7280;
   font-weight: 800;
@@ -1221,7 +1227,7 @@ const PhaseTiny = styled.div`
 `;
 
 const TipoffDate = styled.div`
-  font-size: 12px;
+  font-size: clamp(11px, 2.2vw, 12px);
   color: #94a3b8;
   font-weight: 800;
   letter-spacing: .04em;
@@ -1229,7 +1235,7 @@ const TipoffDate = styled.div`
 `;
 
 const TipoffTime = styled.div`
-  font-size: 28px;
+  font-size: clamp(20px, 6vw, 28px);
   font-weight: 900;
   line-height: 1.1;
   color: #0f172a;
@@ -1239,8 +1245,9 @@ const TipoffTime = styled.div`
 const PreviewLineCenter = styled.div`
   margin-top: 6px;
   font-weight: 700;
-  text-align: center;      /* centered condition */
+  text-align: center;
   color: #0f172a;
+  font-size: clamp(12px, 2.2vw, 14px);
 `;
 
 const HeaderCard = styled.div`
