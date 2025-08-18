@@ -366,6 +366,21 @@ function renderPodium(top3) {
 
   useEffect(() => { document.title = `${tournament?.name || "Turnyras"}`; }, [])
 
+  useEffect(() => {
+  if (!pickModal.open) return;
+  const scrollBarW = window.innerWidth - document.documentElement.clientWidth;
+  const prevOverflow = document.body.style.overflow;
+  const prevPadRight = document.body.style.paddingRight;
+
+  document.body.style.overflow = "hidden";
+  if (scrollBarW > 0) document.body.style.paddingRight = `${scrollBarW}px`;
+
+  return () => {
+    document.body.style.overflow = prevOverflow;
+    document.body.style.paddingRight = prevPadRight;
+  };
+}, [pickModal.open]);
+
   return (
     <Wrap>
       {tournament && (
@@ -704,11 +719,11 @@ function renderPodium(top3) {
 
         {/* Winner pick modal (shown once per tournament until user picks) */}
       {pickModal.open && (
-        <ModalShell onClose={() => setPickModal(p => ({ ...p, open: false }))}>
-          <ModalHeader>
-            <h3>PASIRINKITE TURNYRO NUGALĖTOJĄ</h3>
-            <CloseX onClick={() => setPickModal(p => ({ ...p, open: false }))}>×</CloseX>
-          </ModalHeader>
+      // Block closing via backdrop click:
+      <ModalShell onClose={() => { /* force choose winner */ }}>
+        <ModalHeader>
+          <h3>PASIRINKITE TURNYRO NUGALĖTOJĄ</h3>
+        </ModalHeader>
 
           <div style={{ display: "grid", gap: 10 }}>
             <label style={{ fontWeight: 800, fontSize: 12, letterSpacing: ".08em", opacity: .9 }}>
