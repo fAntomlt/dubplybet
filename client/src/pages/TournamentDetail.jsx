@@ -64,6 +64,22 @@ export default function TournamentDetail(){
   const [guesses, setGuesses] = useState({}); // {gameId: {loading, items}}
   const [modal, setModal] = useState({ open:false, game:null, a:"", b:"", err:"", saving:false });
 
+  // Leaderboard
+  const [lbOpen, setLbOpen] = useState(false);
+  const [lbLoading, setLbLoading] = useState(false);
+  const [leaderboard, setLeaderboard] = useState([]); // [{user_id, username, avatarUrl, points}]
+
+  async function loadLeaderboard() {
+    if (leaderboard.length || lbLoading) return;
+    try {
+      setLbLoading(true);
+      const d = await api(`/api/leaderboards/tournament/${tid}`);
+      setLeaderboard(d.leaderboard || []);
+    } finally {
+      setLbLoading(false);
+    }
+  }
+
   // remove " [5p]" (or any "[Xp]") fragments the formatter appends
     const cleanPointsTag = (s) => String(s).replace(/\s*\[\d+p\]/g, "");
 
@@ -117,6 +133,51 @@ export default function TournamentDetail(){
   const d10 = s => String(s||"").slice(0,10);
   const t5  = s => String(s||"").slice(11,16).replace("T"," "); // HH:mm from "YYYY-MM-DD HH:mm:ss"
   const toggle = id => setExpanded(prev => { const n = new Set(prev); n.has(id) ? n.delete(id) : n.add(id); if(!guesses[id]) fetchGuesses(id); return n; });
+
+  function initials(name = "") {
+  return name.split(" ").filter(Boolean).map(s => s[0]).slice(0,2).join("").toUpperCase() || "U";
+  }
+
+  // Avatar component with fallback via CSS background if no src
+  const RowAvatar = ({ src, children, ...rest }) => {
+    const has = !!src && src !== "null" && src !== "undefined";
+    return (
+      <AvatarWrap $img={has ? src : null} {...rest}>
+        {!has ? <span>{children}</span> : null}
+      </AvatarWrap>
+    );
+  };
+
+  // Renders the 1–3 podium exactly like the image
+  function renderPodium(top3, API_ORIGIN) {
+    const slots = [
+      { place: 2, size: 52,  step: 84,  theme: "silver" },
+      { place: 1, size: 64,  step: 112, theme: "gold"   },
+      { place: 3, size: 52,  step: 72,  theme: "bronze" },
+    ];
+    const order = [top3[1], top3[0], top3[2]]; // left=2nd, center=1st, right=3rd
+
+    return slots.map((slot, idx) => {
+      const u = order[idx];
+      if (!u) return <PodiumCol key={idx} />;
+      return (
+        <PodiumCol key={u.user_id}>
+          <AvatarBig
+            $size={slot.size}
+            $img={u.avatarUrl ? joinApi(u.avatarUrl) : null}
+            data-fallback={u.username}
+          >
+            {!u.avatarUrl ? <span>{initials(u.username)}</span> : null}
+            {slot.place === 1 ? <Crown aria-hidden>👑</Crown> : null}
+            <PlaceBadge $theme={slot.theme}>{slot.place}</PlaceBadge>
+          </AvatarBig>
+          <PodiumName>{u.username}</PodiumName>
+          <PodiumPoints $highlight={slot.place === 1}>{u.points}</PodiumPoints>
+          <Step $h={slot.step} />
+        </PodiumCol>
+      );
+    });
+  }
 
   // UI helpers for compact header + date lines
     const dOWMMMDD = (s) => {
@@ -210,6 +271,53 @@ export default function TournamentDetail(){
                 </CardContent>
           </HeaderCard>
       )}
+
+    <LeaderboardWrap>
+      <LBHeader>
+        <LBTitle>TURNYRO LENTELĖ</LBTitle>
+        <LBExpand
+          onClick={() => {
+            const next = !lbOpen;
+            setLbOpen(next);
+            if (next) loadLeaderboard();
+          }}
+          aria-expanded={lbOpen}
+        >
+          <FiChevronDown />
+        </LBExpand>
+      </LBHeader>
+
+      <LBCollapse $open={lbOpen}>
+        <LBCollapseInner $open={lbOpen}>
+          {lbLoading ? (
+            <LBEmpty>Kraunama…</LBEmpty>
+          ) : leaderboard.length === 0 ? (
+            <LBEmpty>Dar nėra reitingo.</LBEmpty>
+          ) : (
+            <>
+              {/* Podium (Top 3) */}
+              <Podium>
+                {renderPodium(leaderboard.slice(0, 3), API_ORIGIN)}
+              </Podium>
+              {/* List from 4th */}
+              <LBList>
+                {leaderboard.slice(3).map((u, i) => (
+                  <LBRow key={u.user_id}>
+                    <RowLeft>
+                      <RowAvatar src={joinApi(u.avatarUrl)} data-fallback={u.username}>
+                        {initials(u.username)}
+                      </RowAvatar>
+                      <RowName>{u.username}</RowName>
+                    </RowLeft>
+                    <RowRight>{u.points}</RowRight>
+                  </LBRow>
+                ))}
+              </LBList>
+            </>
+          )}
+        </LBCollapseInner>
+      </LBCollapse>
+  </LeaderboardWrap>
 
       {/* Upcoming */}
       <Section>
@@ -1089,3 +1197,118 @@ const CardInfo = styled.div`
   flex-direction: column;
   gap: 15px;
 `;
+
+/* ===== Leaderboard styles ===== */
+const LeaderboardWrap = styled.section`
+  border: 1px solid #e7eaf0;
+  border-radius: 14px;
+  overflow: hidden;
+  background: #0b1324; /* dark like the screenshot */
+  box-shadow: 0 8px 24px rgba(2,6,23,.12);
+  color: #e8ecff;
+`;
+const LBHeader = styled.div`
+  position: relative;
+  display: grid;
+  align-items: center;
+  padding: 12px 14px;
+  background: #0f172a;
+`;
+const LBTitle = styled.h3`
+  margin: 0;
+  font-size: 13px;
+  letter-spacing: .14em;
+  font-weight: 900;
+  color: #e8ecff;
+`;
+const LBExpand = styled.button`
+  position: absolute; top:0; right:0; bottom:0; width:44px;
+  border:0; background:#0f172a; color:#fff; cursor:pointer;
+  display:grid; place-items:center; border-left:1px solid #1e293b;
+  svg{ transition: transform .25s ease; }
+  &[aria-expanded="true"] svg { transform: rotate(180deg); }
+`;
+const LBCollapse = styled.div`
+  display:grid;
+  grid-template-rows: ${p => (p.$open ? "1fr" : "0fr")};
+  transition: grid-template-rows .34s cubic-bezier(.22,.61,.36,1);
+`;
+const LBCollapseInner = styled.div`
+  overflow:hidden;
+  opacity:${p => (p.$open ? 1 : 0)};
+  transform: translateY(${p => (p.$open ? "0" : "-4px")});
+  transition: opacity .22s ease, transform .28s ease;
+  padding: ${p => (p.$open ? "14px" : "0 14px")};
+  background:#0b1324;
+`;
+const LBEmpty = styled.div` color:#9aa7cf; padding:16px 6px; text-align:center; `;
+
+/* Podium */
+const Podium = styled.div`
+  display:grid;
+  grid-template-columns: 1fr 1.2fr 1fr;
+  align-items:end;
+  gap: 18px;
+  padding: 10px 6px 18px;
+`;
+const PodiumCol = styled.div`
+  position:relative;
+  display:grid; justify-items:center; align-items:end; gap:8px;
+`;
+const AvatarBig = styled.div`
+  position:relative;
+  width:${p=>p.$size}px; height:${p=>p.$size}px;
+  border-radius:50%;
+  background: ${p=>p.$img ? `url(${p.$img}) center/cover no-repeat` : "#18243f"};
+  border:2px solid #24324d;
+  display:grid; place-items:center;
+  font-weight:900; color:#9fb5ff;
+`;
+const Crown = styled.div`
+  position:absolute; top:-18px; font-size:20px; filter: drop-shadow(0 2px 2px rgba(0,0,0,.35));
+`;
+const PlaceBadge = styled.div`
+  position:absolute; bottom:-6px; right:-6px;
+  width:22px; height:22px; border-radius:50%;
+  display:grid; place-items:center; font-size:12px; font-weight:900;
+  color:#fff;
+  background:${p => p.$theme === "gold" ? "#f59e0b"
+                     : p.$theme === "silver" ? "#9ca3af" : "#d97706"};
+  border:2px solid #0b1324;
+`;
+const PodiumName = styled.div`
+  margin-top:6px; font-weight:800; color:#e8ecff; font-size:14px; text-align:center;
+`;
+const PodiumPoints = styled.div`
+  font-weight:900; font-size:16px;
+  color:${p=>p.$highlight ? "#ffd85e" : "#9ee17a"};
+`;
+const Step = styled.div`
+  width:100%; height:${p=>p.$h}px; border-radius:12px;
+  background:#111b33; border:1px solid #1c2844;
+`;
+
+/* List 4+ */
+const LBList = styled.div`
+  margin-top: 10px;
+  background:#0e1730;
+  border:1px solid #1c2844;
+  border-radius:12px;
+  overflow:hidden;
+`;
+const LBRow = styled.div`
+  display:grid; grid-template-columns: 1fr auto; align-items:center;
+  gap:8px; padding:12px;
+  border-bottom:1px solid #1c2844;
+  &:last-child { border-bottom:0; }
+`;
+const RowLeft = styled.div`
+  display:grid; grid-template-columns: 34px 1fr; gap:10px; align-items:center;
+`;
+const AvatarWrap = styled.div`
+  width:34px; height:34px; border-radius:50%;
+  background: ${p=>p.$img ? `url(${p.$img}) center/cover no-repeat` : "#18243f"};
+  border:1px solid #24324d; display:grid; place-items:center; color:#9fb5ff; font-weight:900;
+`;
+const RowName = styled.div` font-weight:800; color:#e9edff; `;
+const RowRight = styled.div` font-weight:900; color:#a7f3d0; `;
