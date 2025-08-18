@@ -641,6 +641,15 @@ function GuessesList({ game, guesses, fetch, finished, teamOrder }){
   const items = guesses?.items || [];
   if (guesses?.loading) return <Loading>Kraunama…</Loading>;
   if (!items.length) return <Muted>Spėjimų nėra</Muted>;
+  const initials = (name = "") => name.split(" ").filter(Boolean).map(s => s[0]).slice(0,2).join("").toUpperCase() || "U";
+  const RowAvatar = ({ src, children, ...rest }) => {
+    const has = !!src && src !== "null" && src !== "undefined";
+    return (
+      <AvatarWrap $img={has ? src : null} {...rest}>
+        {!has ? <span>{children}</span> : null}
+      </AvatarWrap>
+    );
+  };
 
   // remove " [5p]" (or any "[Xp]") fragments the formatter appends
     const cleanPointsTag = (s) => String(s).replace(/\s*\[\d+p\]/g, "");
@@ -699,35 +708,42 @@ function GuessesList({ game, guesses, fetch, finished, teamOrder }){
       <tbody>
         {sorted.map((gu, i) => (
           <tr key={i}>
-            <td>{gu.username || `#${gu.user_id}`}</td>
             <td>
-  <CondRow>
-    <CondText>
-      {renderMarkdownInline(
-        cleanPointsTag(
-          guessConditionPretty({
-            team_a: game.team_a,
-            team_b: game.team_b,
-            a: gu.guess_a,
-            b: gu.guess_b,
-            finished,
-            cond_ok: gu.cond_ok,
-            diff_ok: gu.diff_ok,
-            exact_ok: gu.exact_ok,
-            awarded_points: gu.awarded_points,
-          })
-        )
-      )}
-    </CondText>
+            <UserCell>
+              <RowAvatar src={joinApi(gu.avatarUrl)} data-fallback={gu.username}>
+                {initials(gu.username)}
+              </RowAvatar>
+              <UserName>{gu.username || `#${gu.user_id}`}</UserName>
+            </UserCell>
+          </td>
+            <td>
+            <CondRow>
+              <CondText>
+                {renderMarkdownInline(
+                  cleanPointsTag(
+                    guessConditionPretty({
+                      team_a: game.team_a,
+                      team_b: game.team_b,
+                      a: gu.guess_a,
+                      b: gu.guess_b,
+                      finished,
+                      cond_ok: gu.cond_ok,
+                      diff_ok: gu.diff_ok,
+                      exact_ok: gu.exact_ok,
+                      awarded_points: gu.awarded_points,
+                    })
+                  )
+                )}
+              </CondText>
 
-    {/* Flame if ALL conditions are met */}
-    {finished && gu?.cond_ok && gu?.diff_ok && gu?.exact_ok ? (
-      <Flame title="Atspėjo galutinį rezultata!">
-        <FaFire />
-      </Flame>
-    ) : null}
-  </CondRow>
-</td>
+              {/* Flame if ALL conditions are met */}
+              {finished && gu?.cond_ok && gu?.diff_ok && gu?.exact_ok ? (
+                <Flame title="Atspėjo galutinį rezultata!">
+                  <FaFire />
+                </Flame>
+              ) : null}
+            </CondRow>
+          </td>
             {finished && (
             <td style={{ whiteSpace: "nowrap" }}>
                 <strong>
@@ -1459,3 +1475,31 @@ const AvatarWrap = styled.div`
 `;
 const RowName = styled.div` font-weight:800; color:#0f172a; `;
 const RowRight = styled.div` font-weight:900; color:#16a34a; `;
+
+// reuse from leaderboard or define here if not exported
+const UserCell = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 8px;
+`;
+
+const RowAvatar = styled.div`
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: #f3f4f6;
+  background-image: ${p => (p.$img ? `url(${p.$img})` : "none")};
+  background-size: cover;
+  background-position: center;
+  display: grid;
+  place-items: center;
+  font-size: 12px;
+  font-weight: 700;
+  color: #374151;
+  flex-shrink: 0;
+`;
+
+const UserName = styled.span`
+  font-weight: 600;
+  color: #0f172a;
+`;

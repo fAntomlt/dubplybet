@@ -17,6 +17,7 @@ router.get("/:id/guesses", async (req, res) => {
     const [rows] = await pool.query(
       `SELECT g.user_id,
               u.username,
+              u.avatar_url AS avatarUrl,
               g.guess_a,
               g.guess_b,
               g.cond_ok,
