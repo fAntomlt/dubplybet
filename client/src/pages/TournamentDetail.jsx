@@ -69,16 +69,51 @@ export default function TournamentDetail(){
   const [lbLoading, setLbLoading] = useState(false);
   const [leaderboard, setLeaderboard] = useState([]); // [{user_id, username, avatarUrl, points}]
 
-  async function loadLeaderboard() {
-    if (leaderboard.length || lbLoading) return;
-    try {
-      setLbLoading(true);
-      const d = await api(`/api/leaderboards/tournament/${tid}`);
-      setLeaderboard(d.leaderboard || []);
-    } finally {
-      setLbLoading(false);
+  function sortLeaderboard(a, b) {
+    // normalize helpers (handle various API shapes without crashing)
+    const num = (v, d = 0) => (Number.isFinite(v) ? v : d);
+
+    // 1) points (desc)
+    const p = num(b.points) - num(a.points);
+    if (p !== 0) return p;
+
+    // 2) correct_any (desc) – strictly as requested
+    const ca = num(b.correct_any) - num(a.correct_any);
+    if (ca !== 0) return ca;
+
+    // 3a) fewer guesses (asc) if a count field exists
+    const aGuessCnt = num(a.guesses_count ?? a.predictions_count ?? a.total_guesses, null);
+    const bGuessCnt = num(b.guesses_count ?? b.predictions_count ?? b.total_guesses, null);
+    if (aGuessCnt !== null && bGuessCnt !== null && aGuessCnt !== bGuessCnt) {
+      return aGuessCnt - bGuessCnt; // fewer guesses ranks higher
     }
+
+    // 3b) earlier timestamp wins (first-to-points feel), if available
+    const aTime = a.last_updated_at || a.updated_at || a.last_guess_at || "";
+    const bTime = b.last_updated_at || b.updated_at || b.last_guess_at || "";
+    if (aTime && bTime && aTime !== bTime) {
+      return aTime.localeCompare(bTime); // earlier first
+    }
+
+    // 3c) username A→Z
+    const nameCmp = String(a.username || "").localeCompare(String(b.username || ""));
+    if (nameCmp !== 0) return nameCmp;
+
+    // 3d) user_id (asc) as final, stable fallback
+    return num(a.user_id, 0) - num(b.user_id, 0);
   }
+
+  async function loadLeaderboard() {
+  if (leaderboard.length || lbLoading) return;
+  try {
+    setLbLoading(true);
+    const d = await api(`/api/leaderboards/tournament/${tid}`);
+    const list = d.leaderboard || [];
+    setLeaderboard([...list].sort(sortLeaderboard));
+  } finally {
+    setLbLoading(false);
+  }
+}
 
   // remove " [5p]" (or any "[Xp]") fragments the formatter appends
     const cleanPointsTag = (s) => String(s).replace(/\s*\[\d+p\]/g, "");
@@ -507,7 +542,7 @@ function renderPodium(top3) {
                     )}
                 </CondText>
                 ) : (
-                <span style={{ color: "#64748b" }}>Šio žaidimo nespėjai</span>
+                <span style={{ color: "#64748b" }}>ŠIO ŽAIDIMO REZULTATO NESPĖLIOJAI</span>
                 )}
             </div>
 
@@ -749,6 +784,11 @@ const GameCard = styled.div`
   margin-right: 56px;
   overflow: visible;
   transition: transform .18s ease, border-color .15s ease, box-shadow .15s ease, background .15s ease;
+  @media (max-width: 474px){
+    margin-right: 44px;        /* matches ExpandBtn width */
+    padding: 8px 10px;
+    gap: 8px;
+  }
 
   ${({ $clickable }) =>
     $clickable &&
@@ -768,13 +808,20 @@ const GameCard = styled.div`
     }
   `}
 `;
-const LeftCol = styled.div`display:grid; gap:6px;`;
+const LeftCol = styled.div`display:grid; gap:6px; min-width:0;`;
 const RightCol = styled.div`
   display: grid;
   grid-auto-flow: column;
   align-items: center;
   gap: 12px;
   justify-content: end;
+  min-width: 0;
+
+  @media (max-width: 474px){
+    grid-auto-flow: row;
+    justify-items: end;
+    gap: 6px;
+  }
 `;
 const CardTinyHeader = styled.div`
   font-size: 11px;
@@ -787,7 +834,18 @@ const PhasePill = styled.div`display:inline-flex; align-items:center; gap:8px; f
 const Teams = styled.div`display:grid; gap:6px;`;
 const TeamRow = styled.div`
   display:grid; grid-template-columns:auto 1fr auto; align-items:center; gap:8px;
-  .name{font-weight:800}
+  .name{
+    font-weight:800;
+    min-width:0;
+    text-overflow:ellipsis;
+    white-space:nowrap;
+    @media (max-width: 474px){
+     white-space: normal;
+     text-overflow: unset;
+     word-break: break-word;
+     overflow: visible;
+   }
+  }
   .scoreFinal{font-weight:900; font-size: 14px;}
 `;
 const FlagDot = styled.span`
@@ -808,12 +866,18 @@ const MetaBlock = styled.div`
   justify-items: end;
   gap: 2px;
   min-width: 120px;
+  @media (max-width: 474px){
+    min-width: 0;
+  }
 `;
 
 const SmallMeta = styled.div`
   font-size: 11px;
   color: #94a3b8;
   font-weight: 700;
+  @media (max-width: 474px){
+    font-size: 10px;
+  }
 `;
 
 const DividerV = styled.span`
@@ -821,6 +885,10 @@ const DividerV = styled.span`
   height: 28px;
   background: #e5e7eb;
   display: inline-block;
+
+  @media (max-width: 474px){
+    display: none;         /* remove the vertical divider when stacked */
+  }
 `;
 
 const TimeBadge = styled.div`
@@ -831,6 +899,11 @@ const TimeBadge = styled.div`
   padding: 6px 10px;
   font-size: 13px;
   line-height: 1;
+
+  @media (max-width: 474px){
+    padding: 5px 8px;
+    font-size: 12px;
+  }
 `;
 
 // ensure blocks below the two-column header span full width
@@ -1021,6 +1094,10 @@ const MyGuessBoxFinished = styled(MyGuessBox)`
     grid-template-columns: 1fr;
     gap: 10px;
   }
+    & > div > strong{
+    display: block;
+    margin-bottom: 6px;
+    }
 `;
 
 const PointsAside = styled.div`
