@@ -270,7 +270,20 @@ router.get("/public/:id", requireAuth, async (req, res) => {
     }
 
     // Return only minimal public data
-    return res.json({ ok: true, user: rows[0] });
+    const tid = Number(req.query.tournament_id);
+    let winnerPickTeam = null;
+    if (Number.isInteger(tid) && tid > 0) {
+      const [pRows] = await pool.query(
+        `SELECT team
+           FROM tournament_winner_picks
+          WHERE user_id = ? AND tournament_id = ?
+          LIMIT 1`,
+        [rows[0].id, tid]
+      );
+      if (pRows.length) winnerPickTeam = pRows[0].team || null;
+    }
+
+    return res.json({ ok: true, user: { ...rows[0], winnerPickTeam } });
   } catch (err) {
     console.error("GET /users/public/:id error:", err);
     return res.status(500).json({ ok: false, error: "Serverio klaida" });
