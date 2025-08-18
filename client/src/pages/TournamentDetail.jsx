@@ -174,6 +174,8 @@ export default function TournamentDetail(){
     }
   }
 
+  useEffect(() => { document.title = `${tournament?.name || "Turnyras"}`; }, [])
+
   return (
     <Wrap>
       {/* Centered header with lines */}

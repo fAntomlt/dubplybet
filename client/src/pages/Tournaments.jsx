@@ -176,6 +176,8 @@ export default function Turnyrai() {
     })();
   }, []);
 
+  useEffect(() => { document.title = "Turnyrai – DuBPlyBET"; }, [])
+
   const { heroActive, restActive, draftSorted, archivedSorted } = useMemo(() => {
     const active   = rows.filter(t => t.status === "active");
     const draft    = rows.filter(t => t.status === "draft");
