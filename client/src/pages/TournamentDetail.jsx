@@ -69,16 +69,51 @@ export default function TournamentDetail(){
   const [lbLoading, setLbLoading] = useState(false);
   const [leaderboard, setLeaderboard] = useState([]); // [{user_id, username, avatarUrl, points}]
 
-  async function loadLeaderboard() {
-    if (leaderboard.length || lbLoading) return;
-    try {
-      setLbLoading(true);
-      const d = await api(`/api/leaderboards/tournament/${tid}`);
-      setLeaderboard(d.leaderboard || []);
-    } finally {
-      setLbLoading(false);
+  function sortLeaderboard(a, b) {
+    // normalize helpers (handle various API shapes without crashing)
+    const num = (v, d = 0) => (Number.isFinite(v) ? v : d);
+
+    // 1) points (desc)
+    const p = num(b.points) - num(a.points);
+    if (p !== 0) return p;
+
+    // 2) correct_any (desc) – strictly as requested
+    const ca = num(b.correct_any) - num(a.correct_any);
+    if (ca !== 0) return ca;
+
+    // 3a) fewer guesses (asc) if a count field exists
+    const aGuessCnt = num(a.guesses_count ?? a.predictions_count ?? a.total_guesses, null);
+    const bGuessCnt = num(b.guesses_count ?? b.predictions_count ?? b.total_guesses, null);
+    if (aGuessCnt !== null && bGuessCnt !== null && aGuessCnt !== bGuessCnt) {
+      return aGuessCnt - bGuessCnt; // fewer guesses ranks higher
     }
+
+    // 3b) earlier timestamp wins (first-to-points feel), if available
+    const aTime = a.last_updated_at || a.updated_at || a.last_guess_at || "";
+    const bTime = b.last_updated_at || b.updated_at || b.last_guess_at || "";
+    if (aTime && bTime && aTime !== bTime) {
+      return aTime.localeCompare(bTime); // earlier first
+    }
+
+    // 3c) username A→Z
+    const nameCmp = String(a.username || "").localeCompare(String(b.username || ""));
+    if (nameCmp !== 0) return nameCmp;
+
+    // 3d) user_id (asc) as final, stable fallback
+    return num(a.user_id, 0) - num(b.user_id, 0);
   }
+
+  async function loadLeaderboard() {
+  if (leaderboard.length || lbLoading) return;
+  try {
+    setLbLoading(true);
+    const d = await api(`/api/leaderboards/tournament/${tid}`);
+    const list = d.leaderboard || [];
+    setLeaderboard([...list].sort(sortLeaderboard));
+  } finally {
+    setLbLoading(false);
+  }
+}
 
   // remove " [5p]" (or any "[Xp]") fragments the formatter appends
     const cleanPointsTag = (s) => String(s).replace(/\s*\[\d+p\]/g, "");
@@ -149,35 +184,41 @@ export default function TournamentDetail(){
   };
 
   // Renders the 1–3 podium exactly like the image
-  function renderPodium(top3, API_ORIGIN) {
-    const slots = [
-      { place: 2, size: 52,  step: 84,  theme: "silver" },
-      { place: 1, size: 64,  step: 112, theme: "gold"   },
-      { place: 3, size: 52,  step: 72,  theme: "bronze" },
-    ];
-    const order = [top3[1], top3[0], top3[2]]; // left=2nd, center=1st, right=3rd
+function renderPodium(top3) {
+  const slots = [
+    { place: 2, size: 52,  step: 84,  theme: "silver" },
+    { place: 1, size: 64,  step: 112, theme: "gold"   },
+    { place: 3, size: 52,  step: 72,  theme: "bronze" },
+  ];
+  const order = [top3[1], top3[0], top3[2]]; // left=2nd, center=1st, right=3rd
 
-    return slots.map((slot, idx) => {
-      const u = order[idx];
-      if (!u) return <PodiumCol key={idx} />;
-      return (
-        <PodiumCol key={u.user_id}>
+  return slots.map((slot, idx) => {
+    const u = order[idx];
+    if (!u) return <PodiumCol key={idx} />;
+
+    return (
+      <PodiumCol key={u.user_id}>
+        <Step $h={slot.step}>
           <AvatarBig
             $size={slot.size}
             $img={u.avatarUrl ? joinApi(u.avatarUrl) : null}
             data-fallback={u.username}
+            aria-label={u.username}
           >
             {!u.avatarUrl ? <span>{initials(u.username)}</span> : null}
             {slot.place === 1 ? <Crown aria-hidden>👑</Crown> : null}
             <PlaceBadge $theme={slot.theme}>{slot.place}</PlaceBadge>
           </AvatarBig>
-          <PodiumName>{u.username}</PodiumName>
-          <PodiumPoints $highlight={slot.place === 1}>{u.points}</PodiumPoints>
-          <Step $h={slot.step} />
-        </PodiumCol>
-      );
-    });
-  }
+
+          <StepInner>
+            <PodiumName>{u.username}</PodiumName>
+            <PodiumPoints $highlight={slot.place === 1}>{u.points}</PodiumPoints>
+          </StepInner>
+        </Step>
+      </PodiumCol>
+    );
+  });
+}
 
   // UI helpers for compact header + date lines
     const dOWMMMDD = (s) => {
@@ -501,7 +542,7 @@ export default function TournamentDetail(){
                     )}
                 </CondText>
                 ) : (
-                <span style={{ color: "#64748b" }}>Šio žaidimo nespėjai</span>
+                <span style={{ color: "#64748b" }}>ŠIO ŽAIDIMO REZULTATO NESPĖLIOJAI</span>
                 )}
             </div>
 
@@ -743,6 +784,11 @@ const GameCard = styled.div`
   margin-right: 56px;
   overflow: visible;
   transition: transform .18s ease, border-color .15s ease, box-shadow .15s ease, background .15s ease;
+  @media (max-width: 474px){
+    margin-right: 44px;        /* matches ExpandBtn width */
+    padding: 8px 10px;
+    gap: 8px;
+  }
 
   ${({ $clickable }) =>
     $clickable &&
@@ -762,13 +808,20 @@ const GameCard = styled.div`
     }
   `}
 `;
-const LeftCol = styled.div`display:grid; gap:6px;`;
+const LeftCol = styled.div`display:grid; gap:6px; min-width:0;`;
 const RightCol = styled.div`
   display: grid;
   grid-auto-flow: column;
   align-items: center;
   gap: 12px;
   justify-content: end;
+  min-width: 0;
+
+  @media (max-width: 474px){
+    grid-auto-flow: row;
+    justify-items: end;
+    gap: 6px;
+  }
 `;
 const CardTinyHeader = styled.div`
   font-size: 11px;
@@ -781,7 +834,18 @@ const PhasePill = styled.div`display:inline-flex; align-items:center; gap:8px; f
 const Teams = styled.div`display:grid; gap:6px;`;
 const TeamRow = styled.div`
   display:grid; grid-template-columns:auto 1fr auto; align-items:center; gap:8px;
-  .name{font-weight:800}
+  .name{
+    font-weight:800;
+    min-width:0;
+    text-overflow:ellipsis;
+    white-space:nowrap;
+    @media (max-width: 474px){
+     white-space: normal;
+     text-overflow: unset;
+     word-break: break-word;
+     overflow: visible;
+   }
+  }
   .scoreFinal{font-weight:900; font-size: 14px;}
 `;
 const FlagDot = styled.span`
@@ -802,12 +866,18 @@ const MetaBlock = styled.div`
   justify-items: end;
   gap: 2px;
   min-width: 120px;
+  @media (max-width: 474px){
+    min-width: 0;
+  }
 `;
 
 const SmallMeta = styled.div`
   font-size: 11px;
   color: #94a3b8;
   font-weight: 700;
+  @media (max-width: 474px){
+    font-size: 10px;
+  }
 `;
 
 const DividerV = styled.span`
@@ -815,6 +885,10 @@ const DividerV = styled.span`
   height: 28px;
   background: #e5e7eb;
   display: inline-block;
+
+  @media (max-width: 474px){
+    display: none;         /* remove the vertical divider when stacked */
+  }
 `;
 
 const TimeBadge = styled.div`
@@ -825,6 +899,11 @@ const TimeBadge = styled.div`
   padding: 6px 10px;
   font-size: 13px;
   line-height: 1;
+
+  @media (max-width: 474px){
+    padding: 5px 8px;
+    font-size: 12px;
+  }
 `;
 
 // ensure blocks below the two-column header span full width
@@ -1015,6 +1094,10 @@ const MyGuessBoxFinished = styled(MyGuessBox)`
     grid-template-columns: 1fr;
     gap: 10px;
   }
+    & > div > strong{
+    display: block;
+    margin-bottom: 6px;
+    }
 `;
 
 const PointsAside = styled.div`
@@ -1203,28 +1286,30 @@ const LeaderboardWrap = styled.section`
   border: 1px solid #e7eaf0;
   border-radius: 14px;
   overflow: hidden;
-  background: #0b1324; /* dark like the screenshot */
-  box-shadow: 0 8px 24px rgba(2,6,23,.12);
-  color: #e8ecff;
+  background: #ffffff;
+  box-shadow: 0 8px 24px rgba(2,6,23,.06);
+  color: #0f172a;
 `;
 const LBHeader = styled.div`
   position: relative;
   display: grid;
   align-items: center;
   padding: 12px 14px;
-  background: #0f172a;
+  background: #ffffff;
+  border-bottom: 1px solid #e7eaf0;
 `;
 const LBTitle = styled.h3`
   margin: 0;
   font-size: 13px;
   letter-spacing: .14em;
   font-weight: 900;
-  color: #e8ecff;
+  color: #0f172a;
+  opacity: .9;
 `;
 const LBExpand = styled.button`
   position: absolute; top:0; right:0; bottom:0; width:44px;
-  border:0; background:#0f172a; color:#fff; cursor:pointer;
-  display:grid; place-items:center; border-left:1px solid #1e293b;
+  border:0; background:#ffffff; color:#0f172a; cursor:pointer;
+  display:grid; place-items:center; border-left:1px solid #e7eaf0;
   svg{ transition: transform .25s ease; }
   &[aria-expanded="true"] svg { transform: rotate(180deg); }
 `;
@@ -1239,67 +1324,117 @@ const LBCollapseInner = styled.div`
   transform: translateY(${p => (p.$open ? "0" : "-4px")});
   transition: opacity .22s ease, transform .28s ease;
   padding: ${p => (p.$open ? "14px" : "0 14px")};
-  background:#0b1324;
+  background: #f0f0f0ff;
 `;
-const LBEmpty = styled.div` color:#9aa7cf; padding:16px 6px; text-align:center; `;
+const LBEmpty = styled.div` color:#64748b; padding:16px 6px; text-align:center; `;
 
 /* Podium */
 const Podium = styled.div`
-  display:grid;
+  display: grid;
   grid-template-columns: 1fr 1.2fr 1fr;
-  align-items:end;
+  align-items: end;
   gap: 18px;
   padding: 10px 6px 18px;
 `;
+
 const PodiumCol = styled.div`
-  position:relative;
-  display:grid; justify-items:center; align-items:end; gap:8px;
+  position: relative;
+  display: grid;
+  justify-items: center;
+  align-items: end;
 `;
+
 const AvatarBig = styled.div`
-  position:relative;
-  width:${p=>p.$size}px; height:${p=>p.$size}px;
-  border-radius:50%;
-  background: ${p=>p.$img ? `url(${p.$img}) center/cover no-repeat` : "#18243f"};
-  border:2px solid #24324d;
-  display:grid; place-items:center;
-  font-weight:900; color:#9fb5ff;
+  position: absolute;
+  top: 0;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: ${p => p.$size}px;
+  height: ${p => p.$size}px;
+  border-radius: 50%;
+  background: ${p => (p.$img ? `url(${p.$img}) center/cover no-repeat` : "#e5e7eb")};
+  border: 2px solid #ffffff;
+  display: grid;
+  place-items: center;
+  font-weight: 900;
+  color: #0f172a;
 `;
+
 const Crown = styled.div`
-  position:absolute; top:-18px; font-size:20px; filter: drop-shadow(0 2px 2px rgba(0,0,0,.35));
+  position: absolute;
+  top: -18px;
+  font-size: 20px;
+  filter: drop-shadow(0 2px 2px rgba(0,0,0,.35));
 `;
+
 const PlaceBadge = styled.div`
-  position:absolute; bottom:-6px; right:-6px;
-  width:22px; height:22px; border-radius:50%;
-  display:grid; place-items:center; font-size:12px; font-weight:900;
-  color:#fff;
-  background:${p => p.$theme === "gold" ? "#f59e0b"
-                     : p.$theme === "silver" ? "#9ca3af" : "#d97706"};
-  border:2px solid #0b1324;
+  position: absolute;
+  bottom: -6px;
+  right: -6px;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  font-size: 12px;
+  font-weight: 900;
+  color: #fff;
+  background: ${p =>
+    p.$theme === "gold" ? "#f59e0b" :
+    p.$theme === "silver" ? "#9ca3af" : "#b35f00ff"};
+  border: 2px solid #ffffff;
 `;
-const PodiumName = styled.div`
-  margin-top:6px; font-weight:800; color:#e8ecff; font-size:14px; text-align:center;
-`;
-const PodiumPoints = styled.div`
-  font-weight:900; font-size:16px;
-  color:${p=>p.$highlight ? "#ffd85e" : "#9ee17a"};
-`;
+
+/* STEP is now a positioned container with content inside it */
 const Step = styled.div`
-  width:100%; height:${p=>p.$h}px; border-radius:12px;
-  background:#111b33; border:1px solid #1c2844;
+  position: relative;
+  width: 100%;
+  height: ${p => p.$h}px;
+  border-radius: 12px;
+  background: #f8fafc;
+  border: 1px solid #e7eaf0;
+  margin-top: 30px;
+  padding-top: 28px;
+  display: grid;
+  align-content: center;
+  justify-items: center;
+  gap: 6px;
 `;
+
+const StepInner = styled.div`
+  display: grid;
+  justify-items: center;
+  gap: 4px;
+  padding: 0 8px;
+  text-align: center;
+`;
+
+const PodiumName = styled.div`
+  font-weight: 800;
+  color: #0f172a;
+  font-size: 14px;
+  line-height: 1.2;
+`;
+
+const PodiumPoints = styled.div`
+  font-weight: 900;
+  font-size: 16px;
+  color: ${p => (p.$highlight ? "#f59e0b" : "#16a34a")};
+`;
+
 
 /* List 4+ */
 const LBList = styled.div`
   margin-top: 10px;
-  background:#0e1730;
-  border:1px solid #1c2844;
+  background:#ffffff;
+  border:1px solid #e7eaf0;
   border-radius:12px;
   overflow:hidden;
 `;
 const LBRow = styled.div`
   display:grid; grid-template-columns: 1fr auto; align-items:center;
   gap:8px; padding:12px;
-  border-bottom:1px solid #1c2844;
+  border-bottom:1px solid #e7eaf0;
   &:last-child { border-bottom:0; }
 `;
 const RowLeft = styled.div`
@@ -1307,8 +1442,8 @@ const RowLeft = styled.div`
 `;
 const AvatarWrap = styled.div`
   width:34px; height:34px; border-radius:50%;
-  background: ${p=>p.$img ? `url(${p.$img}) center/cover no-repeat` : "#18243f"};
-  border:1px solid #24324d; display:grid; place-items:center; color:#9fb5ff; font-weight:900;
+  background: ${p=>p.$img ? `url(${p.$img}) center/cover no-repeat` : "#e5e7eb"};
+  border:1px solid #e7eaf0; display:grid; place-items:center; color:#0f172a; font-weight:900;
 `;
-const RowName = styled.div` font-weight:800; color:#e9edff; `;
-const RowRight = styled.div` font-weight:900; color:#a7f3d0; `;
+const RowName = styled.div` font-weight:800; color:#0f172a; `;
+const RowRight = styled.div` font-weight:900; color:#16a34a; `;
