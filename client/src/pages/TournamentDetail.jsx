@@ -1018,7 +1018,7 @@ const InlineErr = styled.div`color:#dc2626; font-weight:700; font-size:13px;`;
 
 const GuessTable = styled.table`
   width:100%; border-collapse:collapse; font-size:14px;
-  th,td{ padding:6px 6px; border-bottom:1px solid #eef2f7; vertical-align:top; }
+  th,td{ padding:6px 6px; border-bottom:1px solid #eef2f7; vertical-align:middle; }
   th{ text-align:left; font-weight:800; color:#111827; background:#f9fafb; }
 `;
 const Loading = styled.div`color:#64748b;`;
@@ -1106,14 +1106,12 @@ const CondText = styled.div`
 const MyGuessBoxFinished = styled(MyGuessBox)`
   grid-template-columns: 1fr auto;
   align-items: start;
-  @media (max-width: 520px) {
-    grid-template-columns: 1fr;
-    gap: 10px;
+
+  & > div > strong {
+
+   display: block;        /* force on its own line */
+   margin-bottom: 6px;    /* spacing from the line below */
   }
-    & > div > strong{
-    display: block;
-    margin-bottom: 6px;
-    }
 `;
 
 const PointsAside = styled.div`
@@ -1143,7 +1141,7 @@ const PointsValue = styled.div`
 
 const CondRow = styled.div`
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   gap: 8px;
 `;
 
