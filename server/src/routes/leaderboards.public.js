@@ -9,7 +9,7 @@ router.get("/tournament/:tid", async (req, res) => {
   if (!tid) return res.status(400).json({ error: "Neteisingas turnyro ID" });
 
   const [rows] = await pool.query(
-    `SELECT ts.user_id, u.username, ts.points, ts.correct_any
+    `SELECT ts.user_id, u.username, u.avatar_url AS avatarUrl, ts.points, ts.correct_any
        FROM tournament_scores ts
        JOIN users u ON u.id = ts.user_id
       WHERE ts.tournament_id = ?
