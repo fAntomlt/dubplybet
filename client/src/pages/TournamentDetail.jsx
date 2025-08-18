@@ -20,19 +20,6 @@ const BG_DRAFT    = `url('${joinApi(import.meta.env.VITE_TOURNAMENT_BG_DRAFT    
 const BG_ARCHIVED = `url('${joinApi(import.meta.env.VITE_TOURNAMENT_BG_ARCHIVED || "/uploads/turnyras-archived.jpg")}')`;
 const FALLBACK_IMG = `url('${API_ORIGIN}/uploads/basketball.jpg')`;
 
-  // Winner-pick modal
-  const [pickModal, setPickModal] = useState({ open: false, team: "", saving: false, error: "" });
-
-  // Build a unique team list from games you already load
-  const allTeams = useMemo(() => {
-    const set = new Set();
-    [...upcomingLocked, ...finished].forEach(g => {
-      if (g?.team_a) set.add(g.team_a);
-      if (g?.team_b) set.add(g.team_b);
-    });
-    return Array.from(set).sort((a, b) => String(a).localeCompare(String(b)));
-  }, [upcomingLocked, finished]);
-
 const bgForStatus = (status) => {
   switch (status) {
     case "active":   return BG_ACTIVE;
@@ -81,6 +68,19 @@ export default function TournamentDetail(){
   const [lbOpen, setLbOpen] = useState(false);
   const [lbLoading, setLbLoading] = useState(false);
   const [leaderboard, setLeaderboard] = useState([]); // [{user_id, username, avatarUrl, points}]
+
+  // Winner-pick modal
+  const [pickModal, setPickModal] = useState({ open: false, team: "", saving: false, error: "" });
+
+  // Build a unique team list from games you already load
+  const allTeams = useMemo(() => {
+    const set = new Set();
+    [...upcomingLocked, ...finished].forEach(g => {
+      if (g?.team_a) set.add(g.team_a);
+      if (g?.team_b) set.add(g.team_b);
+    });
+    return Array.from(set).sort((a, b) => String(a).localeCompare(String(b)));
+  }, [upcomingLocked, finished]);
 
   function sortLeaderboard(a, b) {
     // normalize helpers (handle various API shapes without crashing)
