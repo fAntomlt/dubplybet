@@ -12,6 +12,24 @@ import { useToast } from "../components/ToastProvider";
 
 const PAGE_SIZE = 15;
 
+const API_ORIGIN = (import.meta.env.VITE_API_URL || "").replace(/\/+$/, "");
+const joinApi = (p) => (p?.startsWith("/uploads") ? `${API_ORIGIN}${p}` : p || "");
+
+const BG_ACTIVE   = `url('${joinApi(import.meta.env.VITE_TOURNAMENT_BG_ACTIVE   || "/uploads/turnyras-active.jpg")}')`;
+const BG_DRAFT    = `url('${joinApi(import.meta.env.VITE_TOURNAMENT_BG_DRAFT    || "/uploads/turnyras-draft.jpg")}')`;
+const BG_ARCHIVED = `url('${joinApi(import.meta.env.VITE_TOURNAMENT_BG_ARCHIVED || "/uploads/turnyras-archived.jpg")}')`;
+const FALLBACK_IMG = `url('${API_ORIGIN}/uploads/basketball.jpg')`;
+
+const bgForStatus = (status) => {
+  switch (status) {
+    case "active":   return BG_ACTIVE;
+    case "draft":    return BG_DRAFT;
+    case "archived": return BG_ARCHIVED;
+    default:         return FALLBACK_IMG;
+  }
+};
+
+
 function ModalShell({ onClose, children}){
     const [show, setShow] = React.useState(false);
 
@@ -178,12 +196,20 @@ export default function TournamentDetail(){
 
   return (
     <Wrap>
-      {/* Centered header with lines */}
-      <TopHeader>
-        <Line aria-hidden />
-        <h1>{tournament?.name || "Turnyras"}</h1>
-        <Line aria-hidden />
-      </TopHeader>
+      {tournament && (
+          <HeaderCard aria-label={tournament.name}>
+            <ImageLayer $bg={bgForStatus(tournament.status)} />
+              <Overlay />
+                <CardContent>
+                  <CardInfo>
+                    <CardTitle>{tournament.name}</CardTitle>
+                    <CardDates>
+                      {String(tournament.start_date || "").slice(0,10)} – {String(tournament.end_date || "").slice(0,10)}
+                    </CardDates>
+                  </CardInfo>
+                </CardContent>
+          </HeaderCard>
+      )}
 
       {/* Upcoming */}
       <Section>
@@ -1024,4 +1050,42 @@ const PreviewLineCenter = styled.div`
   font-weight: 700;
   text-align: center;      /* centered condition */
   color: #0f172a;
+`;
+
+const HeaderCard = styled.div`
+  position: relative; width: 100%; min-height: 220px; border-radius: 18px;
+  overflow: hidden; background: #000; box-shadow: 0 8px 24px rgba(2,6,23,.12);
+  cursor: default; pointer-events: none;
+`;
+
+const ImageLayer = styled.div`
+  position: absolute; inset: 0;
+  background: ${p => p.$bg || FALLBACK_IMG}; background-size: cover; background-position: center;
+`;
+
+const Overlay = styled.div`
+  position: absolute; inset: 0; background: rgba(255,255,255,0.18); z-index: 1;
+`;
+
+const CardContent = styled.div`
+  position: absolute; inset: 0; z-index: 2;
+  padding: 12px; text-align: center; color: #fff;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+`;
+
+const CardTitle = styled.div`
+  font-size: clamp(35px, 2.3vw, 42px); font-weight: 900; letter-spacing: -0.01em;
+  text-shadow: 0 2px 6px rgba(0,0,0,0.6);
+`;
+
+const CardDates = styled.div`
+  font-weight: 700; text-shadow: 0 2px 8px rgba(0,0,0,0.7); font-size: clamp(16px, 2.3vw, 20px);
+`;
+
+const CardInfo = styled.div`
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
 `;
