@@ -1,5 +1,5 @@
 // src/pages/TournamentDetail.jsx
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState, useRef } from "react";
 import styled, { keyframes } from "styled-components";
 import { useParams } from "react-router-dom";
 import { api } from "../lib/api";
@@ -66,6 +66,7 @@ export default function TournamentDetail(){
 
 
   const [tournament, setTournament] = useState(null);
+  const isArchived = tournament?.status === "archived";
   const [upcomingLocked, setUpcomingLocked] = useState([]); // scheduled+locked (from /upcoming)
   const [finished, setFinished] = useState([]);
   const [finTotal, setFinTotal] = useState(0); // optional if you later add a count route
@@ -74,6 +75,7 @@ export default function TournamentDetail(){
   const [expanded, setExpanded] = useState(new Set());
   const [guesses, setGuesses] = useState({}); // {gameId: {loading, items}}
   const [modal, setModal] = useState({ open:false, game:null, a:"", b:"", err:"", saving:false });
+  const dayRailRef = useRef(null);
 
   // Leaderboard
   const [lbOpen, setLbOpen] = useState(false);
@@ -82,6 +84,8 @@ export default function TournamentDetail(){
 
   // Winner-pick modal
    const [pickModal, setPickModal] = useState({ open: false, team: "", saving: false, error: "", search: "" });
+
+   const [bonus, setBonus] = useState({ loading: false, picks: [], error: "" });
 
   // Build a unique team list from games you already load
   const allTeams = useMemo(() => {
@@ -165,28 +169,36 @@ export default function TournamentDetail(){
   }, [tid]);
 
    useEffect(() => {
-    // upcoming + locked
-    (async () => {
-      const d = await api(`/api/games/upcoming?tournament_id=${tid}`, {
-        headers: authToken ? { Authorization:`Bearer ${authToken}` } : {}
-      });
-      setUpcomingLocked(d.games || []);
-    })();
-  }, [tid, authToken]);
+  if (!tid || isArchived) {
+    setUpcomingLocked([]);
+    return;
+  }
+  (async () => {
+    const d = await api(`/api/games/upcoming?tournament_id=${tid}`, {
+      headers: authToken ? { Authorization:`Bearer ${authToken}` } : {}
+    });
+    setUpcomingLocked(d.games || []);
+  })();
+}, [tid, authToken, isArchived]);
 
   useEffect(() => {
-    loadFinished(finPage);
-  }, [tid, authToken, finPage]);
+  loadFinished(finPage);
+}, [tid, authToken, finPage, isArchived]);
 
-  async function loadFinished(page){
-    const offset = (page-1)*PAGE_SIZE;
-    const d = await api(
-      `/api/games/finished?tournament_id=${tid}&limit=${PAGE_SIZE}&offset=${offset}`,
-      { headers: authToken ? { Authorization:`Bearer ${authToken}` } : {} }
-    );
-    setFinished(d.games || []);
-    setFinTotal((d.games || []).length < PAGE_SIZE && page>1 ? (offset + (d.games || []).length) : (offset + PAGE_SIZE + 1));
-  }
+async function loadFinished(page){
+  const pageSize = isArchived ? 100 : PAGE_SIZE;
+  const offset = (page-1)*pageSize;
+  const d = await api(
+    `/api/games/finished?tournament_id=${tid}&limit=${pageSize}&offset=${offset}`,
+    { headers: authToken ? { Authorization:`Bearer ${authToken}` } : {} }
+  );
+  setFinished(d.games || []);
+  setFinTotal(
+    (d.games || []).length < pageSize && page>1
+      ? (offset + (d.games || []).length)
+      : (offset + pageSize + 1)
+  );
+}
 
   // split upcoming list
   const upcoming = useMemo(()=> (upcomingLocked.filter(g => g.status==="scheduled" && !g.locked)), [upcomingLocked]);
@@ -212,9 +224,9 @@ export default function TournamentDetail(){
   };
 
     useEffect(() => {
+  if (!authToken || !tid || isArchived) return;  // ← no pick UI on archived
   let cancelled = false;
   (async () => {
-    if (!authToken || !tid) return; // must be logged in
     try {
       const d = await api(`/api/tournaments/${tid}/winner-pick`, {
         headers: { Authorization: `Bearer ${authToken}` },
@@ -223,7 +235,6 @@ export default function TournamentDetail(){
         setPickModal(p => ({ ...p, open: true }));
       }
     } catch (e) {
-      // keep this only if you *haven’t* changed the server and still use 404
       const status = e?.status || e?.response?.status;
       if (!cancelled && status === 404) {
         setPickModal(p => ({ ...p, open: true }));
@@ -231,7 +242,7 @@ export default function TournamentDetail(){
     }
   })();
   return () => { cancelled = true; };
-}, [tid, authToken]);
+}, [tid, authToken, isArchived]);
 
     async function submitWinnerPick() {
     const team = String(pickModal.team || "").trim();
@@ -381,6 +392,60 @@ function renderPodium(top3) {
   };
 }, [pickModal.open]);
 
+  const [selectedDay, setSelectedDay] = useState(null);
+
+  // Build day list from tournament date range (inclusive)
+  const dayList = useMemo(() => {
+    const s = tournament?.start_date, e = tournament?.end_date;
+    if (!s || !e) return [];
+    const out = [];
+    const start = new Date(`${s}T12:00:00Z`);
+    const end   = new Date(`${e}T12:00:00Z`);
+    for (let d = new Date(start); d <= end; d.setUTCDate(d.getUTCDate()+1)) {
+      const yyyy = d.getUTCFullYear();
+      const mm = String(d.getUTCMonth()+1).padStart(2,"0");
+      const dd = String(d.getUTCDate()).padStart(2,"0");
+      out.push(`${yyyy}-${mm}-${dd}`);
+    }
+    return out;
+  }, [tournament?.start_date, tournament?.end_date]);
+
+  // Choose default day when we enter archived view.
+  // If you prefer the FIRST day, change last index (out.length-1) to 0.
+  useEffect(() => {
+    if (isArchived && dayList.length && !selectedDay) {
+      setSelectedDay(dayList[dayList.length-1]); // default: LAST day
+    }
+  }, [isArchived, dayList, selectedDay]);
+
+  useEffect(() => {
+  if (!isArchived || !tid) return;
+  (async () => {
+    try {
+      setBonus({ loading: true, picks: [], error: "" });
+      const d = await api(`/api/tournaments/${tid}/winner-picks/correct`);
+      setBonus({ loading: false, picks: d.picks || [], error: "" });
+    } catch (e) {
+      setBonus({ loading: false, picks: [], error: "Šiuo metu nėra duomenų (API nepalaiko)." });
+    }
+  })();
+}, [isArchived, tid]);
+
+  // Games filtered by selected day
+  const finishedForDay = useMemo(() =>
+    selectedDay ? finished.filter(g => d10(g.tipoff_at) === selectedDay) : finished
+  , [finished, selectedDay]);
+
+  // Label helper for day cards (matches your screenshot)
+  function dayParts(d) {
+    const dt = new Date(`${d}T12:00:00Z`);
+    const year = dt.getUTCFullYear();
+    const dow  = dt.toLocaleDateString("en-US", { weekday: "short", timeZone: "UTC" });
+    const mon  = dt.toLocaleDateString("en-US", { month: "short",  timeZone: "UTC" }).toUpperCase();
+    const day  = String(dt.getUTCDate()).padStart(2,"0");
+    return { year, dow, mon, day };
+  }
+
   return (
     <Wrap>
       {tournament && (
@@ -397,6 +462,37 @@ function renderPodium(top3) {
                 </CardContent>
           </HeaderCard>
       )}
+
+        {isArchived && (
+    <WinnerWrap>
+      <WinnerGrid>
+        <div>
+          <WinnerKicker>TURNYRO NUGALĖTOJAS</WinnerKicker>
+          <WinnerTeam>
+            <FlagDot style={{ width: 34, height: 34 }}>{flagForTeam(tournament?.winner_team, 22)}</FlagDot>
+            <span>{tournament?.winner_team || "—"}</span>
+          </WinnerTeam>
+        </div>
+
+        <div>
+          <WinnerKicker>DALYVIŲ NUGALĖTOJAS</WinnerKicker>
+          {leaderboard?.[0] ? (
+            <WinnerUser>
+              <RowAvatar src={joinApi(leaderboard[0].avatarUrl)} data-fallback={leaderboard[0].username}>
+                {initials(leaderboard[0].username)}
+              </RowAvatar>
+              <div>
+                <div className="name">{leaderboard[0].username}</div>
+                <div className="pts">{leaderboard[0].points} taškų</div>
+              </div>
+            </WinnerUser>
+          ) : (
+            <span style={{ color:"#64748b", fontWeight:700 }}>—</span>
+          )}
+        </div>
+      </WinnerGrid>
+    </WinnerWrap>
+  )}
 
     <LeaderboardWrap>
       <LBHeader>
@@ -446,229 +542,328 @@ function renderPodium(top3) {
   </LeaderboardWrap>
 
       {/* Upcoming */}
+      {!isArchived && (
+  <>
+    {/* Upcoming */}
+    <Section>
+      <H3>ARTĖJANTYS ŽAIDIMAI</H3>
+      {upcoming.length ? upcoming.map(g => (
+        <GameCard key={g.id} $clickable onClick={() => openGuess(g)}>
+          <LeftCol>
+            <CardTinyHeader>{phaseTiny(g.stage)}</CardTinyHeader>
+            <Teams>
+              <TeamRow>
+                <FlagDot>{flagForTeam(g.team_a, 18)}</FlagDot>
+                <span className="name">{g.team_a}</span>
+              </TeamRow>
+              <TeamRow>
+                <FlagDot>{flagForTeam(g.team_b, 18)}</FlagDot>
+                <span className="name">{g.team_b}</span>
+              </TeamRow>
+            </Teams>
+          </LeftCol>
+          <RightCol>
+            <MetaBlock>
+              <SmallMeta>{dOWMMMDD(g.tipoff_at).toUpperCase()}</SmallMeta>
+            </MetaBlock>
+            <DividerV />
+            <TimeBadge>{t5(g.tipoff_at)}</TimeBadge>
+          </RightCol>
+
+          {/* My guess summary if exists */}
+          {g.my_guess ? (
+            <FullWidth>
+              <MyGuessBox>
+                <strong>TAVO SPĖJIMAS</strong>
+                <GuessPair>
+                  <FlagDot>{flagForTeam(g.team_a, 16)}</FlagDot>
+                  <span className="name">{g.team_a}</span>
+                  <span className="score">{g.my_guess.guess_a}</span>
+                </GuessPair>
+                <GuessPair>
+                  <FlagDot>{flagForTeam(g.team_b, 16)}</FlagDot>
+                  <span className="name">{g.team_b}</span>
+                  <span className="score">{g.my_guess.guess_b}</span>
+                </GuessPair>
+              </MyGuessBox>
+            </FullWidth>
+          ) : null}
+
+          <ExpandBtn
+            onClick={(e) => { e.stopPropagation(); toggle(g.id); }}
+            aria-expanded={expanded.has(g.id)}
+          >
+            <FiChevronDown />
+          </ExpandBtn>
+          <ExpandArea $open={expanded.has(g.id)} onClick={(e) => e.stopPropagation()}>
+            <ExpandInner $open={expanded.has(g.id)}>
+              {guesses[g.id] ? (
+                <GuessesList
+                  game={g}
+                  guesses={guesses[g.id]}
+                  fetch={() => fetchGuesses(g.id, "team")}
+                  finished={false}
+                  teamOrder
+                />
+              ) : null}
+            </ExpandInner>
+          </ExpandArea>
+        </GameCard>
+      )) : <Empty>Nėra artėjančių rungtynių.</Empty>}
+    </Section>
+
+    <DividerH />
+
+    {/* Ongoing (locked) */}
+    <Section>
+      <H3>VYKSTANTYS ŽAIDIMAI</H3>
+      {ongoing.length ? ongoing.map(g => (
+        <GameCard key={g.id}>
+          <LeftCol>
+            <CardTinyHeader>{phaseTiny(g.stage)}</CardTinyHeader>
+            <Teams>
+              <TeamRow>
+                <FlagDot>{flagForTeam(g.team_a, 18)}</FlagDot>
+                <span className="name">{g.team_a}</span>
+              </TeamRow>
+              <TeamRow>
+                <FlagDot>{flagForTeam(g.team_b, 18)}</FlagDot>
+                <span className="name">{g.team_b}</span>
+              </TeamRow>
+            </Teams>
+          </LeftCol>
+          <RightCol>
+            <MetaBlock>
+              <SmallMeta>{dOWMMMDD(g.tipoff_at).toUpperCase()}</SmallMeta>
+            </MetaBlock>
+            <DividerV />
+            <LockedBadge><FiLock style={{ verticalAlign: "middle" }} /> Vyksta </LockedBadge>
+          </RightCol>
+
+          <FullWidth>
+            <MyGuessBox>
+              <strong>TAVO SPĖJIMAS</strong>
+              {g.my_guess ? (
+                <>
+                  <GuessPair>
+                    <FlagDot>{flagForTeam(g.team_a, 16)}</FlagDot>
+                    <span className="name">{g.team_a}</span>
+                    <span className="score">{g.my_guess.guess_a}</span>
+                  </GuessPair>
+                  <GuessPair>
+                    <FlagDot>{flagForTeam(g.team_b, 16)}</FlagDot>
+                    <span className="name">{g.team_b}</span>
+                    <span className="score">{g.my_guess.guess_b}</span>
+                  </GuessPair>
+                </>
+              ) : (
+                <span style={{ color:"#64748b" }}>ŠIO ŽAIDIMO REZULTATO NESPĖLIOJAI</span>
+              )}
+            </MyGuessBox>
+          </FullWidth>
+
+          <ExpandBtn onClick={() => toggle(g.id)} aria-expanded={expanded.has(g.id)}>
+            <FiChevronDown />
+          </ExpandBtn>
+          <ExpandArea $open={expanded.has(g.id)}>
+            <ExpandInner $open={expanded.has(g.id)}>
+              {guesses[g.id] ? (
+                <GuessesList
+                  game={g}
+                  guesses={guesses[g.id]}
+                  fetch={() => fetchGuesses(g.id, "team")}
+                  finished={false}
+                  teamOrder
+                />
+              ) : null}
+            </ExpandInner>
+          </ExpandArea>
+        </GameCard>
+      )) : <Empty>Nėra vykstančių rungtynių.</Empty>}
+    </Section>
+
+    <DividerH />
+  </>
+)}
+
+      {/* Finished with pagination */}
+      {isArchived && (
+        <>
+          <DayBarWrap>
+            <DayArrow onClick={() => dayRailRef.current?.scrollBy({ left: -360, behavior: "smooth" })}>‹</DayArrow>
+            <DayRail ref={dayRailRef}>
+              {dayList.map(d => {
+                const p = dayParts(d);
+                const active = selectedDay === d;
+                return (
+                  <DayCard
+                    key={d}
+                    aria-pressed={active}
+                    onClick={() => setSelectedDay(d)}
+                    title={`${p.dow} ${p.day} ${p.mon} ${p.year}`}
+                  >
+                    <div className="year">{p.year}</div>
+                    <div className="dow">{p.dow}</div>
+                    <div className="num">{p.day}</div>
+                    <div className="mon">{p.mon}</div>
+                  </DayCard>
+                );
+              })}
+            </DayRail>
+            <DayArrow onClick={() => dayRailRef.current?.scrollBy({ left: 360, behavior: "smooth" })}>›</DayArrow>
+          </DayBarWrap>
+
+          <DividerH />
+        </>
+      )}
       <Section>
-        <H3>ARTĖJANTYS ŽAIDIMAI</H3>
-        {upcoming.length ? upcoming.map(g => (
-          <GameCard key={g.id} $clickable onClick={() => openGuess(g)}>
+      <H3>PRAĖJĘ ŽAIDIMAI</H3>
+
+      {(isArchived ? finishedForDay : finished).length ? (
+        (isArchived ? finishedForDay : finished).map(g => (
+          <GameCard key={g.id}>
             <LeftCol>
               <CardTinyHeader>{phaseTiny(g.stage)}</CardTinyHeader>
-                <Teams>
-                    <TeamRow>
-                    <FlagDot>{flagForTeam(g.team_a, 18)}</FlagDot>
-                    <span className="name">{g.team_a}</span>
-                    </TeamRow>
-                    <TeamRow>
-                    <FlagDot>{flagForTeam(g.team_b, 18)}</FlagDot>
-                    <span className="name">{g.team_b}</span>
-                    </TeamRow>
-                </Teams>
+              <Teams>
+                <TeamRow>
+                  <FlagDot>{flagForTeam(g.team_a, 18)}</FlagDot>
+                  <span className="name">{g.team_a}</span>
+                  <span className="scoreFinal">{g.score_a}</span>
+                </TeamRow>
+                <TeamRow>
+                  <FlagDot>{flagForTeam(g.team_b, 18)}</FlagDot>
+                  <span className="name">{g.team_b}</span>
+                  <span className="scoreFinal">{g.score_b}</span>
+                </TeamRow>
+              </Teams>
             </LeftCol>
+
             <RightCol>
               <MetaBlock>
                 <SmallMeta>{dOWMMMDD(g.tipoff_at).toUpperCase()}</SmallMeta>
               </MetaBlock>
-            <DividerV />
-            <TimeBadge>{t5(g.tipoff_at)}</TimeBadge>
-            </RightCol>
-
-              {/* My guess summary if exists */}
-              {g.my_guess ? (
-                <FullWidth>
-                <MyGuessBox>
-                <strong>TAVO SPĖJIMAS</strong>
-                <GuessPair>
-                    <FlagDot>{flagForTeam(g.team_a, 16)}</FlagDot>
-                    <span className="name">{g.team_a}</span>
-                    <span className="score">{g.my_guess.guess_a}</span>
-                </GuessPair>
-                <GuessPair>
-                    <FlagDot>{flagForTeam(g.team_b, 16)}</FlagDot>
-                    <span className="name">{g.team_b}</span>
-                    <span className="score">{g.my_guess.guess_b}</span>
-                </GuessPair>
-                </MyGuessBox>
-            </FullWidth>
-              ) : null}
-            <ExpandBtn
-            onClick={(e) => { e.stopPropagation(); toggle(g.id); }}
-            aria-expanded={expanded.has(g.id)}
-            >
-            <FiChevronDown />
-            </ExpandBtn>
-            <ExpandArea $open={expanded.has(g.id)} onClick={(e) => e.stopPropagation()}>
-            <ExpandInner $open={expanded.has(g.id)}>
-                {guesses[g.id] ? (
-                <GuessesList
-                    game={g}
-                    guesses={guesses[g.id]}
-                    fetch={() => fetchGuesses(g.id, "team")}
-                    finished={false}
-                    teamOrder
-                />
-                ) : null}
-            </ExpandInner>
-            </ExpandArea>
-          </GameCard>
-        )) : <Empty>Nėra artėjančių rungtynių.</Empty>}
-      </Section>
-
-      <DividerH />
-
-      {/* Ongoing (locked) */}
-      <Section>
-        <H3>VYKSTANTYS ŽAIDIMAI</H3>
-        {ongoing.length ? ongoing.map(g => (
-          <GameCard key={g.id}>
-            <LeftCol>
-            <CardTinyHeader>{phaseTiny(g.stage)}</CardTinyHeader>
-            <Teams>
-                <TeamRow>
-                <FlagDot>{flagForTeam(g.team_a, 18)}</FlagDot>
-                <span className="name">{g.team_a}</span>
-                </TeamRow>
-                <TeamRow>
-                <FlagDot>{flagForTeam(g.team_b, 18)}</FlagDot>
-                <span className="name">{g.team_b}</span>
-                </TeamRow>
-            </Teams>
-            </LeftCol>
-            <RightCol>
-            <MetaBlock>
-                <SmallMeta>{dOWMMMDD(g.tipoff_at).toUpperCase()}</SmallMeta>
-            </MetaBlock>
-
-            <DividerV />
-            <LockedBadge><FiLock style={{verticalAlign:"middle"}} /> Vyksta </LockedBadge>
+              <DividerV />
+              <DoneBadge><FiCheck style={{ verticalAlign: "middle" }} /> Baigta</DoneBadge>
             </RightCol>
 
             <FullWidth>
-            <MyGuessBox>
-                <strong>TAVO SPĖJIMAS</strong>
-                {g.my_guess ? (
-                <>
-                    <GuessPair><FlagDot>{flagForTeam(g.team_a, 16)}</FlagDot><span className="name">{g.team_a}</span><span className="score">{g.my_guess.guess_a}</span></GuessPair>
-                    <GuessPair><FlagDot>{flagForTeam(g.team_b, 16)}</FlagDot><span className="name">{g.team_b}</span><span className="score">{g.my_guess.guess_b}</span></GuessPair>
-                </>
-                ) : <span style={{color:"#64748b"}}>ŠIO ŽAIDIMO REZULTATO NESPĖLIOJAI</span>}
-            </MyGuessBox>
-            </FullWidth>
+              <MyGuessBoxFinished>
+                <div>
+                  <strong>TAVO SPĖJIMAS</strong>
+                  {g.my_guess ? (
+                    <CondText>
+                      {renderMarkdownInline(
+                        cleanPointsTag(
+                          guessConditionPretty({
+                            team_a: g.team_a,
+                            team_b: g.team_b,
+                            a: g.my_guess.guess_a,
+                            b: g.my_guess.guess_b,
+                            finished: true,
+                            cond_ok: g.my_guess.cond_ok,
+                            diff_ok: g.my_guess.diff_ok,
+                            exact_ok: g.my_guess.exact_ok,
+                            awarded_points: g.my_guess.awarded_points,
+                          })
+                        )
+                      )}
+                    </CondText>
+                  ) : (
+                    <span style={{ color: "#64748b" }}>ŠIO ŽAIDIMO REZULTATO NESPĖLIOJAI</span>
+                  )}
+                </div>
 
-            <ExpandBtn onClick={()=>toggle(g.id)} aria-expanded={expanded.has(g.id)}>
-            <FiChevronDown />
-            </ExpandBtn>
-
-            <ExpandArea $open={expanded.has(g.id)}>
-            <ExpandInner $open={expanded.has(g.id)}>
-                {guesses[g.id] ? (
-                <GuessesList
-                    game={g}
-                    guesses={guesses[g.id]}
-                    fetch={() => fetchGuesses(g.id, "team")}
-                    finished={false}
-                    teamOrder
-                />
-                ) : null}
-            </ExpandInner>
-            </ExpandArea>
-          </GameCard>
-        )) : <Empty>Nėra vykstančių rungtynių.</Empty>}
-      </Section>
-
-      <DividerH />
-
-      {/* Finished with pagination */}
-      <Section>
-        <H3>PRAĖJĘ ŽAIDIMAI</H3>
-        {finished.length ? finished.map(g => (
-          <GameCard key={g.id}>
-            <LeftCol>
-              <CardTinyHeader>{phaseTiny(g.stage)}</CardTinyHeader>
-                <Teams>
-                    <TeamRow>
-                    <FlagDot>{flagForTeam(g.team_a, 18)}</FlagDot>
-                    <span className="name">{g.team_a}</span>
-                    <span className="scoreFinal">{g.score_a}</span>
-                    </TeamRow>
-                    <TeamRow>
-                    <FlagDot>{flagForTeam(g.team_b, 18)}</FlagDot>
-                    <span className="name">{g.team_b}</span>
-                    <span className="scoreFinal">{g.score_b}</span>
-                    </TeamRow>
-                </Teams>
-            </LeftCol>
-            <RightCol>
-            <MetaBlock>
-                <SmallMeta>{dOWMMMDD(g.tipoff_at).toUpperCase()}</SmallMeta>
-            </MetaBlock>
-            <DividerV />
-            <DoneBadge><FiCheck style={{verticalAlign:"middle"}} /> Baigta</DoneBadge>
-            </RightCol>
-
-            <FullWidth>
-            <MyGuessBoxFinished>
-            <div>
-                <strong>TAVO SPĖJIMAS</strong>
-                {g.my_guess ? (
-                <CondText>
-                    {renderMarkdownInline(
-                    cleanPointsTag(
-                        guessConditionPretty({
-                        team_a: g.team_a,
-                        team_b: g.team_b,
-                        a: g.my_guess.guess_a,
-                        b: g.my_guess.guess_b,
-                        finished: true,
-                        cond_ok: g.my_guess.cond_ok,
-                        diff_ok: g.my_guess.diff_ok,
-                        exact_ok: g.my_guess.exact_ok,
-                        awarded_points: g.my_guess.awarded_points,
-                        })
-                    )
-                    )}
-                </CondText>
-                ) : (
-                <span style={{ color: "#64748b" }}>ŠIO ŽAIDIMO REZULTATO NESPĖLIOJAI</span>
-                )}
-            </div>
-
-            {g.my_guess && (
-                <PointsAside>
-                <PointsHeader>TAŠKAI</PointsHeader>
-                <PointsValue>
-                    <strong>
+                {g.my_guess && (
+                  <PointsAside>
+                    <PointsHeader>TAŠKAI</PointsHeader>
+                    <PointsValue>
+                      <strong>
                         {g.my_guess.awarded_points ?? 0}{" "}
                         {pointsWordLT(g.my_guess.awarded_points ?? 0)}
-                    </strong>
-                </PointsValue>
-                </PointsAside>
-            )}
-            </MyGuessBoxFinished>
+                      </strong>
+                    </PointsValue>
+                  </PointsAside>
+                )}
+              </MyGuessBoxFinished>
             </FullWidth>
-            <ExpandBtn onClick={()=>toggle(g.id)} aria-expanded={expanded.has(g.id)}>
-                <FiChevronDown />
+
+            <ExpandBtn onClick={() => toggle(g.id)} aria-expanded={expanded.has(g.id)}>
+              <FiChevronDown />
             </ExpandBtn>
+
             <ExpandArea $open={expanded.has(g.id)}>
-            <ExpandInner $open={expanded.has(g.id)}>
+              <ExpandInner $open={expanded.has(g.id)}>
                 {guesses[g.id] ? (
-                <GuessesList
+                  <GuessesList
                     game={g}
                     guesses={guesses[g.id]}
                     fetch={() => fetchGuesses(g.id, "points")}
                     finished
-                />
+                  />
                 ) : null}
-            </ExpandInner>
+              </ExpandInner>
             </ExpandArea>
           </GameCard>
-        )) : <Empty>Nėra praėjusių rungtynių.</Empty>}
+        ))
+      ) : (
+        <Empty>{isArchived ? "Šią dieną rungtynių nėra." : "Nėra praėjusių rungtynių."}</Empty>
+      )}
 
-        {/* Simple paginator (client decides next/prev) */}
+      {/* Pager only for non-archived */}
+      {!isArchived && (
         <Pager>
-          <button disabled={finPage<=1} onClick={()=>setFinPage(p=>p-1)}>Ankstesnis</button>
+          <button disabled={finPage <= 1} onClick={() => setFinPage(p => p - 1)}>Ankstesnis</button>
           <span>{finPage}</span>
-          <button disabled={(finished||[]).length < PAGE_SIZE} onClick={()=>setFinPage(p=>p+1)}>Kitas</button>
+          <button
+            disabled={(finished || []).length < PAGE_SIZE}
+            onClick={() => setFinPage(p => p + 1)}
+          >
+            Kitas
+          </button>
         </Pager>
-      </Section>
+      )}
+    </Section>
+
+    {isArchived && (
+  <Section>
+    <H3>TEISINGAI PASIRINKĘ TURNYRO NUGALĖTOJĄ</H3>
+    <TableCard>
+      {bonus.loading ? (
+        <LBEmpty>Kraunama…</LBEmpty>
+      ) : bonus.error ? (
+        <LBEmpty>{bonus.error}</LBEmpty>
+      ) : bonus.picks.length ? (
+        <Table>
+          <thead>
+            <tr>
+              <th>Vartotojas</th>
+              <th>Pasirinkimas</th>
+              <th>Taškai (viso)</th>
+            </tr>
+          </thead>
+          <tbody>
+            {bonus.picks.map(u => (
+              <tr key={u.user_id}>
+                <td>
+                  <UserCell>
+                    <RowAvatar src={joinApi(u.avatarUrl)} data-fallback={u.username}>
+                      {initials(u.username)}
+                    </RowAvatar>
+                    <UserName>{u.username}</UserName>
+                  </UserCell>
+                </td>
+                <td><strong>{u.team}</strong></td>
+                <td><strong>{u.points}</strong></td>
+              </tr>
+            ))}
+          </tbody>
+        </Table>
+      ) : (
+        <LBEmpty>Niekas nepasirinko teisingai.</LBEmpty>
+      )}
+    </TableCard>
+  </Section>
+)}
 
       {/* Guess modal */}
       {modal.open && (
@@ -1665,4 +1860,78 @@ const RowAvatar = styled.div`
 const UserName = styled.span`
   font-weight: 600;
   color: #0f172a;
+`;
+
+const WinnerWrap = styled.section`
+  border: 1px solid #e7eaf0; border-radius: 14px; background: #fff;
+  padding: 14px; box-shadow: 0 8px 24px rgba(2,6,23,.06);
+`;
+const WinnerGrid = styled.div`
+  display: grid; grid-template-columns: 1fr 1fr; gap: 14px;
+  @media (max-width: 560px){ grid-template-columns: 1fr; }
+`;
+const WinnerKicker = styled.div`
+  font-size: 12px; letter-spacing: .12em; font-weight: 900; opacity: .8; margin-bottom: 6px;
+`;
+const WinnerTeam = styled.div`
+  display: inline-grid; grid-auto-flow: column; align-items: center; gap: 10px;
+  font-weight: 900; font-size: 18px; color: #0f172a;
+`;
+const WinnerUser = styled.div`
+  display: grid; grid-template-columns: 34px 1fr; gap: 10px; align-items: center;
+  .name{ font-weight: 900; color:#0f172a }
+  .pts{ color:#16a34a; font-weight: 900; }
+`;
+
+const DayBarWrap = styled.div`
+  position: relative;
+  border: 1px solid #e7eaf0; border-radius: 14px; background: #fff;
+  padding: 12px 44px;  /* space for arrows */
+  overflow: hidden;
+`;
+const DayRail = styled.div`
+  display: grid;
+  grid-auto-flow: column;
+  gap: 10px;
+  overflow-x: auto; scroll-behavior: smooth; scrollbar-width: none;
+  &::-webkit-scrollbar{ display:none }
+`;
+const DayCard = styled.button`
+  border: 0; cursor: pointer; user-select: none;
+  width: clamp(88px, 9.8vw, 140px);     /* responsive width */
+  max-width: 140px; min-width: 88px;    /* never more than 10 across on wide screens */
+  aspect-ratio: 3 / 4;
+  border-radius: 12px; background: #f1f3f6; color: #0f172a;
+  display: grid; grid-template-rows: auto auto 1fr auto; align-content: start;
+  padding: 8px; text-align: center; box-shadow: inset 0 0 0 1px #e5e7eb;
+  .year { font-size: 10px; font-weight: 800; opacity: .75; }
+  .dow  { font-size: 12px; font-weight: 800; opacity: .9; }
+  .num  { font-size: 28px; font-weight: 900; line-height: 1.1; }
+  .mon  { font-size: 12px; font-weight: 900; opacity: .8; }
+  &[aria-pressed="true"]{
+    background: #0f172a; color: #fff; box-shadow: none;
+  }
+`;
+const DayArrow = styled.button`
+  position: absolute; top: 0; bottom: 0; width: 36px;
+  display: grid; place-items: center; border: 0; cursor: pointer;
+  background: transparent; color: #0f172a; opacity: .7;
+  &:hover { opacity: 1 }
+  &:first-of-type { left: 6px; }
+  &:last-of-type  { right: 6px; }
+`;
+
+const TableCard = styled.div`
+  border: 1px solid #e7eaf0;
+  border-radius: 12px;
+  background: #fff;
+  overflow: hidden;
+`;
+
+const Table = styled.table`
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 14px;
+  th, td { padding: 10px 12px; border-bottom: 1px solid #eef2f7; vertical-align: middle; }
+  th { text-align: left; font-weight: 800; color: #111827; background: #f9fafb; }
 `;
