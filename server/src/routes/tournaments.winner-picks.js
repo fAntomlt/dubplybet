@@ -21,8 +21,12 @@ router.get("/:tid/winner-pick", requireAuth, async (req, res) => {
       "SELECT team FROM tournament_winner_picks WHERE tournament_id = ? AND user_id = ? LIMIT 1",
       [tid, req.user.uid]
     );
-    if (!rows.length) return res.status(404).json({ error: "Dar nepasirinkote nugalėtojo" });
-    return res.json({ ok: true, team: rows[0].team });
+
+    if (!rows.length) {
+      // key part
+      return res.json({ ok: true, picked: false });
+    }
+    return res.json({ ok: true, picked: true, team: rows[0].team });
   } catch (e) {
     console.error("GET winner-pick error:", e);
     return res.status(500).json({ error: "Serverio klaida" });
