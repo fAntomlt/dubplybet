@@ -24,6 +24,8 @@ export default function Admin() {
     }
   }, [token, user, navigate, toast]);
 
+  useEffect(() => { document.title = "Admin – DuBPlyBET"; }, [])
+
   // Render nothing while the redirect happens if not admin
   if (!token || !user || user.role !== "admin") return null;
 
