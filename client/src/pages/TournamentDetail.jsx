@@ -1248,6 +1248,11 @@ const PreviewLineCenter = styled.div`
   text-align: center;
   color: #0f172a;
   font-size: clamp(12px, 2.2vw, 14px);
+
+  white-space: normal;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+  max-width: 100%;
 `;
 
 const HeaderCard = styled.div`
