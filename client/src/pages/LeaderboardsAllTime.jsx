@@ -4,9 +4,9 @@ import styled from "styled-components";
 import { api } from "../lib/api";
 
 /**
- * All-Time Leaderboard (not collapsible)
- * - Shows Top 3 podium + list from 4th
- * - Displays "correct guesses" count (>= 1 condition met) instead of points
+ * All-Time Leaderboard
+ * - Top 3 podium + list from 4th
+ * - Shows "correct guesses" count (>= 1 condition met)
  * - Uses /api/leaderboards/all-time
  */
 
@@ -71,7 +71,7 @@ export default function LeaderboardsAllTime() {
       .toUpperCase() || "U";
 
   function renderPodium() {
-    // left=2nd, center=1st, right=3rd (to match your tournament styling)
+    // left=2nd, center=1st, right=3rd
     const order = [top3[1], top3[0], top3[2]];
     const slots = [
       { place: 2, size: 52, step: 84, theme: "silver" },
@@ -85,7 +85,7 @@ export default function LeaderboardsAllTime() {
 
       const img = u.avatarUrl ? joinApi(u.avatarUrl) : null;
       return (
-        <PodiumCol key={u.user_id}>
+        <PodiumCol key={u.user_id} title={u.username}>
           <Step $h={slot.step}>
             <AvatarBig $size={slot.size} $img={img} aria-label={u.username}>
               {!img ? <span>{initials(u.username)}</span> : null}
@@ -102,14 +102,44 @@ export default function LeaderboardsAllTime() {
     });
   }
 
+  const Podium = styled.div`
+  display: grid;
+  grid-template-columns: 1fr 1.2fr 1fr;
+  align-items: end;
+  /* stages touch each other */
+  gap: 0;
+  padding: 10px 6px 18px;
+  background: #f0f0f0ff;
+
+  /* Hover effect for Top-3 (lift + subtle scale + shadow) */
+  ${'' /* lift the stage */}
+  & ${Step} {
+    transition: transform 140ms ease, box-shadow 140ms ease;
+    will-change: transform;
+  }
+  & ${AvatarBig} {
+    transition: transform 140ms ease, box-shadow 140ms ease, border-color 140ms ease;
+  }
+  & ${PodiumCol}:hover ${Step} {
+    transform: translateY(-4px);
+    box-shadow: 0 8px 20px rgba(2,6,23,.10);
+  }
+  & ${PodiumCol}:hover ${AvatarBig} {
+    transform: translate(-50%, -50%) scale(1.06);
+    box-shadow: 0 6px 18px rgba(2,6,23,.18);
+    border-color: #f59e0b;
+  }
+`;
+
   return (
     <Wrap>
-      <LeaderboardWrap>
-        <LBHeader>
-          <LBTitle>VISŲ LAIKŲ LENTELĖ</LBTitle>
-          <LBSub>Kiek kartų bent viena sąlyga atitiko</LBSub>
-        </LBHeader>
+      {/* Page-level header (outside the box, like Admin.jsx) */}
+      <PageHeader>
+        <PageTitle>VISŲ LAIKŲ LENTELĖ</PageTitle>
+        <PageSub>Kiek kartų atspėta bent viena sąlyga</PageSub>
+      </PageHeader>
 
+      <LeaderboardWrap>
         {loading ? (
           <LBEmpty>Kraunama…</LBEmpty>
         ) : rows.length === 0 ? (
@@ -122,7 +152,7 @@ export default function LeaderboardsAllTime() {
             {rest.length ? (
               <LBList>
                 {rest.map((u) => (
-                  <LBRow key={u.user_id}>
+                  <LBRow key={u.user_id} title={u.username}>
                     <RowLeft>
                       <AvatarWrap $img={u.avatarUrl ? joinApi(u.avatarUrl) : null} data-fallback={u.username}>
                         {!u.avatarUrl ? <span>{initials(u.username)}</span> : null}
@@ -141,10 +171,38 @@ export default function LeaderboardsAllTime() {
   );
 }
 
-/* ====== Styles (mirrors TournamentDetail leaderboard look) ====== */
+/* ====== Styles ====== */
+const MOBILE_BP = 441;
+
 const Wrap = styled.div`
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  min-height: calc(100vh - (var(--main-pad-y, 24px) * 2));
+  width: 100%;
+  box-sizing: border-box;
+
+  @media (max-width: ${MOBILE_BP}px) {
+    padding: 12px;
+    gap: 12px;
+  }
+`;
+
+/* Page-level header (outside the bordered card) */
+const PageHeader = styled.div`
   display: grid;
-  gap: 22px;
+  margin-bottom: 30px;
+`;
+const PageTitle = styled.h2`
+  margin: 0;
+  font-size: 30px;
+  font-weight: 800;
+  color: #0f172a;
+`;
+const PageSub = styled.div`
+  font-size: 14px;
+  color: #64748b;
+  font-weight: 700;
 `;
 
 const LeaderboardWrap = styled.section`
@@ -156,47 +214,18 @@ const LeaderboardWrap = styled.section`
   color: #0f172a;
 `;
 
-const LBHeader = styled.div`
-  display: grid;
-  align-items: center;
-  gap: 6px;
-  padding: 12px 14px;
-  background: #ffffff;
-  border-bottom: 1px solid #e7eaf0;
-`;
-const LBTitle = styled.h3`
-  margin: 0;
-  font-size: 13px;
-  letter-spacing: .14em;
-  font-weight: 900;
-  color: #0f172a;
-  opacity: .9;
-`;
-const LBSub = styled.div`
-  font-size: 12px;
-  color: #64748b;
-  font-weight: 700;
-`;
-
 const LBEmpty = styled.div`
   color:#64748b; padding:16px 6px; text-align:center;
 `;
 
 /* Podium */
-const Podium = styled.div`
-  display: grid;
-  grid-template-columns: 1fr 1.2fr 1fr;
-  align-items: end;
-  gap: 18px;
-  padding: 10px 6px 18px;
-  background: #f0f0f0ff;
-`;
 
 const PodiumCol = styled.div`
   position: relative;
   display: grid;
   justify-items: center;
   align-items: end;
+  cursor: pointer;
 `;
 
 const AvatarBig = styled.div`
@@ -278,7 +307,6 @@ const PodiumPoints = styled.div`
 
 /* List 4+ */
 const LBList = styled.div`
-  margin-top: 10px;
   background:#ffffff;
   border-top: 1px solid #e7eaf0;
 `;
@@ -287,6 +315,15 @@ const LBRow = styled.div`
   display:grid; grid-template-columns: 1fr auto; align-items:center;
   gap:8px; padding:12px;
   border-bottom:1px solid #e7eaf0;
+  transition: background 120ms ease, transform 120ms ease, box-shadow 120ms ease;
+  cursor: pointer;
+
+  &:hover {
+    background: #f8fafc;
+    transform: translateX(2px);
+    box-shadow: 0 4px 14px rgba(2,6,23,.06) inset;
+  }
+
   &:last-child { border-bottom:0; }
 `;
 
@@ -301,4 +338,7 @@ const AvatarWrap = styled.div`
 `;
 
 const RowName = styled.div` font-weight:800; color:#0f172a; `;
-const RowRight = styled.div` font-weight:900; color:#16a34a; `;
+const RowRight = styled.div`
+  font-weight:900; color:#16a34a; transition: color 120ms ease;
+  ${LBRow}:hover & { color: #0f172a; }
+`;
