@@ -2,6 +2,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import styled from "styled-components";
 import { api } from "../lib/api";
+import UserCardPopover from "../components/UserCardPopover.jsx";
 
 /**
  * All-Time Leaderboard
@@ -33,6 +34,65 @@ function toRow(r) {
 export default function LeaderboardsAllTime() {
   const [loading, setLoading] = useState(false);
   const [rows, setRows] = useState([]);
+  const token = useMemo(() => localStorage.getItem("authToken"), []);
+  const [cardOpen, setCardOpen] = useState(false);
+    const [anchorEl, setAnchorEl] = useState(null);
+    const [cardUser, setCardUser] = useState(null);
+    const [cardLoading, setCardLoading] = useState(false);
+    const [cardError, setCardError] = useState("");
+
+    async function fetchUserPublic(userId) {
+  setCardLoading(true);
+  setCardError("");
+  setCardUser(null);
+
+  try {
+    let tid = null;
+    try {
+      const tRes = await fetch(`${API_ORIGIN}/api/tournaments`);
+      const tData = await tRes.json();
+      const list = tData?.tournaments || [];
+      const active = list.find(t => t.status === "active") || list[0];
+      tid = active?.id || null;
+    } catch {}
+
+    const url = tid
+      ? `${API_ORIGIN}/api/users/public/${userId}?tournament_id=${tid}`
+      : `${API_ORIGIN}/api/users/public/${userId}`;
+
+    const headers = token ? { Authorization: `Bearer ${token}` } : {};
+    const res = await fetch(url, { headers });
+    const data = await res.json();
+
+    if (!res.ok || !data?.ok) {
+      setCardError(data?.error || "Nepavyko užkrauti profilio");
+      return;
+    }
+    setCardUser(data.user);
+  } catch {
+    setCardError("Serverio klaida įkeliant profilį");
+  } finally {
+    setCardLoading(false);
+  }
+}
+
+function openCard(userId, e) {
+  const el = e.currentTarget;
+  // toggle if clicking the same anchor again
+  if (cardOpen && anchorEl === el) {
+    setCardOpen(false);
+    setAnchorEl(null);
+    return;
+  }
+  setAnchorEl(el);
+  setCardOpen(true);
+  fetchUserPublic(userId);
+}
+
+function closeCard() {
+  setCardOpen(false);
+  setAnchorEl(null);
+}
 
   useEffect(() => {
     document.title = "Visų laikų lyderiai – DuBPlyBET";
@@ -93,7 +153,13 @@ export default function LeaderboardsAllTime() {
               <PlaceBadge $theme={slot.theme}>{slot.place}</PlaceBadge>
             </AvatarBig>
             <StepInner>
-              <PodiumName>{u.username}</PodiumName>
+              <PodiumName
+                role="button"
+                tabIndex={0}
+                onClick={(e) => openCard(u.user_id, e)}
+                onKeyDown={(e) => (e.key === "Enter" ? openCard(u.user_id, e) : null)}
+                >{u.username}
+              </PodiumName>
               <PodiumPoints $highlight={slot.place === 1}>{u.correct}</PodiumPoints>
             </StepInner>
           </Step>
@@ -157,7 +223,14 @@ export default function LeaderboardsAllTime() {
                       <AvatarWrap $img={u.avatarUrl ? joinApi(u.avatarUrl) : null} data-fallback={u.username}>
                         {!u.avatarUrl ? <span>{initials(u.username)}</span> : null}
                       </AvatarWrap>
-                      <RowName>{u.username}</RowName>
+                      <RowName
+                        role="button"
+                        tabIndex={0}
+                        onClick={(e) => openCard(u.user_id, e)}
+                        onKeyDown={(e) => (e.key === "Enter" ? openCard(u.user_id, e) : null)}
+                        >
+                            {u.username}
+                        </RowName>
                     </RowLeft>
                     <RowRight>{u.correct}</RowRight>
                   </LBRow>
@@ -167,6 +240,15 @@ export default function LeaderboardsAllTime() {
           </>
         )}
       </LeaderboardWrap>
+      <UserCardPopover
+        open={cardOpen}
+        anchorEl={anchorEl}
+        onClose={closeCard}
+        user={cardUser}
+        loading={cardLoading && !cardUser}
+        error={cardError}
+        apiOrigin={API_ORIGIN}
+      />
     </Wrap>
   );
 }
@@ -225,7 +307,6 @@ const PodiumCol = styled.div`
   display: grid;
   justify-items: center;
   align-items: end;
-  cursor: pointer;
 `;
 
 const AvatarBig = styled.div`
@@ -297,6 +378,8 @@ const PodiumName = styled.div`
   color: #0f172a;
   font-size: 14px;
   line-height: 1.2;
+  cursor: pointer;
+  &:hover { text-decoration: underline; }
 `;
 
 const PodiumPoints = styled.div`
@@ -316,7 +399,6 @@ const LBRow = styled.div`
   gap:8px; padding:12px;
   border-bottom:1px solid #e7eaf0;
   transition: background 120ms ease, transform 120ms ease, box-shadow 120ms ease;
-  cursor: pointer;
 
   &:hover {
     background: #f8fafc;
@@ -337,7 +419,10 @@ const AvatarWrap = styled.div`
   border:1px solid #e7eaf0; display:grid; place-items:center; color:#0f172a; font-weight:900;
 `;
 
-const RowName = styled.div` font-weight:800; color:#0f172a; `;
+const RowName = styled.div`
+  font-weight: 800; color:#0f172a; cursor: pointer;
+  &:hover { text-decoration: underline; }
+`;
 const RowRight = styled.div`
   font-weight:900; color:#16a34a; transition: color 120ms ease;
   ${LBRow}:hover & { color: #0f172a; }
