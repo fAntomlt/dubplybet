@@ -651,36 +651,40 @@ function renderPodium(top3) {
       </LBCollapse>
   </LeaderboardWrap>
 
-      {/* Upcoming */}
+      {/* === Day picker: show for archived, and for active when day is unset or today/future === */}
+      {(isArchived || (!selectedDay || isTodayOrFutureSelected)) && (
+        <>
+          <DayBarWrap>
+            <DayArrow onClick={() => scrollByCard(-1)}>‹</DayArrow>
+            <DayRail ref={dayRailRef}>
+              {dayList.map(d => {
+                const p = dayParts(d);
+                const active = selectedDay === d;
+                return (
+                  <DayCard
+                    data-day-card="1"
+                    key={d}
+                    aria-pressed={active}
+                    onClick={() => { setSelectedDay(d); }}
+                    title={`${p.dow} ${p.day} ${p.mon} ${p.year}`}
+                  >
+                    <div className="year">{p.year}</div>
+                    <div className="dow">{p.dow}</div>
+                    <div className="num">{p.day}</div>
+                    <div className="mon">{p.mon}</div>
+                  </DayCard>
+                );
+              })}
+            </DayRail>
+            <DayArrow onClick={() => scrollByCard(1)}>›</DayArrow>
+          </DayBarWrap>
+          <DividerH />
+        </>
+      )}
+
+      {/* Upcoming & Ongoing for ACTIVE tournaments only */}
       {!isArchived && (!selectedDay || isTodayOrFutureSelected) && (
   <>
-  <>
-        <DayBarWrap>
-          <DayArrow onClick={() => scrollByCard(-1)}>‹</DayArrow>
-          <DayRail ref={dayRailRef}>
-            {dayList.map(d => {
-              const p = dayParts(d);
-              const active = selectedDay === d;
-              return (
-                <DayCard
-                  data-day-card="1"
-                  key={d}
-                  aria-pressed={active}
-                  onClick={() => { setSelectedDay(d); }}
-                  title={`${p.dow} ${p.day} ${p.mon} ${p.year}`}
-                >
-                  <div className="year">{p.year}</div>
-                  <div className="dow">{p.dow}</div>
-                  <div className="num">{p.day}</div>
-                  <div className="mon">{p.mon}</div>
-                </DayCard>
-              );
-            })}
-          </DayRail>
-          <DayArrow onClick={() => scrollByCard(1)}>›</DayArrow>
-        </DayBarWrap>
-        <DividerH />
-      </>
     {/* Upcoming */}
     <Section>
       <H3>ARTĖJANTYS ŽAIDIMAI</H3>
@@ -1183,13 +1187,6 @@ function GuessesList({ game, guesses, fetch, finished, teamOrder }){
     </>
   );
 }
-
-/* ===== tiny markdown bold renderer for inline **...** only ===== */
-function renderMarkdownInline(s){
-  const parts = String(s).split(/\*\*/g);
-  return parts.map((p, i) => i%2 ? <strong key={i}>{p}</strong> : <span key={i}>{p}</span>);
-}
-
 /* ===== styles ===== */
 const Wrap = styled.div`display:grid; gap:22px;`;
 const TopHeader = styled.div`
