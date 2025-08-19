@@ -200,6 +200,14 @@ async function loadFinished(page){
   );
 }
 
+useEffect(() => {
+  if (!tid || !isArchived) return;
+  if (!leaderboard.length && !lbLoading) {
+    loadLeaderboard();
+  }
+}, [tid, isArchived, leaderboard.length, lbLoading]);
+
+
   // split upcoming list
   const upcoming = useMemo(()=> (upcomingLocked.filter(g => g.status==="scheduled" && !g.locked)), [upcomingLocked]);
   const ongoing  = useMemo(()=> (upcomingLocked.filter(g => g.status!=="scheduled" || g.locked)), [upcomingLocked]);
@@ -396,19 +404,23 @@ function renderPodium(top3) {
 
   // Build day list from tournament date range (inclusive)
   const dayList = useMemo(() => {
-    const s = tournament?.start_date, e = tournament?.end_date;
-    if (!s || !e) return [];
-    const out = [];
-    const start = new Date(`${s}T12:00:00Z`);
-    const end   = new Date(`${e}T12:00:00Z`);
-    for (let d = new Date(start); d <= end; d.setUTCDate(d.getUTCDate()+1)) {
-      const yyyy = d.getUTCFullYear();
-      const mm = String(d.getUTCMonth()+1).padStart(2,"0");
-      const dd = String(d.getUTCDate()).padStart(2,"0");
-      out.push(`${yyyy}-${mm}-${dd}`);
-    }
-    return out;
-  }, [tournament?.start_date, tournament?.end_date]);
+  const s10 = String(tournament?.start_date || "").slice(0, 10); // YYYY-MM-DD
+  const e10 = String(tournament?.end_date   || "").slice(0, 10);
+  if (!s10 || !e10) return [];
+
+  const start = new Date(`${s10}T12:00:00Z`);
+  const end   = new Date(`${e10}T12:00:00Z`);
+  if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime()) || start > end) return [];
+
+  const out = [];
+  for (let d = new Date(start); d <= end; d.setUTCDate(d.getUTCDate() + 1)) {
+    const yyyy = d.getUTCFullYear();
+    const mm   = String(d.getUTCMonth() + 1).padStart(2, "0");
+    const dd   = String(d.getUTCDate()).padStart(2, "0");
+    out.push(`${yyyy}-${mm}-${dd}`);
+  }
+  return out;
+}, [tournament?.start_date, tournament?.end_date]);
 
   // Choose default day when we enter archived view.
   // If you prefer the FIRST day, change last index (out.length-1) to 0.
@@ -438,13 +450,41 @@ function renderPodium(top3) {
 
   // Label helper for day cards (matches your screenshot)
   function dayParts(d) {
-    const dt = new Date(`${d}T12:00:00Z`);
-    const year = dt.getUTCFullYear();
-    const dow  = dt.toLocaleDateString("en-US", { weekday: "short", timeZone: "UTC" });
-    const mon  = dt.toLocaleDateString("en-US", { month: "short",  timeZone: "UTC" }).toUpperCase();
-    const day  = String(dt.getUTCDate()).padStart(2,"0");
-    return { year, dow, mon, day };
-  }
+  const dt = new Date(`${d}T12:00:00Z`); // safe from TZ shifts
+  const y = dt.getUTCFullYear();
+  const m = dt.getUTCMonth();  // 0–11
+  const dow = dt.getUTCDay();  // 0–6  (Sun..Sat)
+
+  const DOW_LT = ["SEK","PIR","ANT","TRE","KET","PEN","ŠEŠ"];   // Sun..Sat
+  const MON_LT = ["SAU","VAS","KOV","BAL","GEG","BIR","LIE","RGP","RGS","SPA","LAP","GRU"];
+
+  return {
+    year: y,
+    dow: DOW_LT[dow],
+    mon: MON_LT[m],
+    day: String(dt.getUTCDate()).padStart(2,"0"),
+  };
+}
+
+  const scrollByCard = (dir /* -1 left, 1 right */) => {
+    const rail = dayRailRef.current;
+    if (!rail) return;
+
+    const cards = Array.from(rail.querySelectorAll('[data-day-card="1"]'));
+    if (!cards.length) return;
+
+    const railCenter = rail.scrollLeft + rail.clientWidth / 2;
+    let bestIdx = 0, bestDist = Infinity;
+
+    cards.forEach((el, i) => {
+      const cx = el.offsetLeft + el.offsetWidth / 2;
+      const d = Math.abs(cx - railCenter);
+      if (d < bestDist) { bestDist = d; bestIdx = i; }
+    });
+
+    const next = Math.max(0, Math.min(cards.length - 1, bestIdx + dir));
+    cards[next].scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' });
+  };
 
   return (
     <Wrap>
@@ -493,6 +533,46 @@ function renderPodium(top3) {
       </WinnerGrid>
     </WinnerWrap>
   )}
+  {isArchived && (
+      <Section>
+        <H3>TEISINGAI PASIRINKĘ TURNYRO NUGALĖTOJĄ</H3>
+        <TableCard>
+          {bonus.loading ? (
+            <LBEmpty>Kraunama…</LBEmpty>
+          ) : bonus.error ? (
+            <LBEmpty>{bonus.error}</LBEmpty>
+          ) : bonus.picks.length ? (
+            <Table>
+              <thead>
+                <tr>
+                  <th>Vartotojas</th>
+                  <th>Pasirinkimas</th>
+                  <th>Taškai (viso)</th>
+                </tr>
+              </thead>
+              <tbody>
+                {bonus.picks.map(u => (
+                  <tr key={u.user_id}>
+                    <td>
+                      <UserCell>
+                        <RowAvatar src={joinApi(u.avatarUrl)} data-fallback={u.username}>
+                          {initials(u.username)}
+                        </RowAvatar>
+                        <UserName>{u.username}</UserName>
+                      </UserCell>
+                    </td>
+                    <td><strong>{u.team}</strong></td>
+                    <td><strong>{u.points}</strong></td>
+                  </tr>
+                ))}
+              </tbody>
+            </Table>
+          ) : (
+            <LBEmpty>Niekas nepasirinko teisingai.</LBEmpty>
+          )}
+        </TableCard>
+      </Section>
+    )}
 
     <LeaderboardWrap>
       <LBHeader>
@@ -690,27 +770,28 @@ function renderPodium(top3) {
       {isArchived && (
         <>
           <DayBarWrap>
-            <DayArrow onClick={() => dayRailRef.current?.scrollBy({ left: -360, behavior: "smooth" })}>‹</DayArrow>
+            <DayArrow onClick={() => scrollByCard(-1)}>‹</DayArrow>
             <DayRail ref={dayRailRef}>
-              {dayList.map(d => {
-                const p = dayParts(d);
-                const active = selectedDay === d;
-                return (
-                  <DayCard
-                    key={d}
-                    aria-pressed={active}
-                    onClick={() => setSelectedDay(d)}
-                    title={`${p.dow} ${p.day} ${p.mon} ${p.year}`}
-                  >
-                    <div className="year">{p.year}</div>
-                    <div className="dow">{p.dow}</div>
-                    <div className="num">{p.day}</div>
-                    <div className="mon">{p.mon}</div>
-                  </DayCard>
-                );
-              })}
-            </DayRail>
-            <DayArrow onClick={() => dayRailRef.current?.scrollBy({ left: 360, behavior: "smooth" })}>›</DayArrow>
+            {dayList.map(d => {
+              const p = dayParts(d);
+              const active = selectedDay === d;
+              return (
+                <DayCard
+                  data-day-card="1"
+                  key={d}
+                  aria-pressed={active}
+                  onClick={() => { setSelectedDay(d); }}
+                  title={`${p.dow} ${p.day} ${p.mon} ${p.year}`}
+                >
+                  <div className="year">{p.year}</div>
+                  <div className="dow">{p.dow}</div>
+                  <div className="num">{p.day}</div>
+                  <div className="mon">{p.mon}</div>
+                </DayCard>
+              );
+            })}
+          </DayRail>
+            <DayArrow onClick={() => scrollByCard(1)}>›</DayArrow>
           </DayBarWrap>
 
           <DividerH />
@@ -823,47 +904,6 @@ function renderPodium(top3) {
         </Pager>
       )}
     </Section>
-
-    {isArchived && (
-  <Section>
-    <H3>TEISINGAI PASIRINKĘ TURNYRO NUGALĖTOJĄ</H3>
-    <TableCard>
-      {bonus.loading ? (
-        <LBEmpty>Kraunama…</LBEmpty>
-      ) : bonus.error ? (
-        <LBEmpty>{bonus.error}</LBEmpty>
-      ) : bonus.picks.length ? (
-        <Table>
-          <thead>
-            <tr>
-              <th>Vartotojas</th>
-              <th>Pasirinkimas</th>
-              <th>Taškai (viso)</th>
-            </tr>
-          </thead>
-          <tbody>
-            {bonus.picks.map(u => (
-              <tr key={u.user_id}>
-                <td>
-                  <UserCell>
-                    <RowAvatar src={joinApi(u.avatarUrl)} data-fallback={u.username}>
-                      {initials(u.username)}
-                    </RowAvatar>
-                    <UserName>{u.username}</UserName>
-                  </UserCell>
-                </td>
-                <td><strong>{u.team}</strong></td>
-                <td><strong>{u.points}</strong></td>
-              </tr>
-            ))}
-          </tbody>
-        </Table>
-      ) : (
-        <LBEmpty>Niekas nepasirinko teisingai.</LBEmpty>
-      )}
-    </TableCard>
-  </Section>
-)}
 
       {/* Guess modal */}
       {modal.open && (
@@ -1893,23 +1933,58 @@ const DayRail = styled.div`
   display: grid;
   grid-auto-flow: column;
   gap: 10px;
-  overflow-x: auto; scroll-behavior: smooth; scrollbar-width: none;
+  overflow-x: auto;
+  scroll-behavior: smooth;
+  scroll-snap-type: x mandatory;
+  scroll-padding-inline: 44px;
+  overscroll-behavior-x: contain;
+  -webkit-overflow-scrolling: touch;
   &::-webkit-scrollbar{ display:none }
 `;
 const DayCard = styled.button`
-  border: 0; cursor: pointer; user-select: none;
-  width: clamp(88px, 9.8vw, 140px);     /* responsive width */
-  max-width: 140px; min-width: 88px;    /* never more than 10 across on wide screens */
-  aspect-ratio: 3 / 4;
-  border-radius: 12px; background: #f1f3f6; color: #0f172a;
-  display: grid; grid-template-rows: auto auto 1fr auto; align-content: start;
-  padding: 8px; text-align: center; box-shadow: inset 0 0 0 1px #e5e7eb;
-  .year { font-size: 10px; font-weight: 800; opacity: .75; }
-  .dow  { font-size: 12px; font-weight: 800; opacity: .9; }
-  .num  { font-size: 28px; font-weight: 900; line-height: 1.1; }
-  .mon  { font-size: 12px; font-weight: 900; opacity: .8; }
+  border: 0;
+  cursor: pointer;
+  user-select: none;
+
+  /* a bit wider-than-tall to reduce height */
+  width: clamp(86px, 9.5vw, 130px);
+  aspect-ratio: 7 / 7;
+
+  border-radius: 12px;
+  background: #f1f3f6;
+  color: #0f172a;
+  display: grid;
+  grid-template-rows: auto auto 1fr auto;
+  align-content: start;
+  padding: 8px 9px;
+  text-align: center;
+  box-shadow: inset 0 0 0 1px #e5e7eb;
+
+  /* smaller typography */
+  .year { font-size: 10px; font-weight: 800; opacity: .7; }
+  .dow  { font-size: 11px; font-weight: 900; opacity: .9; letter-spacing: .02em; }
+  .num  { font-size: 24px; font-weight: 900; line-height: 1.05; }
+  .mon  { font-size: 11px; font-weight: 900; opacity: .85; letter-spacing: .04em; }
+
+  /* animation */
+  transition: transform .18s ease, box-shadow .18s ease, background .18s ease;
+
+  scroll-snap-align: center;
+  scroll-snap-stop: always;
+
+  &:hover {
+    transform: translateY(-2px) scale(1.02);
+    background: #eef2f7;
+    box-shadow: 0 6px 16px rgba(2,6,23,.10);
+  }
+  &:active {
+    transform: translateY(0) scale(.98);
+  }
+
   &[aria-pressed="true"]{
-    background: #0f172a; color: #fff; box-shadow: none;
+    background: #0f172a;
+    color: #fff;
+    box-shadow: 0 8px 18px rgba(2,6,23,.14);
   }
 `;
 const DayArrow = styled.button`
