@@ -5,6 +5,7 @@ import { io } from 'socket.io-client';
 import { Link } from 'react-router-dom';
 import { FiTrash2, FiEdit3, FiX, FiCheck } from 'react-icons/fi';
 import { flagForTeam } from '../lib/flags';
+import UserCardPopover from '../components/UserCardPopover.jsx';
 
 export default function ChatDock({ open = false, onClose }) {
   if(!open) return null;
@@ -31,7 +32,28 @@ export default function ChatDock({ open = false, onClose }) {
   const [cardFor, setCardFor] = useState(null);
   const [cardLoading, setCardLoading] = useState(false);
   const [cardError, setCardError] = useState("");
+  const [cardOpen, setCardOpen] = useState(false);
+  const [cardAnchor, setCardAnchor] = useState(null);
 
+  function openUserCard(userId, e) {
+    const el = e.currentTarget;
+    // toggle if same user is clicked again
+    if (cardOpen && cardFor === userId && cardAnchor === el) {
+      setCardOpen(false);
+      setCardAnchor(null);
+      setCardFor(null);
+      return;
+    }
+    setCardAnchor(el);
+    setCardFor(userId);
+    setCardOpen(true);
+    if (!profiles.has(userId)) loadProfile(userId);
+  }
+  function closeUserCard() {
+    setCardOpen(false);
+    setCardAnchor(null);
+    setCardFor(null);
+  }
 
     // near other state
   const [profileVisible, setProfileVisible] = useState(false);
@@ -265,10 +287,7 @@ const closeProfile = () => setCardFor(null);
                       <Meta>
                         <Name
                           role="button"
-                          onClick={() => {
-                            setCardFor(prev => (prev === m.userId ? null : m.userId));
-                            if (cardFor !== m.userId) loadProfile(m.userId);
-                          }}
+                          onClick={(e) => openUserCard(m.userId, e)}
                         >
                           {m.username}
                         </Name>
@@ -377,62 +396,15 @@ const closeProfile = () => setCardFor(null);
           </Modal>
         </>
       )}
-      {cardFor && (
-  <>
-    <Backdrop onClick={() => setCardFor(null)} />
-    {profileVisible && (
-  <ProfileModal
-    $open={animOpen}
-    role="dialog"
-    aria-modal="true"
-    aria-labelledby="profile-title"
-    onClick={closeProfile}
-  >
-    <ProfileCard
-      $open={animOpen}
-      onClick={(e) => e.stopPropagation()}
-    >
-      <CloseX onClick={closeProfile} aria-label="Uždaryti">×</CloseX>
-
-      {cardLoading && <ProfileMeta>Kraunama…</ProfileMeta>}
-      {cardError && <ProfileMeta role="alert">{cardError}</ProfileMeta>}
-
-      {!cardLoading && !cardError && (() => {
-        const p = profiles.get(cardFor);
-        if (!p) return null;
-        const u = absUrl(API_URL, p.avatarUrl);
-        return (
-          <>
-            <ProfileAvatarWrap>
-              {u ? <ProfileAvatar src={u} alt="" /> : (
-                <ProfileAvatarFallback>{initials(p.username)}</ProfileAvatarFallback>
-              )}
-            </ProfileAvatarWrap>
-
-            <ProfileName id="profile-title">{p.username}</ProfileName>
-            <RoleBadge>{p.role === 'admin' ? 'Administratorius' : 'Narys'}</RoleBadge>
-            <ProfileMeta>Prisiregistravo: <b>{fmtDate(p.registeredAt)}</b></ProfileMeta>
-            {p.winnerPickTeam && (
-              <ProfileMeta style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-                  <span style={{
-                    display: 'inline-grid', placeItems: 'center',
-                    width: 18, height: 18, borderRadius: '50%', background: '#f3f4f6'
-                  }}>
-                    {flagForTeam(p.winnerPickTeam, 16)}
-                  </span>
-                  <b>{p.winnerPickTeam}</b>
-                </span>
-              </ProfileMeta>
-            )}
-          </>
-        );
-      })()}
-    </ProfileCard>
-  </ProfileModal>
-)}
-  </>
-)}
+  <UserCardPopover
+  open={cardOpen}
+  anchorEl={cardAnchor}
+  onClose={closeUserCard}
+  user={cardFor ? profiles.get(cardFor) : null}
+  loading={cardLoading && !profiles.get(cardFor)}
+  error={cardError}
+  apiOrigin={API_URL}
+/>
     </Wrap>
   );
 }

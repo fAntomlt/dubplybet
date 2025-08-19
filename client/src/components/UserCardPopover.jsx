@@ -215,15 +215,15 @@ useEffect(() => {
           {!loading && !error && (
             <InfoList>
               <InfoRow>
-                <InfoLabel>Registracija</InfoLabel>
+                <InfoLabel>Užsiregistravo</InfoLabel>
                 <InfoValue>{user?.registeredAt ? fmtDate(user.registeredAt) : "—"}</InfoValue>
               </InfoRow>
               <InfoRow>
-                <InfoLabel>Teisingų spėjimų (visų laikų)</InfoLabel>
+                <InfoLabel>Teisingų spėjimų</InfoLabel>
                 <InfoValueStrong>{Number(correctAllTime ?? 0)}</InfoValueStrong>
               </InfoRow>
               <InfoRow>
-                <InfoLabel>Pasirinkta šalis</InfoLabel>
+                <InfoLabel>Favoritas</InfoLabel>
                 <InfoValue>
                   {user?.winnerPickTeam ? (
                     <FlagWrap>
