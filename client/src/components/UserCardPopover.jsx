@@ -13,48 +13,46 @@ export default function UserCardPopover({
   apiOrigin = "",
   zIndex = 1000,
   offset = 10,
+  containerEl = null,    // NEW: clamp within this container if provided (e.g., ChatDock)
+  variant = "default",   // NEW: "default" | "compact" (compact for ChatDock)
 }) {
   const popRef = useRef(null);
 
-const [tick, setTick] = useState(0);
+  const [tick, setTick] = useState(0);
 
-// Anchor rect (viewport coords)
-const rect = useMemo(() => {
-  if (!open || !anchorEl) return null;
-  const r = anchorEl.getBoundingClientRect();
-  return { top: r.top, left: r.left, width: r.width, height: r.height };
-}, [open, anchorEl, tick]);
+  // Anchor rect (viewport coords)
+  const rect = useMemo(() => {
+    if (!open || !anchorEl) return null;
+    const r = anchorEl.getBoundingClientRect();
+    return { top: r.top, left: r.left, width: r.width, height: r.height };
+  }, [open, anchorEl, tick]);
 
-// Reposition on scroll/resize
-useEffect(() => {
-  if (!open) return;
-  const reflow = () => setTick(t => t + 1);
-  window.addEventListener("scroll", reflow, true);
-  window.addEventListener("resize", reflow);
-  return () => {
-    window.removeEventListener("scroll", reflow, true);
-    window.removeEventListener("resize", reflow);
-  };
-}, [open]);
+  // Container clamp rect (viewport coords)
+  const clampRect = useMemo(() => {
+    if (containerEl?.getBoundingClientRect) {
+      return containerEl.getBoundingClientRect();
+    }
+    return {
+      left: 0,
+      top: 0,
+      width: window.innerWidth,
+      height: window.innerHeight,
+      right: window.innerWidth,
+      bottom: window.innerHeight,
+    };
+  }, [containerEl, tick]);
 
-useLayoutEffect(() => {
-  if (!open || !rect || !popRef.current) return;
-
-  const margin = 8;
-  const cardW = popRef.current.offsetWidth || 0;
-  const cardH = popRef.current.offsetHeight || 0;
-  const anchorCenterX = rect.left + rect.width / 2;
-
-  const desiredLeft = anchorCenterX - cardW / 2;
-  const minLeft = margin;
-  const maxLeft = Math.max(minLeft, window.innerWidth - margin - cardW);
-  const clampedLeft = Math.min(Math.max(desiredLeft, minLeft), maxLeft);
-  setShiftX(clampedLeft - desiredLeft);
-
-  const fitsAbove = rect.top - offset - cardH >= margin;
-  setPlaceBelow(!fitsAbove);
-}, [open, rect, offset, tick]);
-
+  // Reposition on scroll/resize (capture scrolls from nested containers too)
+  useEffect(() => {
+    if (!open) return;
+    const reflow = () => setTick(t => t + 1);
+    window.addEventListener("scroll", reflow, true);
+    window.addEventListener("resize", reflow);
+    return () => {
+      window.removeEventListener("scroll", reflow, true);
+      window.removeEventListener("resize", reflow);
+    };
+  }, [open]);
 
   // Close on outside/ESC
   useEffect(() => {
@@ -105,20 +103,17 @@ useLayoutEffect(() => {
 
   const [correctAllTime, setCorrectAllTime] = useState(initialCorrect);
 
-useEffect(() => {
-  // whenever a new user is targeted, re-seed the state:
-  // - if the user object already has a number, use it
-  // - otherwise set to null so the fetch effect will run
-  const v =
-    user?.correct_guesses_all_time ??
-    user?.correctGuessesAllTime ??
-    user?.correct ??
-    null;
+  // Reset the value whenever the target user changes
+  useEffect(() => {
+    const v =
+      user?.correct_guesses_all_time ??
+      user?.correctGuessesAllTime ??
+      user?.correct ??
+      null;
+    setCorrectAllTime(v == null ? null : Number(v));
+  }, [idForLookup, initialCorrect, user, open]);
 
-  setCorrectAllTime(v == null ? null : Number(v));
-}, [idForLookup, initialCorrect, user, open]);
-
-
+  // Fetch from leaderboard if we don't have a value
   useEffect(() => {
     if (!open) return;
     if (correctAllTime != null) return;
@@ -148,7 +143,7 @@ useEffect(() => {
     return () => { cancelled = true; };
   }, [open, apiOrigin, idForLookup, correctAllTime]);
 
-  // Keep the card inside the viewport (clamp X; flip below if needed)
+  // Keep the card inside the container (or viewport): clamp X and flip below if needed
   const [shiftX, setShiftX] = useState(0);
   const [placeBelow, setPlaceBelow] = useState(false);
 
@@ -161,22 +156,31 @@ useEffect(() => {
     const anchorCenterX = rect.left + rect.width / 2;
 
     const desiredLeft = anchorCenterX - cardW / 2;
-    const minLeft = margin;
-    const maxLeft = Math.max(minLeft, window.innerWidth - margin - cardW);
+    const minLeft = (clampRect.left ?? 0) + margin;
+    const maxLeft = (clampRect.left + (clampRect.width ?? 0)) - margin - cardW;
     const clampedLeft = Math.min(Math.max(desiredLeft, minLeft), maxLeft);
     setShiftX(clampedLeft - desiredLeft);
 
-    const fitsAbove = rect.top - offset - cardH >= margin;
+    const topLimit = (clampRect.top ?? 0) + margin;
+    const fitsAbove = rect.top - offset - cardH >= topLimit;
     setPlaceBelow(!fitsAbove);
-  }, [open, rect, offset]);
+  }, [open, rect, offset, clampRect]);
 
   if (!open || !rect) return null;
+
+  // Compute width based on container; cap harder in compact mode (e.g., inside ChatDock)
+  const computedWidth = (() => {
+    const within = Math.min(560, (clampRect.width || window.innerWidth) - 16);
+    const base = Math.max(240, within);
+    return variant === "compact" ? Math.min(base, 360) : base;
+  })();
 
   const style = {
     position: "fixed",
     top: rect.top,
     left: rect.left + rect.width / 2,
     zIndex,
+    "--ucp-width": `${computedWidth}px`,
   };
 
   const abs = (u) => (u && !/^https?:\/\//i.test(u) ? `${apiOrigin}${u}` : u);
@@ -192,7 +196,7 @@ useEffect(() => {
       role="dialog"
       aria-modal="false"
     >
-      <ProfileCard>
+      <ProfileCard $compact={variant === "compact"}>
         <LeftPanel>
           {user?.avatarUrl ? (
             <AvatarImg src={abs(user.avatarUrl)} alt="" />
@@ -202,12 +206,14 @@ useEffect(() => {
         </LeftPanel>
 
         <RightPanel>
-          <TopRow>
-            <Name title={user?.username || ""}>{user?.username || "—"}</Name>
-            <RolePill $admin={user?.role === "admin"}>
-              {user?.role === "admin" ? "Administratorius" : "Narys"}
+        <TopRow $compact={variant === "compact"}>
+            <Name $compact={variant === "compact"} title={user?.username || ""}>
+                {user?.username || "—"}
+            </Name>
+            <RolePill $compact={variant === "compact"} $admin={user?.role === "admin"}>
+                {user?.role === "admin" ? "Administratorius" : "Narys"}
             </RolePill>
-          </TopRow>
+        </TopRow>
 
           {loading && <InfoMuted>Kraunama…</InfoMuted>}
           {!loading && error && <InfoMuted role="alert">{error}</InfoMuted>}
@@ -289,15 +295,15 @@ const ProfileCard = styled.div`
   border-radius: 16px;
   box-shadow: 0 10px 24px rgba(2,6,23,.12);
 
-  /* Never exceed viewport minus 16px margin */
-  width: min(560px, calc(100vw - 16px));
+  /* Never exceed container/viewport minus 16px margin; can be overridden by CSS var */
+  width: var(--ucp-width, min(560px, calc(100vw - 16px)));
 
   display: grid;
-  grid-template-columns: 140px 1fr;
+  grid-template-columns: ${({ $compact }) => ($compact ? "110px 1fr" : "140px 1fr")};
   overflow: hidden;
 
   @media (max-width: 420px) {
-    grid-template-columns: 110px 1fr;
+    grid-template-columns: ${({ $compact }) => ($compact ? "100px 1fr" : "110px 1fr")};
   }
   @media (max-width: 380px) {
     /* Stack to avoid overflowing on very narrow screens */
@@ -359,34 +365,42 @@ const RightPanel = styled.div`
 const TopRow = styled.div`
   display: flex;
   align-items: flex-start;
-  gap: 12px;
   justify-content: space-between;
-  min-width: 0;
+  gap: ${({ $compact }) => ($compact ? "8px" : "12px")};
+  min-width: 0; /* allow children to shrink */
 `;
 
 const Name = styled.h3`
   margin: 0;
-  font-size: 20px;
   font-weight: 900;
   letter-spacing: .2px;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
   flex: 1 1 auto;
+  min-width: 0;
+
+  font-size: ${({ $compact }) => ($compact ? "16px" : "20px")};
 
   @media (max-width: 360px) {
-    font-size: 18px;
+    font-size: ${({ $compact }) => ($compact ? "15px" : "18px")};
   }
 `;
 
 const RolePill = styled.span`
   align-self: flex-start;
-  padding: 6px 10px;
   border-radius: 9999px;
-  font-size: 12px;
   font-weight: 800;
   white-space: nowrap;
   flex: 0 0 auto;
+
+  padding: ${({ $compact }) => ($compact ? "4px 8px" : "6px 10px")};
+  font-size: ${({ $compact }) => ($compact ? "11px" : "12px")};
+
+  @media (max-width: 360px) {
+    font-size: ${({ $compact }) => ($compact ? "10px" : "11px")};
+    padding: ${({ $compact }) => ($compact ? "3px 7px" : "5px 9px")};
+  }
 `;
 
 const InfoList = styled.div`
