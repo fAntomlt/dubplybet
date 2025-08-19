@@ -179,6 +179,15 @@ router.post("/games/:id/finish", async (req, res) => {
          updated_at = NOW()`,
       [game.tournament_id, g.user_id, points, cond_ok ? 1 : 0]
     );
+
+    if (cond_ok) {
+    await pool.query(
+      `UPDATE users
+         SET correct_guesses_all_time = correct_guesses_all_time + 1
+       WHERE id = ?`,
+      [g.user_id]
+    );
+  }
   }
 
   return res.json({ ok: true, message: "Rungtynės užbaigtos ir įvertintos" });

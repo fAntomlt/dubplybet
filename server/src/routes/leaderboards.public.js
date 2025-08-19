@@ -25,13 +25,15 @@ router.get("/tournament/:tid", async (req, res) => {
 // Sum correct_any across all tournaments
 router.get("/all-time", async (_req, res) => {
   const [rows] = await pool.query(
-    `SELECT u.id as user_id, u.username, SUM(ts.correct_any) as correct_any
-       FROM tournament_scores ts
-       JOIN users u ON u.id = ts.user_id
-      GROUP BY u.id, u.username
-      HAVING correct_any > 0
-      ORDER BY correct_any DESC, u.username ASC
-      LIMIT 500`
+    `SELECT
+       u.id AS user_id,
+       u.username,
+       u.avatar_url AS avatarUrl,
+       u.correct_guesses_all_time AS correct_any
+     FROM users u
+     WHERE u.correct_guesses_all_time > 0
+     ORDER BY u.correct_guesses_all_time DESC, u.username ASC
+     LIMIT 500`
   );
   return res.json({ ok: true, leaderboard: rows });
 });
