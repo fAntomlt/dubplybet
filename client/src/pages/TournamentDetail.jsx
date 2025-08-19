@@ -64,6 +64,14 @@ export default function TournamentDetail(){
     return () => window.removeEventListener("storage", refresh);
   }, []);
 
+  function renderMarkdownInline(input) {
+  const esc = String(input ?? "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;");
+  const html = esc.replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>");
+  return <span dangerouslySetInnerHTML={{ __html: html }} />;
+}
 
   const [tournament, setTournament] = useState(null);
   const isArchived = tournament?.status === "archived";
@@ -1139,6 +1147,14 @@ function GuessesList({ game, guesses, fetch, finished, teamOrder }){
       return String(a.username||"").localeCompare(String(b.username||""));
     });
   }
+  function renderMarkdownInline(input) {
+  const esc = String(input ?? "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;");
+  const html = esc.replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>");
+  return <span dangerouslySetInnerHTML={{ __html: html }} />;
+}
 
   return (
     <>
