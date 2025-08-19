@@ -207,13 +207,42 @@ useEffect(() => {
   }
 }, [tid, isArchived, leaderboard.length, lbLoading]);
 
+  const [selectedDay, setSelectedDay] = useState(null);
+
+  // YYYY-MM-DD "today" in Lithuania's local time
+const todayISO = () =>
+  new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Europe/Vilnius",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(new Date()); // -> "YYYY-MM-DD"
+
+// helpers used by memos below
+const d10 = (s) => String(s || "").slice(0, 10);
+
+// derived flags from current selection
+const isPastSelected = !!selectedDay && selectedDay < todayISO();
+const isTodayOrFutureSelected = !!selectedDay && selectedDay >= todayISO();
+
 
   // split upcoming list
-  const upcoming = useMemo(()=> (upcomingLocked.filter(g => g.status==="scheduled" && !g.locked)), [upcomingLocked]);
-  const ongoing  = useMemo(()=> (upcomingLocked.filter(g => g.status!=="scheduled" || g.locked)), [upcomingLocked]);
+  const upcoming = useMemo(() => {
+    const base = upcomingLocked.filter(g => g.status === "scheduled" && !g.locked);
+    if (isTodayOrFutureSelected) {
+      return base.filter(g => d10(g.tipoff_at) === selectedDay);
+    }
+    return base;
+  }, [upcomingLocked, selectedDay]);
 
+  const ongoing = useMemo(() => {
+    const base = upcomingLocked.filter(g => g.status !== "scheduled" || g.locked);
+    if (isTodayOrFutureSelected) {
+      return base.filter(g => d10(g.tipoff_at) === selectedDay);
+    }
+    return base;
+  }, [upcomingLocked, selectedDay]);
   // helpers
-  const d10 = s => String(s||"").slice(0,10);
   const t5  = s => String(s||"").slice(11,16).replace("T"," "); // HH:mm from "YYYY-MM-DD HH:mm:ss"
   const toggle = id => setExpanded(prev => { const n = new Set(prev); n.has(id) ? n.delete(id) : n.add(id); if(!guesses[id]) fetchGuesses(id); return n; });
 
@@ -400,7 +429,6 @@ function renderPodium(top3) {
   };
 }, [pickModal.open]);
 
-  const [selectedDay, setSelectedDay] = useState(null);
 
   // Build day list from tournament date range (inclusive)
   const dayList = useMemo(() => {
@@ -444,9 +472,11 @@ function renderPodium(top3) {
 }, [isArchived, tid]);
 
   // Games filtered by selected day
-  const finishedForDay = useMemo(() =>
-    selectedDay ? finished.filter(g => d10(g.tipoff_at) === selectedDay) : finished
-  , [finished, selectedDay]);
+  const finishedForDay = useMemo(
+   () => (selectedDay ? finished.filter(g => d10(g.tipoff_at) === selectedDay) : finished),
+   [finished, selectedDay]
+   );
+   const finishedShown = finishedForDay; // render this everywhere
 
   // Label helper for day cards (matches your screenshot)
   function dayParts(d) {
@@ -622,8 +652,35 @@ function renderPodium(top3) {
   </LeaderboardWrap>
 
       {/* Upcoming */}
-      {!isArchived && (
+      {!isArchived && (!selectedDay || isTodayOrFutureSelected) && (
   <>
+  <>
+        <DayBarWrap>
+          <DayArrow onClick={() => scrollByCard(-1)}>‹</DayArrow>
+          <DayRail ref={dayRailRef}>
+            {dayList.map(d => {
+              const p = dayParts(d);
+              const active = selectedDay === d;
+              return (
+                <DayCard
+                  data-day-card="1"
+                  key={d}
+                  aria-pressed={active}
+                  onClick={() => { setSelectedDay(d); }}
+                  title={`${p.dow} ${p.day} ${p.mon} ${p.year}`}
+                >
+                  <div className="year">{p.year}</div>
+                  <div className="dow">{p.dow}</div>
+                  <div className="num">{p.day}</div>
+                  <div className="mon">{p.mon}</div>
+                </DayCard>
+              );
+            })}
+          </DayRail>
+          <DayArrow onClick={() => scrollByCard(1)}>›</DayArrow>
+        </DayBarWrap>
+        <DividerH />
+      </>
     {/* Upcoming */}
     <Section>
       <H3>ARTĖJANTYS ŽAIDIMAI</H3>
@@ -765,43 +822,11 @@ function renderPodium(top3) {
     <DividerH />
   </>
 )}
-
-      {/* Finished with pagination */}
-      {isArchived && (
-        <>
-          <DayBarWrap>
-            <DayArrow onClick={() => scrollByCard(-1)}>‹</DayArrow>
-            <DayRail ref={dayRailRef}>
-            {dayList.map(d => {
-              const p = dayParts(d);
-              const active = selectedDay === d;
-              return (
-                <DayCard
-                  data-day-card="1"
-                  key={d}
-                  aria-pressed={active}
-                  onClick={() => { setSelectedDay(d); }}
-                  title={`${p.dow} ${p.day} ${p.mon} ${p.year}`}
-                >
-                  <div className="year">{p.year}</div>
-                  <div className="dow">{p.dow}</div>
-                  <div className="num">{p.day}</div>
-                  <div className="mon">{p.mon}</div>
-                </DayCard>
-              );
-            })}
-          </DayRail>
-            <DayArrow onClick={() => scrollByCard(1)}>›</DayArrow>
-          </DayBarWrap>
-
-          <DividerH />
-        </>
-      )}
       <Section>
       <H3>PRAĖJĘ ŽAIDIMAI</H3>
 
-      {(isArchived ? finishedForDay : finished).length ? (
-        (isArchived ? finishedForDay : finished).map(g => (
+       {finishedShown.length ? (
+        finishedShown.map(g => (
           <GameCard key={g.id}>
             <LeftCol>
               <CardTinyHeader>{phaseTiny(g.stage)}</CardTinyHeader>
@@ -887,11 +912,11 @@ function renderPodium(top3) {
           </GameCard>
         ))
       ) : (
-        <Empty>{isArchived ? "Šią dieną rungtynių nėra." : "Nėra praėjusių rungtynių."}</Empty>
+        <Empty>{selectedDay ? "Šią dieną rungtynių nėra." : (isArchived ? "Šią dieną rungtynių nėra." : "Nėra praėjusių rungtynių.")}</Empty>
       )}
 
       {/* Pager only for non-archived */}
-      {!isArchived && (
+      {!isArchived && (!selectedDay || isTodayOrFutureSelected) && (
         <Pager>
           <button disabled={finPage <= 1} onClick={() => setFinPage(p => p - 1)}>Ankstesnis</button>
           <span>{finPage}</span>
