@@ -16,25 +16,45 @@ export default function UserCardPopover({
 }) {
   const popRef = useRef(null);
 
-  // Anchor rect (viewport coords)
-  const rect = useMemo(() => {
-    if (!open || !anchorEl) return null;
-    const r = anchorEl.getBoundingClientRect();
-    return { top: r.top, left: r.left, width: r.width, height: r.height };
-  }, [open, anchorEl]);
+const [tick, setTick] = useState(0);
 
-  // Reposition on scroll/resize
-  const [, force] = useState(0);
-  useEffect(() => {
-    if (!open) return;
-    const reflow = () => force((t) => t + 1);
-    window.addEventListener("scroll", reflow, true);
-    window.addEventListener("resize", reflow);
-    return () => {
-      window.removeEventListener("scroll", reflow, true);
-      window.removeEventListener("resize", reflow);
-    };
-  }, [open]);
+// Anchor rect (viewport coords)
+const rect = useMemo(() => {
+  if (!open || !anchorEl) return null;
+  const r = anchorEl.getBoundingClientRect();
+  return { top: r.top, left: r.left, width: r.width, height: r.height };
+}, [open, anchorEl, tick]);
+
+// Reposition on scroll/resize
+useEffect(() => {
+  if (!open) return;
+  const reflow = () => setTick(t => t + 1);
+  window.addEventListener("scroll", reflow, true);
+  window.addEventListener("resize", reflow);
+  return () => {
+    window.removeEventListener("scroll", reflow, true);
+    window.removeEventListener("resize", reflow);
+  };
+}, [open]);
+
+useLayoutEffect(() => {
+  if (!open || !rect || !popRef.current) return;
+
+  const margin = 8;
+  const cardW = popRef.current.offsetWidth || 0;
+  const cardH = popRef.current.offsetHeight || 0;
+  const anchorCenterX = rect.left + rect.width / 2;
+
+  const desiredLeft = anchorCenterX - cardW / 2;
+  const minLeft = margin;
+  const maxLeft = Math.max(minLeft, window.innerWidth - margin - cardW);
+  const clampedLeft = Math.min(Math.max(desiredLeft, minLeft), maxLeft);
+  setShiftX(clampedLeft - desiredLeft);
+
+  const fitsAbove = rect.top - offset - cardH >= margin;
+  setPlaceBelow(!fitsAbove);
+}, [open, rect, offset, tick]);
+
 
   // Close on outside/ESC
   useEffect(() => {
@@ -84,11 +104,24 @@ export default function UserCardPopover({
   }, [user]);
 
   const [correctAllTime, setCorrectAllTime] = useState(initialCorrect);
-  useEffect(() => setCorrectAllTime(initialCorrect), [initialCorrect]);
+
+useEffect(() => {
+  // whenever a new user is targeted, re-seed the state:
+  // - if the user object already has a number, use it
+  // - otherwise set to null so the fetch effect will run
+  const v =
+    user?.correct_guesses_all_time ??
+    user?.correctGuessesAllTime ??
+    user?.correct ??
+    null;
+
+  setCorrectAllTime(v == null ? null : Number(v));
+}, [idForLookup, initialCorrect, user, open]);
+
 
   useEffect(() => {
     if (!open) return;
-    if (correctAllTime != null) return;            // already have a value
+    if (correctAllTime != null) return;
     if (!apiOrigin || !idForLookup) return;
 
     let cancelled = false;
@@ -115,6 +148,28 @@ export default function UserCardPopover({
     return () => { cancelled = true; };
   }, [open, apiOrigin, idForLookup, correctAllTime]);
 
+  // Keep the card inside the viewport (clamp X; flip below if needed)
+  const [shiftX, setShiftX] = useState(0);
+  const [placeBelow, setPlaceBelow] = useState(false);
+
+  useLayoutEffect(() => {
+    if (!open || !rect || !popRef.current) return;
+
+    const margin = 8;
+    const cardW = popRef.current.offsetWidth || 0;
+    const cardH = popRef.current.offsetHeight || 0;
+    const anchorCenterX = rect.left + rect.width / 2;
+
+    const desiredLeft = anchorCenterX - cardW / 2;
+    const minLeft = margin;
+    const maxLeft = Math.max(minLeft, window.innerWidth - margin - cardW);
+    const clampedLeft = Math.min(Math.max(desiredLeft, minLeft), maxLeft);
+    setShiftX(clampedLeft - desiredLeft);
+
+    const fitsAbove = rect.top - offset - cardH >= margin;
+    setPlaceBelow(!fitsAbove);
+  }, [open, rect, offset]);
+
   if (!open || !rect) return null;
 
   const style = {
@@ -127,7 +182,16 @@ export default function UserCardPopover({
   const abs = (u) => (u && !/^https?:\/\//i.test(u) ? `${apiOrigin}${u}` : u);
 
   return createPortal(
-    <Wrap style={style} $open={anim} $offset={offset} ref={popRef} role="dialog" aria-modal="false">
+    <Wrap
+      style={style}
+      $open={anim}
+      $offset={offset}
+      $shiftX={shiftX}
+      $below={placeBelow}
+      ref={popRef}
+      role="dialog"
+      aria-modal="false"
+    >
       <ProfileCard>
         <LeftPanel>
           {user?.avatarUrl ? (
@@ -139,7 +203,7 @@ export default function UserCardPopover({
 
         <RightPanel>
           <TopRow>
-            <Name>{user?.username || "—"}</Name>
+            <Name title={user?.username || ""}>{user?.username || "—"}</Name>
             <RolePill $admin={user?.role === "admin"}>
               {user?.role === "admin" ? "Administratorius" : "Narys"}
             </RolePill>
@@ -175,7 +239,8 @@ export default function UserCardPopover({
           )}
         </RightPanel>
       </ProfileCard>
-      <Arrow aria-hidden />
+
+      <Arrow $below={placeBelow} aria-hidden />
     </Wrap>,
     document.body
   );
@@ -201,11 +266,15 @@ function fmtDate(d) {
   }
 }
 
-/* ====== styles (match the screenshot’s look) ====== */
+/* ====== styles (responsive + clamped) ====== */
 
 const Wrap = styled.div`
-  transform: translate(-50%, calc(-100% - ${({ $offset }) => $offset}px))
-             scale(${({ $open }) => ($open ? 1 : 0.96)});
+  transform:
+    translate(
+      calc(-50% + ${({ $shiftX }) => Math.round($shiftX) }px),
+      ${({ $below, $offset }) => ($below ? `${$offset}px` : `calc(-100% - ${$offset}px)`)}
+    )
+    scale(${({ $open }) => ($open ? 1 : 0.96)});
   opacity: ${({ $open }) => ($open ? 1 : 0)};
   transition:
     transform .42s cubic-bezier(.22,.61,.36,1),
@@ -214,20 +283,36 @@ const Wrap = styled.div`
 `;
 
 const ProfileCard = styled.div`
-  background: #ffffff;                     /* solid, no transparency */
+  box-sizing: border-box;
+  background: #ffffff;
   border: 1px solid ${({ theme }) => theme?.colors?.line || "#e7eaf0"};
   border-radius: 16px;
   box-shadow: 0 10px 24px rgba(2,6,23,.12);
-  width: min(96vw, 560px);                 /* roomy like the mock */
+
+  /* Never exceed viewport minus 16px margin */
+  width: min(560px, calc(100vw - 16px));
+
   display: grid;
-  grid-template-columns: 150px 1fr;        /* left blue panel + content */
-  overflow: hidden;                        /* rounds the left panel */
+  grid-template-columns: 140px 1fr;
+  overflow: hidden;
+
+  @media (max-width: 420px) {
+    grid-template-columns: 110px 1fr;
+  }
+  @media (max-width: 380px) {
+    /* Stack to avoid overflowing on very narrow screens */
+    grid-template-columns: 1fr;
+  }
 `;
 
 const LeftPanel = styled.div`
   padding: 18px;
   display: grid;
   place-items: center;
+
+  @media (max-width: 380px) {
+    padding: 12px 12px 0;
+  }
 `;
 
 const AvatarImg = styled.img`
@@ -236,6 +321,13 @@ const AvatarImg = styled.img`
   object-fit: cover; display: block;
   border: 3px solid #ffffff;
   box-shadow: 0 6px 14px rgba(2,6,23,.18);
+
+  @media (max-width: 420px) {
+    width: 78px; height: 78px;
+  }
+  @media (max-width: 380px) {
+    width: 64px; height: 64px;
+  }
 `;
 const AvatarFallback = styled.div`
   width: 92px; height: 92px; border-radius: 50%;
@@ -244,12 +336,24 @@ const AvatarFallback = styled.div`
   font-weight: 900; font-size: 24px;
   border: 3px solid #ffffff;
   box-shadow: 0 6px 14px rgba(2,6,23,.18);
+
+  @media (max-width: 420px) {
+    width: 78px; height: 78px; font-size: 20px;
+  }
+  @media (max-width: 380px) {
+    width: 64px; height: 64px; font-size: 18px;
+  }
 `;
 
 const RightPanel = styled.div`
   padding: 16px 18px;
   display: grid;
   gap: 10px;
+  min-width: 0;
+
+  @media (max-width: 380px) {
+    padding: 12px;
+  }
 `;
 
 const TopRow = styled.div`
@@ -257,6 +361,7 @@ const TopRow = styled.div`
   align-items: flex-start;
   gap: 12px;
   justify-content: space-between;
+  min-width: 0;
 `;
 
 const Name = styled.h3`
@@ -264,6 +369,14 @@ const Name = styled.h3`
   font-size: 20px;
   font-weight: 900;
   letter-spacing: .2px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  flex: 1 1 auto;
+
+  @media (max-width: 360px) {
+    font-size: 18px;
+  }
 `;
 
 const RolePill = styled.span`
@@ -273,6 +386,7 @@ const RolePill = styled.span`
   font-size: 12px;
   font-weight: 800;
   white-space: nowrap;
+  flex: 0 0 auto;
 `;
 
 const InfoList = styled.div`
@@ -289,26 +403,34 @@ const InfoRow = styled.div`
 `;
 
 const InfoLabel = styled.span`
-  color: #64748b;         /* slate-500 */
+  color: #64748b;
   font-size: 13px;
   font-weight: 700;
+
+  @media (max-width: 360px) { font-size: 12px; }
 `;
 
 const InfoValue = styled.span`
   color: #0f172a;
   font-size: 14px;
   font-weight: 700;
+
+  @media (max-width: 360px) { font-size: 13px; }
 `;
 
 const InfoValueStrong = styled.span`
   font-size: 15px;
   font-weight: 900;
+
+  @media (max-width: 360px) { font-size: 14px; }
 `;
 
 const InfoMuted = styled.div`
   color: #64748b;
   font-size: 13px;
   font-weight: 700;
+
+  @media (max-width: 360px) { font-size: 12px; }
 `;
 
 const FlagWrap = styled.span`
@@ -323,9 +445,11 @@ const Arrow = styled.div`
   left: 50%;
   transform: translateX(-50%);
   width: 0; height: 0;
+  top: ${({ $below }) => ($below ? "-10px" : "100%")};
   border-left: 10px solid transparent;
   border-right: 10px solid transparent;
-  border-top: 10px solid #ffffff; /* card color */
+  border-top: ${({ $below }) => ($below ? "0" : "10px solid #ffffff")};
+  border-bottom: ${({ $below }) => ($below ? "10px solid #ffffff" : "0")};
   filter: drop-shadow(0 -1px 0 ${({ theme }) => theme?.colors?.line || "#e7eaf0"});
-  margin-top: 8px;
+  margin-top: ${({ $below }) => ($below ? "0" : "8px")};
 `;
