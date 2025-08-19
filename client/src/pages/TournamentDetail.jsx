@@ -9,6 +9,7 @@ import { FiLock, FiChevronDown, FiCheck } from "react-icons/fi";
 import { FaFire } from "react-icons/fa";
 import { getAuth } from "../store/auth";
 import { useToast } from "../components/ToastProvider";
+import UserCardPopover from "../components/UserCardPopover.jsx";
 
 const PAGE_SIZE = 15;
 
@@ -89,6 +90,58 @@ export default function TournamentDetail(){
   const [lbOpen, setLbOpen] = useState(false);
   const [lbLoading, setLbLoading] = useState(false);
   const [leaderboard, setLeaderboard] = useState([]); // [{user_id, username, avatarUrl, points}]
+
+  const pageRef = useRef(null); // clamp popover to this page
+
+  const [ucpOpen, setUcpOpen] = useState(false);
+  const [ucpAnchor, setUcpAnchor] = useState(null);
+  const [ucpUser, setUcpUser] = useState(null);
+  const [ucpLoading, setUcpLoading] = useState(false);
+  const [ucpError, setUcpError] = useState("");
+  const profileCache = useRef(new Map());
+
+  const closeUcp = () => {
+    setUcpOpen(false);
+    setUcpAnchor(null);
+    setUcpError("");
+  };
+
+  async function openUserCardById(userId, username, avatarUrl, e) {
+    if (!userId) return;
+    setUcpAnchor(e.currentTarget);
+    setUcpOpen(true);
+    setUcpError("");
+
+    const cached = profileCache.current.get(userId);
+    if (cached) {
+      setUcpUser(cached);
+      return;
+    }
+
+    const base = { id: userId, user_id: userId, username, avatarUrl };
+    setUcpUser(base);
+
+    try {
+      setUcpLoading(true);
+      const d = await api(`/api/users/public/${userId}?tournament_id=${tid}`, {
+        headers: authToken ? { Authorization: `Bearer ${authToken}` } : {},
+      });
+      if (d?.user) {
+        profileCache.current.set(userId, d.user);
+        setUcpUser(d.user);
+      } else if (d?.ok === false) {
+        setUcpError(d?.error || "Nepavyko užkrauti profilio");
+      }
+    } catch {
+      setUcpError("Serverio klaida įkeliant profilį");
+    } finally {
+      setUcpLoading(false);
+    }
+  }
+
+  // small helper when you already have a user object
+  const openUserCard = (u, e) =>
+    openUserCardById(u?.user_id ?? u?.id, u?.username, u?.avatarUrl, e);
 
   // Winner-pick modal
    const [pickModal, setPickModal] = useState({ open: false, team: "", saving: false, error: "", search: "" });
@@ -328,6 +381,15 @@ function renderPodium(top3) {
             $img={u.avatarUrl ? joinApi(u.avatarUrl) : null}
             data-fallback={u.username}
             aria-label={u.username}
+            role="button"
+            tabIndex={0}
+            onClick={(e) => openUserCardById(u.user_id, u.username, u.avatarUrl, e)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" || e.key === " ") {
+                e.preventDefault();
+                openUserCardById(u.user_id, u.username, u.avatarUrl, e);
+              }
+            }}
           >
             {!u.avatarUrl ? <span>{initials(u.username)}</span> : null}
             {slot.place === 1 ? <Crown aria-hidden>👑</Crown> : null}
@@ -335,7 +397,12 @@ function renderPodium(top3) {
           </AvatarBig>
 
           <StepInner>
-            <PodiumName>{u.username}</PodiumName>
+            <NickButton
+              onClick={(e) => openUserCardById(u.user_id, u.username, u.avatarUrl, e)}
+              aria-label={`Atidaryti ${u.username} profilį`}
+            >
+              <PodiumName as="span">{u.username}</PodiumName>
+            </NickButton>
             <PodiumPoints $highlight={slot.place === 1}>{u.points}</PodiumPoints>
           </StepInner>
         </Step>
@@ -543,7 +610,7 @@ useEffect(() => {
   };
 
   return (
-    <Wrap>
+    <Wrap ref={pageRef}>
       {tournament && (
           <HeaderCard aria-label={tournament.name}>
             <ImageLayer $bg={bgForStatus(tournament.status)} />
@@ -578,7 +645,19 @@ useEffect(() => {
                 {initials(leaderboard[0].username)}
               </RowAvatar>
               <div>
-                <div className="name">{leaderboard[0].username}</div>
+                <NickButton
+                  onClick={(e) =>
+                    openUserCardById(
+                      leaderboard[0].user_id,
+                      leaderboard[0].username,
+                      leaderboard[0].avatarUrl,
+                      e
+                    )
+                  }
+                  aria-label={`Atidaryti ${leaderboard[0].username} profilį`}
+                >
+                  <div className="name">{leaderboard[0].username}</div>
+                </NickButton>
                 <div className="pts">{leaderboard[0].points} taškų</div>
               </div>
             </WinnerUser>
@@ -614,7 +693,13 @@ useEffect(() => {
                         <RowAvatar src={joinApi(u.avatarUrl)} data-fallback={u.username}>
                           {initials(u.username)}
                         </RowAvatar>
-                        <UserName>{u.username}</UserName>
+
+                        <NickButton
+                          onClick={(e) => openUserCardById(u.user_id, u.username, u.avatarUrl, e)}
+                          aria-label={`Atidaryti ${u.username} profilį`}
+                        >
+                          <UserName as="span">{u.username}</UserName>
+                        </NickButton>
                       </UserCell>
                     </td>
                     <td><strong>{u.team}</strong></td>
@@ -665,7 +750,13 @@ useEffect(() => {
                       <RowAvatar src={joinApi(u.avatarUrl)} data-fallback={u.username}>
                         {initials(u.username)}
                       </RowAvatar>
-                      <RowName>{u.username}</RowName>
+
+                      <NickButton
+                        onClick={(e) => openUserCardById(u.user_id, u.username, u.avatarUrl, e)}
+                        aria-label={`Atidaryti ${u.username} profilį`}
+                      >
+                        <RowName as="span">{u.username}</RowName>
+                      </NickButton>
                     </RowLeft>
                     <RowRight>{u.points}</RowRight>
                   </LBRow>
@@ -771,6 +862,7 @@ useEffect(() => {
                   fetch={() => fetchGuesses(g.id, "team")}
                   finished={false}
                   teamOrder
+                  onUserClick={openUserCardById}
                 />
               ) : null}
             </ExpandInner>
@@ -841,6 +933,7 @@ useEffect(() => {
                   fetch={() => fetchGuesses(g.id, "team")}
                   finished={false}
                   teamOrder
+                  onUserClick={openUserCardById}
                 />
               ) : null}
             </ExpandInner>
@@ -935,6 +1028,7 @@ useEffect(() => {
                     guesses={guesses[g.id]}
                     fetch={() => fetchGuesses(g.id, "points")}
                     finished
+                    onUserClick={openUserCardById}
                   />
                 ) : null}
               </ExpandInner>
@@ -1085,12 +1179,23 @@ useEffect(() => {
           </div>
         </ModalShell>
       )}
+      <UserCardPopover
+        open={ucpOpen}
+        anchorEl={ucpAnchor}
+        onClose={closeUcp}
+        user={ucpUser}
+        loading={ucpLoading}
+        error={ucpError}
+        apiOrigin={API_ORIGIN}
+        containerEl={pageRef.current}
+        variant="default"
+      />
     </Wrap>
   );
 }
 
 /* ===== Guesses sub-list ===== */
-function GuessesList({ game, guesses, fetch, finished, teamOrder }){
+function GuessesList({ game, guesses, fetch, finished, teamOrder, onUserClick }) {
   useEffect(()=>{ fetch(); }, []); // initial load
   const items = guesses?.items || [];
   if (guesses?.loading) return <Loading>Kraunama…</Loading>;
@@ -1175,7 +1280,12 @@ function GuessesList({ game, guesses, fetch, finished, teamOrder }){
               <RowAvatar src={joinApi(gu.avatarUrl)} data-fallback={gu.username}>
                 {initials(gu.username)}
               </RowAvatar>
-              <UserName>{gu.username || `#${gu.user_id}`}</UserName>
+              <NickButton
+                onClick={(e) => onUserClick?.(gu.user_id, gu.username, gu.avatarUrl, e)}
+                aria-label={`Atidaryti ${gu.username} profilį`}
+              >
+                <UserName as="span">{gu.username}</UserName>
+              </NickButton>
             </UserCell>
           </td>
             <td>
@@ -2065,4 +2175,18 @@ const Table = styled.table`
   font-size: 14px;
   th, td { padding: 10px 12px; border-bottom: 1px solid #eef2f7; vertical-align: middle; }
   th { text-align: left; font-weight: 800; color: #111827; background: #f9fafb; }
+`;
+
+const NickButton = styled.button`
+  background: none;
+  border: 0;
+  padding: 0;
+  margin: 0;
+  font: inherit;
+  color: inherit;
+  font-weight: inherit;
+  cursor: pointer;
+  text-align: left;
+  outline: none;
+  &:hover { text-decoration: underline; }
 `;
