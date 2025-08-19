@@ -32,28 +32,32 @@ export default function ChatDock({ open = false, onClose }) {
   const [cardFor, setCardFor] = useState(null);
   const [cardLoading, setCardLoading] = useState(false);
   const [cardError, setCardError] = useState("");
+
   const [cardOpen, setCardOpen] = useState(false);
-  const [cardAnchor, setCardAnchor] = useState(null);
+const [cardAnchor, setCardAnchor] = useState(null);
+
+const dockRef = useRef(null);
 
   function openUserCard(userId, e) {
-    const el = e.currentTarget;
-    // toggle if same user is clicked again
-    if (cardOpen && cardFor === userId && cardAnchor === el) {
-      setCardOpen(false);
-      setCardAnchor(null);
-      setCardFor(null);
-      return;
-    }
-    setCardAnchor(el);
-    setCardFor(userId);
-    setCardOpen(true);
-    if (!profiles.has(userId)) loadProfile(userId);
-  }
-  function closeUserCard() {
+  const el = e.currentTarget;
+  // toggle if same user is clicked again
+  if (cardOpen && cardFor === userId && cardAnchor === el) {
     setCardOpen(false);
     setCardAnchor(null);
     setCardFor(null);
+    return;
   }
+  setCardAnchor(el);
+  setCardFor(userId);
+  setCardOpen(true);
+  if (!profiles.has(userId)) loadProfile(userId);
+}
+
+function closeUserCard() {
+  setCardOpen(false);
+  setCardAnchor(null);
+  setCardFor(null);
+}
 
     // near other state
   const [profileVisible, setProfileVisible] = useState(false);
@@ -261,7 +265,7 @@ const closeProfile = () => setCardFor(null);
 
 
   return (
-    <Wrap $open={open}>
+    <Wrap ref={dockRef} $open={open}>
       {/* blur all content if confirm modal is open */}
       <BlurContainer $blur={!!confirmDel}>
         <Header>
@@ -404,6 +408,8 @@ const closeProfile = () => setCardFor(null);
   loading={cardLoading && !profiles.get(cardFor)}
   error={cardError}
   apiOrigin={API_URL}
+  containerEl={dockRef.current}
+  variant="compact"
 />
     </Wrap>
   );
