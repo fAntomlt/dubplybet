@@ -458,6 +458,24 @@ function renderPodium(top3) {
     }
   }, [isArchived, dayList, selectedDay]);
 
+  // keep your LT-time default for ACTIVE tournaments
+useEffect(() => {
+  if (isArchived || !dayList.length || selectedDay) return;
+  const today = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Europe/Vilnius",
+    year: "numeric", month: "2-digit", day: "2-digit",
+  }).format(new Date());
+  const start = dayList[0], end = dayList[dayList.length - 1];
+  setSelectedDay(today < start ? start : (today > end ? end : today));
+}, [isArchived, dayList, selectedDay]);
+
+// and restore default day for ARCHIVED tournaments (last day)
+useEffect(() => {
+  if (!isArchived || !dayList.length || selectedDay) return;
+  setSelectedDay(dayList[dayList.length - 1]);
+}, [isArchived, dayList, selectedDay]);
+
+
   useEffect(() => {
   if (!isArchived || !tid) return;
   (async () => {
