@@ -14,6 +14,8 @@ import Login from "./pages/Login.jsx";
 import Register from "./pages/Register.jsx";
 import ForgotPassword from "./pages/ForgotPassword.jsx";
 import ResetPassword from "./pages/ResetPassword.jsx";
+import PostsList from "./pages/PostsList.jsx";
+import PostDetail from "./pages/PostDetail.jsx";
 import { ToastProvider } from "./components/ToastProvider.jsx";
 
 function AppRoutes() {
@@ -40,6 +42,10 @@ function AppRoutes() {
             <Admin />
           </RequireAdmin>
         ) },
+        { path: "/naujienos", element: <PostsList type="post" /> },
+        { path: "/atnaujinimai", element: <PostsList type="update" /> },
+        { path: "/naujienos/:slug", element: <PostDetail type="post" /> },
+        { path: "/atnaujinimai/:slug", element: <PostDetail type="update" /> },
       ],
     },
 

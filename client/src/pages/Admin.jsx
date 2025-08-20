@@ -4,6 +4,8 @@ import styled, { keyframes } from "styled-components";
 import { api } from "../lib/api";
 import { getAuth } from "../store/auth";
 import { useToast } from "../components/ToastProvider";
+import ReactQuill from "react-quill";
+import "react-quill/dist/quill.snow.css";
 
 /**
  * Self-guarded Admin page:
@@ -58,9 +60,12 @@ function Tabs() {
         <TabButton $active={tab === "games"} onClick={() => setTab("games")}>
           Rungtynės
         </TabButton>
+        <TabButton $active={tab === "posts"} onClick={() => setTab("posts")}>
+          Posts
+        </TabButton>
       </TabRow>
 
-      <Card>{tab === "users" && <AdminUsers />}{tab === "tournaments" && <AdminTournaments />}{tab === "games" && <AdminGames />}</Card>
+      <Card>{tab === "users" && <AdminUsers />}{tab === "tournaments" && <AdminTournaments />}{tab === "games" && <AdminGames />}{tab === "posts" && <AdminPosts />}</Card>
     </>
   );
 }
@@ -1007,6 +1012,186 @@ function AdminGames() {
       >
         <p>Ar tikrai norite <strong>negrįžtamai</strong> ištrinti šias rungtynes?</p>
       </ConfirmModal>
+    </Section>
+  );
+}
+
+function AdminPosts() {
+  const toast = useToast();
+  const [rows, setRows] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [q, setQ] = useState("");
+
+  // form
+  const [type, setType] = useState("post");
+  const [version, setVersion] = useState("");
+  const [title, setTitle] = useState("");
+  const [headerUrl, setHeaderUrl] = useState("");
+  const [pinned, setPinned] = useState(false);
+  const [html, setHtml] = useState("");
+  const [delta, setDelta] = useState(null);
+
+  async function load() {
+    setLoading(true);
+    try {
+      const d = await api(`/api/admin/posts?limit=50&offset=0&q=${encodeURIComponent(q)}`);
+      setRows(d.posts || []);
+    } catch (e) {
+      toast.error(e?.error || "Nepavyko užkrauti");
+    } finally { setLoading(false); }
+  }
+  useEffect(() => { load(); }, []); // initial
+
+  async function uploadHeader(file) {
+    const fd = new FormData();
+    fd.append("file", file);
+    const r = await fetch(import.meta.env.VITE_API_URL + "/api/admin/posts/upload-header", {
+      method: "POST",
+      body: fd,
+      headers: authHeader(), // see helper below
+    });
+    const d = await r.json();
+    if (!d.ok) throw new Error(d.error || "Klaida įkeliant");
+    setHeaderUrl(d.url);
+  }
+
+  function authHeader() {
+    const token = getAuth()?.token || localStorage.getItem("token") || "";
+    return token ? { Authorization: `Bearer ${token}` } : {};
+  }
+
+  const modules = {
+    toolbar: [
+      [{ header: [1, 2, false] }],
+      ["bold", "italic", "underline", "strike"],
+      [{ color: [] }],
+      [{ list: "ordered" }, { list: "bullet" }],
+      ["link", "clean"]
+    ],
+  };
+
+  async function save() {
+    if (!title.trim()) return toast.error("Įveskite pavadinimą");
+    if (type === "update" && !version.trim()) return toast.error("Įrašykite versiją");
+
+    try {
+      const d = await api("/api/admin/posts", {
+        method: "POST",
+        json: {
+          type,
+          title: title.trim(),
+          version: type === "update" ? version.trim() : null,
+          header_url: headerUrl || null,
+          content_html: html,
+          content_json: delta,
+          pinned,
+        },
+      });
+      toast.success("Išsaugota");
+      // reset form
+      setTitle(""); setVersion(""); setHeaderUrl(""); setPinned(false); setHtml(""); setDelta(null);
+      load();
+    } catch (e) {
+      toast.error(e?.message || "Nepavyko išsaugoti");
+    }
+  }
+
+  return (
+    <Section>
+      <BlockTitle>Naujas įrašas</BlockTitle>
+      <Flex>
+        <Select value={type} onChange={e => setType(e.target.value)}>
+          <option value="post">POST</option>
+          <option value="update">UPDATE</option>
+        </Select>
+        {type === "update" && (
+          <Input placeholder="Versija (pvz. 1.2.0)" value={version} onChange={e => setVersion(e.target.value)} />
+        )}
+        <Input placeholder="Pavadinimas" value={title} onChange={e => setTitle(e.target.value)} />
+        <label style={{ display: "inline-grid", gap: 6 }}>
+          <span style={{ fontSize: 12, color: "#64748b" }}>Antraštės paveikslėlis</span>
+          <input type="file" accept="image/*" onChange={e => e.target.files[0] && uploadHeader(e.target.files[0]).catch(err => toast.error(err.message))} />
+        </label>
+        <label style={{ display:"inline-flex", alignItems:"center", gap:6 }}>
+          <input type="checkbox" checked={pinned} onChange={e => setPinned(e.target.checked)} />
+          <span>Prisegti (PIN)</span>
+        </label>
+      </Flex>
+
+      {headerUrl && (
+        <div style={{ border: "1px solid #e5e7eb", borderRadius: 12, overflow: "hidden" }}>
+          <img src={joinApi(headerUrl)} alt="" style={{ width: "100%", display: "block", aspectRatio: "16/9", objectFit: "cover" }} />
+        </div>
+      )}
+
+      <div>
+        <ReactQuill
+          theme="snow"
+          modules={modules}
+          value={html}
+          onChange={(content, deltaObj, source, editor) => {
+            setHtml(content);
+            setDelta(editor.getContents());
+          }}
+          placeholder="Įveskite įrašo turinį…"
+        />
+      </div>
+
+      <div>
+        <Primary onClick={save}>Išsaugoti</Primary>
+      </div>
+
+      <Divider />
+
+      <BlockTitle>Įrašai</BlockTitle>
+      <Flex>
+        <SearchInput value={q} onChange={e => setQ(e.target.value)} placeholder="Paieška pavadinime…" />
+        <Ghost onClick={load}>{loading ? "Kraunama…" : "Ieškoti"}</Ghost>
+      </Flex>
+
+      <TableCard>
+        <Table>
+          <thead>
+            <tr>
+              <th>ID</th>
+              <th>Tipas</th>
+              <th>Pavadinimas</th>
+              <th>Versija</th>
+              <th>Autorius</th>
+              <th>PIN</th>
+              <th>Sukurta</th>
+              <th style={{ textAlign:"right" }}>Veiksmai</th>
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map(p => (
+              <tr key={p.id}>
+                <td>{p.id}</td>
+                <td>{p.type}</td>
+                <td>{p.title}</td>
+                <td>{p.type === "update" ? (p.version || "—") : "—"}</td>
+                <td>{p.username}</td>
+                <td>{p.pinned ? "✓" : "—"}</td>
+                <td>{p.created_at?.slice(0,16).replace("T"," ")}</td>
+                <td style={{ textAlign:"right", whiteSpace:"nowrap" }}>
+                  <Small onClick={async () => {
+                    await api(`/api/admin/posts/${p.id}/pin`, { method:"PATCH", json:{ pinned: !p.pinned }});
+                    toast.success(p.pinned ? "Nuimtas PIN" : "Prisegtas viršuje");
+                    load();
+                  }}>{p.pinned ? "Atsegti" : "Prisegti"}</Small>{" "}
+                  <Danger onClick={async () => {
+                    await api(`/api/admin/posts/${p.id}`, { method:"DELETE" });
+                    toast.success("Ištrinta"); load();
+                  }}>Trinti</Danger>
+                </td>
+              </tr>
+            ))}
+            {!rows.length && (
+              <tr><td colSpan={8} style={{ textAlign:"center", color:"#64748b", padding:20 }}>Nėra įrašų</td></tr>
+            )}
+          </tbody>
+        </Table>
+      </TableCard>
     </Section>
   );
 }
