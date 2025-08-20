@@ -67,7 +67,7 @@ async function uniqueSlug(title) {
 /* -------- CREATE -------- */
 router.post("/posts", async (req, res) => {
   try {
-    const uid = req.user?.uid;
+    const uid = req.user?.id;
     const body = PostSchema.parse(req.body || {});
     const html = sanitize(body.content_html);
     const slug = await uniqueSlug(body.title);
