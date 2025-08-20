@@ -24,6 +24,8 @@ import mime from "mime-types";
 import fs from "fs";
 import tournamentsPublic from "./routes/tournaments.public.js";
 import tournamentsWinnerPicks from "./routes/tournaments.winner-picks.js";
+import adminPostsRoutes from "./routes/admin.posts.js";
+import publicPostsRoutes from "./routes/posts.public.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -100,6 +102,8 @@ const authLimiter = rateLimit({
 app.use("/api/auth", authLimiter, authRoutes);
 app.use("/api/tournaments", tournamentsPublic);
 app.use("/api/tournaments", tournamentsWinnerPicks);
+app.use("/api/admin", requireAuth, requireAdmin, adminPostsRoutes);
+app.use("/api/posts", publicPostsRoutes);
 
 app.get("/api/health", (req, res) => {
   res.json({ ok: true, uptime: process.uptime() });
