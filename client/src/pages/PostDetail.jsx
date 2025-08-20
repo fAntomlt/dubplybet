@@ -2,6 +2,7 @@ import React, { useEffect, useState } from "react";
 import styled from "styled-components";
 import { useParams } from "react-router-dom";
 import { api } from "../lib/api";
+import UserCardPopover from "../components/UserCardPopover.jsx";
 
 const API_ORIGIN = (import.meta.env.VITE_API_URL || "").replace(/\/+$/, "");
 const absUrl = (u) => {
@@ -15,6 +16,14 @@ export default function PostDetail({ type }) {
   const { slug } = useParams();
   const [p, setP] = useState(null);
 
+  // --- popover state (same pattern as Leaderboards/ChatDock)
+  const [cardOpen, setCardOpen] = useState(false);
+  const [anchorEl, setAnchorEl] = useState(null);
+  const [cardUser, setCardUser] = useState(null);
+  const [cardLoading, setCardLoading] = useState(false);
+  const [cardError, setCardError] = useState("");
+  const token = localStorage.getItem("authToken");
+
   useEffect(() => {
     (async () => {
       const d = await api(`/api/posts/${slug}`);
@@ -23,38 +32,117 @@ export default function PostDetail({ type }) {
     })();
   }, [slug]);
 
+  async function fetchUserPublic(userId) {
+    setCardLoading(true);
+    setCardError("");
+    setCardUser(null);
+
+    try {
+      // find active tournament (same approach used elsewhere)
+      let tid = null;
+      try {
+        const tRes = await fetch(`${API_ORIGIN}/api/tournaments`);
+        const tData = await tRes.json();
+        const list = tData?.tournaments || [];
+        const active = list.find((t) => t.status === "active") || list[0];
+        tid = active?.id || null;
+      } catch {}
+
+      const url = tid
+        ? `${API_ORIGIN}/api/users/public/${userId}?tournament_id=${tid}`
+        : `${API_ORIGIN}/api/users/public/${userId}`;
+
+      const headers = token ? { Authorization: `Bearer ${token}` } : {};
+      const res = await fetch(url, { headers });
+      const data = await res.json();
+
+      if (!res.ok || !data?.ok) {
+        setCardError(data?.error || "Nepavyko užkrauti profilio");
+        return;
+      }
+      setCardUser(data.user);
+    } catch {
+      setCardError("Serverio klaida įkeliant profilį");
+    } finally {
+      setCardLoading(false);
+    }
+  }
+
+  function openCard(userId, e) {
+    const el = e.currentTarget;
+    if (cardOpen && anchorEl === el) {
+      setCardOpen(false);
+      setAnchorEl(null);
+      return;
+    }
+    setAnchorEl(el);
+    setCardOpen(true);
+    fetchUserPublic(userId);
+  }
+
+  function closeCard() {
+    setCardOpen(false);
+    setAnchorEl(null);
+  }
+
   if (!p) return <Wrap><div style={{ color:"#64748b" }}>Kraunama…</div></Wrap>;
 
   return (
-  <Wrap>
-    <Top>
-      <Left>
-        <Avatar $img={absUrl(p.avatarUrl)} />
-        <div className="name">{p.username}</div>
-      </Left>
-      <Right>
-        {p.type === "update" && p.version ? <Badge>v{p.version}</Badge> : null}
-        <span>{String(p.created_at).slice(0,16).replace("T"," ")}</span>
-        {p.pinned ? <span title="Prisegtas">📌</span> : null}
-      </Right>
-    </Top>
+    <>
+      <Wrap>
+        <Top>
+          <Left>
+            <Avatar
+              $img={absUrl(p.avatarUrl)}
+              role="button"
+              tabIndex={0}
+              aria-label={`Rodyti ${p.username} profilį`}
+              onClick={(e) => openCard(p.author_id, e)}
+              onKeyDown={(e) => (e.key === "Enter" || e.key === " ") && openCard(p.author_id, e)}
+            />
+            <NameBtn
+              role="button"
+              tabIndex={0}
+              onClick={(e) => openCard(p.author_id, e)}
+              onKeyDown={(e) => (e.key === "Enter" || e.key === " ") && openCard(p.author_id, e)}
+            >
+              {p.username}
+            </NameBtn>
+          </Left>
+          <Right>
+            {p.type === "update" && p.version ? <Badge>v{p.version}</Badge> : null}
+            <span>{String(p.created_at).slice(0,16).replace("T"," ")}</span>
+            {p.pinned ? <span title="Prisegtas">📌</span> : null}
+          </Right>
+        </Top>
 
-    {/* Divider between top meta and title */}
-    <Divider />
-
-    <Title>{p.title}</Title>
-
-    {p.header_url ? (
-      <>
-        <Hero src={absUrl(p.header_url)} alt="" />
-        {/* Divider between picture and the content below */}
+        {/* Divider between top meta and title */}
         <Divider />
-      </>
-    ) : null}
 
-    <Content dangerouslySetInnerHTML={{ __html: p.content_html }} />
-  </Wrap>
-);
+        <Title>{p.title}</Title>
+
+        {p.header_url ? (
+          <>
+            <Hero src={absUrl(p.header_url)} alt="" />
+            {/* Divider between picture and the content below */}
+            <Divider />
+          </>
+        ) : null}
+
+        <Content dangerouslySetInnerHTML={{ __html: p.content_html }} />
+      </Wrap>
+
+      <UserCardPopover
+        open={cardOpen}
+        anchorEl={anchorEl}
+        onClose={closeCard}
+        user={cardUser}
+        loading={cardLoading && !cardUser}
+        error={cardError}
+        apiOrigin={API_ORIGIN}
+      />
+    </>
+  );
 }
 
 const Wrap = styled.article`
@@ -78,6 +166,11 @@ const Avatar = styled.div`
   width:34px; height:34px; border-radius:50%; background:#f3f4f6;
   background-image:${p=>p.$img ? `url(${p.$img})` : "none"}; background-size:cover; background-position:center;
   border:1px solid #e7eaf0;
+  cursor: pointer;
+`;
+const NameBtn = styled.span`
+  font-weight:700; cursor:pointer;
+  &:hover { text-decoration: underline; }
 `;
 const Content = styled.div`
   font-size:16px; line-height:1.6;
