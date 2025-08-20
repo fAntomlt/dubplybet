@@ -66,12 +66,24 @@ async function uniqueSlug(title) {
 
 /* -------- CREATE -------- */
 router.post("/posts", async (req, res) => {
+  const conn = await pool.getConnection();
   try {
-    const uid = req.user?.id;
     const body = PostSchema.parse(req.body || {});
     const html = sanitize(body.content_html);
     const slug = await uniqueSlug(body.title);
-    const [r] = await pool.query(
+    const authorId = req.user?.id ?? req.user?.uid; // use whatever your auth sets
+
+    await conn.beginTransaction();
+
+    if (body.pinned) {
+      // free the slot before inserting the new pinned row
+      await conn.query(
+        "UPDATE posts SET pinned = 0, pinned_at = NULL WHERE type = ?",
+        [body.type]
+      );
+    }
+
+    const [r] = await conn.query(
       `INSERT INTO posts
         (type, title, version, slug, header_url, content_html, content_json, pinned, pinned_at, author_id)
        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
@@ -85,22 +97,22 @@ router.post("/posts", async (req, res) => {
         body.content_json ? JSON.stringify(body.content_json) : null,
         body.pinned ? 1 : 0,
         body.pinned ? new Date() : null,
-        uid
+        authorId,
       ]
     );
 
-    if (body.pinned) {
-      // single pinned per type
-      await pool.query(
-        "UPDATE posts SET pinned = 0, pinned_at = NULL WHERE type = ? AND id <> ?",
-        [body.type, r.insertId]
-      );
-    }
-
+    await conn.commit();
     return res.json({ ok: true, id: r.insertId, slug });
   } catch (e) {
+    try { await conn.rollback(); } catch {}
+    // surface a useful message (helps next time)
+    if (e?.code === "ER_DUP_ENTRY") {
+      return res.status(409).json({ error: "Jau yra prisegtas įrašas šio tipo." });
+    }
     console.error("create post error:", e);
     return res.status(400).json({ error: "Neteisingi duomenys" });
+  } finally {
+    conn.release();
   }
 });
 
