@@ -1,13 +1,11 @@
-import * as ReactDOM from "react-dom";
 import React, { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import styled, { keyframes } from "styled-components";
 import { api } from "../lib/api";
 import { getAuth } from "../store/auth";
 import { useToast } from "../components/ToastProvider";
-import ReactQuill from "react-quill";
-import "react-quill/dist/quill.snow.css";
-
+import QuillEditor from "../components/QuillEditor";
+import "quill/dist/quill.snow.css";
 /**
  * Self-guarded Admin page:
  * - If not logged in or role !== 'admin' => redirect to "/"
@@ -74,6 +72,9 @@ function Tabs() {
 /* ===================== Users ===================== */
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const DISCORD_RE = /^(?!.*\.\.)[a-z0-9._]{2,32}$/; // same rule you use on backend
+
+const API_ORIGIN = (import.meta.env.VITE_API_URL || "").replace(/\/+$/, "");
+const joinApi = (p) => (p?.startsWith("/uploads") ? `${API_ORIGIN}${p}` : p || "");
 
 function AdminUsers() {
   const toast = useToast();
@@ -1032,7 +1033,8 @@ function AdminPosts() {
   const [html, setHtml] = useState("");
   const [delta, setDelta] = useState(null);
 
-  const canUseReactQuill = typeof ReactDOM.findDOMNode === "function";
+  const [quillReady, setQuillReady] = useState(false);
+   useEffect(() => { setQuillReady(true); }, []);
 
   async function load() {
     setLoading(true);
@@ -1128,25 +1130,15 @@ function AdminPosts() {
       )}
 
       <div>
-        {canUseReactQuill ? (
-          <ReactQuill
-            theme="snow"
-            modules={modules}
-            value={html}
-            onChange={(content, _deltaObj, _source, editor) => {
-              setHtml(content);
-              setDelta(editor.getContents());
-            }}
-            placeholder="Įveskite įrašo turinį…"
-          />
-        ) : (
-          <textarea
-            value={html}
-            onChange={(e) => { setHtml(e.target.value); setDelta(null); }}
-            placeholder="Įveskite įrašo turinį…"
-            style={{ width: "100%", minHeight: 240, padding: 10 }}
-          />
-        )}
+        <QuillEditor
+          modules={modules}
+          value={html}
+          onChange={(content, delta) => {
+            setHtml(content);
+            setDelta(delta);
+          }}
+          placeholder="Įveskite įrašo turinį…"
+        />
       </div>
 
       <div>

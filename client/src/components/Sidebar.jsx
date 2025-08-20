@@ -1,9 +1,9 @@
 import { useState, useEffect } from "react";
-import { NavLink } from "react-router-dom";
+import { NavLink, useLocation } from "react-router-dom";
 import styled from "styled-components";
 import {
   FiHome, FiUser, FiAward, FiBarChart2, FiChevronDown,
-  FiMessageSquare, FiShield, FiMenu, FiLogOut, FiX
+  FiMessageSquare, FiShield, FiMenu, FiLogOut, FiX, FiFileText, FiRefreshCw
 } from "react-icons/fi";
 import logoImg from "../assets/icriblogo.png";
 import { useToast } from "../components/ToastProvider";
@@ -29,14 +29,21 @@ const AvatarSmall = ({ name, url, apiBase }) => {
 };
 
 export default function Sidebar({ onOpenChat }) {
-  const [open, setOpen] = useState({ leaderboards: false });
+  const [open, setOpen] = useState({ leaderboards: false, news: false });
   const [mobileOpen, setMobileOpen] = useState(false);
   const [auth, setAuthState] = useState(getAuth());
+  const location = useLocation();
   useEffect(() => {
     setAuthState(getAuth());               // initial
     const unsub = subscribe(setAuthState); // live updates
     return () => unsub();
   }, []);
+  useEffect(() => {
+    const p = location.pathname || "";
+    const inLB = p.startsWith("/leaderboards");
+    const inNews = p.startsWith("/naujienos") || p.startsWith("/atnaujinimai");
+    setOpen(s => ({ ...s, leaderboards: inLB, news: inNews }));
+  }, [location.pathname]);
 
   const API = import.meta.env.VITE_API_URL;
 
@@ -127,6 +134,30 @@ export default function Sidebar({ onOpenChat }) {
           <Submenu $open={open.leaderboards} onClick={e => e.stopPropagation()} aria-hidden={!open.leaderboards}>
             <SubItem to="/leaderboards/visu-laiku" onClick={closeIfMobile}>Visų laikų</SubItem>
             <SubItem to="/leaderboards/pagal-turnyrą" onClick={closeIfMobile}>Pagal turnyrą</SubItem>
+          </Submenu>
+        </Group>
+
+        <Group>
+          <GroupHeader
+            type="button"
+            onClick={() => setOpen(s => ({ ...s, news: !s.news }))}
+            aria-expanded={open.news}
+          >
+            <div><FiFileText /> <span>Naujienos</span></div>
+            <Caret $open={open.news}><FiChevronDown /></Caret>
+          </GroupHeader>
+
+          <Submenu
+            $open={open.news}
+            onClick={e => e.stopPropagation()}
+            aria-hidden={!open.news}
+          >
+            <SubItem to="/naujienos" onClick={closeIfMobile}>
+              <FiFileText /> <span>Posts</span>
+            </SubItem>
+            <SubItem to="/atnaujinimai" onClick={closeIfMobile}>
+              <FiRefreshCw /> <span>Atnaujinimai</span>
+            </SubItem>
           </Submenu>
         </Group>
 

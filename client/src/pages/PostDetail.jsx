@@ -3,6 +3,14 @@ import styled from "styled-components";
 import { useParams } from "react-router-dom";
 import { api } from "../lib/api";
 
+const API_ORIGIN = (import.meta.env.VITE_API_URL || "").replace(/\/+$/, "");
+const absUrl = (u) => {
+  if (!u) return "";
+  if (/^https?:\/\//i.test(u)) return u;        // already absolute
+  if (u.startsWith("/uploads")) return API_ORIGIN + u; // served by backend
+  return u;
+};
+
 export default function PostDetail({ type }) {
   const { slug } = useParams();
   const [p, setP] = useState(null);
@@ -21,7 +29,7 @@ export default function PostDetail({ type }) {
     <Wrap>
       <Top>
         <Left>
-          <Avatar $img={p.avatarUrl} />
+          <Avatar $img={absUrl(p.avatarUrl)} />
           <div className="name">{p.username}</div>
         </Left>
         <Right>
@@ -32,7 +40,7 @@ export default function PostDetail({ type }) {
       </Top>
 
       <Title>{p.title}</Title>
-      {p.header_url ? <Hero src={p.header_url} alt="" /> : null}
+      {p.header_url ? <Hero src={absUrl(p.header_url)} alt="" /> : null}
       <Content dangerouslySetInnerHTML={{ __html: p.content_html }} />
     </Wrap>
   );

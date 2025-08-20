@@ -3,6 +3,14 @@ import styled from "styled-components";
 import { Link } from "react-router-dom";
 import { api } from "../lib/api";
 
+const API_ORIGIN = (import.meta.env.VITE_API_URL || "").replace(/\/+$/, "");
+const absUrl = (u) => {
+  if (!u) return "";
+  if (/^https?:\/\//i.test(u)) return u;        // already absolute
+  if (u.startsWith("/uploads")) return API_ORIGIN + u; // served by backend
+  return u;
+};
+
 export default function PostsList({ type }) {
   const [rows, setRows] = useState([]);
   useEffect(() => {
@@ -20,7 +28,7 @@ export default function PostsList({ type }) {
           {p.pinned ? <Pin>📌</Pin> : null}
           <Link to={(type === "update" ? "/atnaujinimai/" : "/naujienos/") + (p.slug || p.id)}>
             {p.header_url ? (
-              <Thumb src={p.header_url} alt="" />
+            <Thumb src={absUrl(p.header_url)} alt="" />
             ) : <ThumbPlaceholder />}
             <Title>
               {type === "update" && p.version ? <Version>v{p.version}</Version> : null}
@@ -30,7 +38,7 @@ export default function PostsList({ type }) {
           <Divider />
           <Meta>
             <User>
-              <Avatar $img={p.avatarUrl} /><span>{p.username}</span>
+              <Avatar $img={absUrl(p.avatarUrl)} /><span>{p.username}</span>
             </User>
             <DateText>{String(p.created_at).slice(0,16).replace("T"," ")}</DateText>
           </Meta>
@@ -50,8 +58,8 @@ const Card = styled.article`
   &:hover { box-shadow:0 8px 24px rgba(2,6,23,.10); transform: translateY(-1px); }
 `;
 const Pin = styled.div`position:absolute; top:10px; right:10px; font-size:20px;`;
-const Thumb = styled.img`width:100%; height:auto; aspect-ratio:16/9; object-fit:cover; display:block;`;
-const ThumbPlaceholder = styled.div`width:100%; aspect-ratio:16/9; background:#f3f4f6;`;
+const Thumb = styled.img`width:100%; height:auto; aspect-ratio:16/4; object-fit:cover; display:block;`;
+const ThumbPlaceholder = styled.div`width:100%; aspect-ratio:16/4; background:#f3f4f6;`;
 const Title = styled.h2`margin:12px; margin-bottom:10px; font-size:22px; font-weight:900;`;
 const Version = styled.span`
   font-size:14px; font-weight:900; color:#1f6feb; margin-right:8px; background:#eef4ff; padding:2px 6px; border-radius:6px;

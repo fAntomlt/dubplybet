@@ -13,3 +13,9 @@
 body {
   margin: 0;
 }
+
+.ql-container,
+.ql-container .ql-editor {
+  direction: ltr !important;
+  text-align: left !important;
+}
