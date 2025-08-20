@@ -133,7 +133,6 @@ export default function Sidebar({ onOpenChat }) {
 
           <Submenu $open={open.leaderboards} onClick={e => e.stopPropagation()} aria-hidden={!open.leaderboards}>
             <SubItem to="/leaderboards/visu-laiku" onClick={closeIfMobile}>Visų laikų</SubItem>
-            <SubItem to="/leaderboards/pagal-turnyrą" onClick={closeIfMobile}>Pagal turnyrą</SubItem>
           </Submenu>
         </Group>
 
