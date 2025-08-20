@@ -20,7 +20,14 @@ const PostSchema = z.object({
   header_url: z.string().max(191).optional().nullable(),
   content_html: z.string().min(1),
   content_json: z.any().optional().nullable(),
-  pinned: z.boolean().optional().default(false),
+  pinned: z.preprocess((v) => {
+    if (v === true || v === false) return v;
+    if (v === "on") return true;
+    if (v === "off") return false;
+    if (typeof v === "string") return v === "true" || v === "1";
+    if (typeof v === "number") return v === 1;
+    return false;
+  }, z.boolean()).optional().default(false),
 });
 
 function sanitize(html) {
