@@ -73,17 +73,29 @@ async function uniqueSlug(title) {
 
 /* -------- CREATE -------- */
 router.post("/posts", async (req, res) => {
+  // log the raw payload you received
+  console.log("create /posts body:", req.body);
+
   const conn = await pool.getConnection();
   try {
-    const body = PostSchema.parse(req.body || {});
+    // validate safely so you can see exactly what failed
+    const parsed = PostSchema.safeParse(req.body || {});
+    if (!parsed.success) {
+      console.error("Post validation failed:", parsed.error.flatten());
+      return res.status(400).json({
+        error: "Neteisingi duomenys",
+        issues: parsed.error.issues,
+      });
+    }
+    const body = parsed.data;
+
     const html = sanitize(body.content_html);
     const slug = await uniqueSlug(body.title);
-    const authorId = req.user?.id ?? req.user?.uid; // use whatever your auth sets
+    const authorId = req.user?.id ?? req.user?.uid;
 
     await conn.beginTransaction();
 
     if (body.pinned) {
-      // free the slot before inserting the new pinned row
       await conn.query(
         "UPDATE posts SET pinned = 0, pinned_at = NULL WHERE type = ?",
         [body.type]
@@ -112,7 +124,6 @@ router.post("/posts", async (req, res) => {
     return res.json({ ok: true, id: r.insertId, slug });
   } catch (e) {
     try { await conn.rollback(); } catch {}
-    // surface a useful message (helps next time)
     if (e?.code === "ER_DUP_ENTRY") {
       return res.status(409).json({ error: "Jau yra prisegtas įrašas šio tipo." });
     }

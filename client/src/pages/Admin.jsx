@@ -1087,9 +1087,9 @@ function AdminPosts() {
         title: title.trim(),
         version: type === "update" ? version.trim() : null,
         header_url: headerUrl || null,
-        content_html: html,
-        content_json: delta,
-        pinned: !!pinned,   // <-- make sure a real boolean goes over the wire
+        content_html: html,          // non-empty string
+        content_json: delta || null, // optional
+        pinned: !!pinned,            // <-- boolean
       },
     });
       toast.success("Išsaugota");
