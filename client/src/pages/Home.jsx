@@ -208,107 +208,180 @@ export default function Home() {
             <SkeletonHero />
           )}
 
-          {/* Latest post + update mini cards */}
           <MiniGrid>
             {/* Latest post */}
-            <MiniCard
-              role="button"
-              tabIndex={0}
-              onClick={() => latestPost && goToPost(latestPost)}
-              onKeyDown={(e) => (e.key === "Enter" || e.key === " ") && latestPost && goToPost(latestPost)}
-              aria-label="Atidaryti naujausią naujieną"
-            >
-              <MiniHeader>
+            <MiniCard aria-label="Naujausia naujiena">
+            <MiniHeader>
                 <MiniKicker>NAUJAUSIA NAUJIENA</MiniKicker>
                 {latestPost?.pinned ? <Pin aria-hidden>📌</Pin> : null}
-              </MiniHeader>
-              {latestPost?.header_url ? (
-                <MiniThumb style={{ backgroundImage: `url(${joinApi(latestPost.header_url)})` }} />
-              ) : (
+            </MiniHeader>
+
+            {latestPost?.header_url ? (
+                <MiniThumb
+                $clickable={!!latestPost?.header_url}
+                role="button"
+                tabIndex={0}
+                aria-label="Atidaryti naujausią naujieną"
+                style={{ backgroundImage: `url(${joinApi(latestPost.header_url)})` }}
+                onClick={() => latestPost && goToPost(latestPost)}
+                onKeyDown={(e) => (e.key === "Enter" || e.key === " ") && (e.preventDefault(), latestPost && goToPost(latestPost))}
+                />
+            ) : (
                 <MiniThumb className="placeholder" />
-              )}
-              <MiniBody>
-                <MiniTitle>{latestPost ? latestPost.title : "—"}</MiniTitle>
+            )}
+
+            <MiniBody>
+                <MiniTitle
+                $clickable={!!latestPost}
+                role="button"
+                tabIndex={0}
+                onClick={() => latestPost && goToPost(latestPost)}
+                onKeyDown={(e) => (e.key === "Enter" || e.key === " ") && (e.preventDefault(), latestPost && goToPost(latestPost))}
+                >
+                {latestPost ? latestPost.title : "—"}
+                </MiniTitle>
+
                 {latestPost ? (
-                  <MiniMeta>
+                <MiniMeta
+                    onClick={(e) => e.stopPropagation()}
+                    onKeyDown={(e) => (e.key === "Enter" || e.key === " ") && e.stopPropagation()}
+                >
                     <UserRow>
-                      <MiniAvatar
+                    <MiniAvatar
                         $img={latestPost?.avatarUrl ? joinApi(latestPost.avatarUrl) : null}
                         role="button"
                         tabIndex={0}
                         aria-label={`Rodyti ${latestPost?.username} profilį`}
-                        onClick={(e) => latestPost?.author_id && openCard(latestPost.author_id, e)}
-                        onKeyDown={(e) => (e.key === "Enter" || e.key === " ") && latestPost?.author_id && openCard(latestPost.author_id, e)}
-                      >
+                        onClick={(e) => {
+                        e.stopPropagation();
+                        latestPost?.author_id && openCard(latestPost.author_id, e);
+                        }}
+                        onKeyDown={(e) => {
+                        if (e.key === "Enter" || e.key === " ") {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            latestPost?.author_id && openCard(latestPost.author_id, e);
+                        }
+                        }}
+                    >
                         {!latestPost?.avatarUrl ? <span>{initials(latestPost?.username)}</span> : null}
-                      </MiniAvatar>
-                      <MiniNick
+                    </MiniAvatar>
+
+                    <MiniNick
                         role="button"
                         tabIndex={0}
-                        onClick={(e) => latestPost?.author_id && openCard(latestPost.author_id, e)}
-                        onKeyDown={(e) => (e.key === "Enter" || e.key === " ") && latestPost?.author_id && openCard(latestPost.author_id, e)}
-                      >
+                        onClick={(e) => {
+                        e.stopPropagation();
+                        latestPost?.author_id && openCard(latestPost.author_id, e);
+                        }}
+                        onKeyDown={(e) => {
+                        if (e.key === "Enter" || e.key === " ") {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            latestPost?.author_id && openCard(latestPost.author_id, e);
+                        }
+                        }}
+                    >
                         {latestPost?.username || "—"}
-                      </MiniNick>
+                    </MiniNick>
                     </UserRow>
-                    <MiniDate>{latestPost ? String(latestPost.created_at).slice(0,16).replace("T"," ") : ""}</MiniDate>
-                  </MiniMeta>
+
+                    <MiniDate>{latestPost ? String(latestPost.created_at).slice(0, 16).replace("T", " ") : ""}</MiniDate>
+                </MiniMeta>
                 ) : null}
-              </MiniBody>
+            </MiniBody>
             </MiniCard>
 
             {/* Latest update */}
-            <MiniCard
-              role="button"
-              tabIndex={0}
-              onClick={() => latestUpdate && goToUpdate(latestUpdate)}
-              onKeyDown={(e) => (e.key === "Enter" || e.key === " ") && latestUpdate && goToUpdate(latestUpdate)}
-              aria-label="Atidaryti naujausią atnaujinimą"
-            >
-              <MiniHeader>
+            <MiniCard aria-label="Naujausias atnaujinimas">
+            <MiniHeader>
                 <MiniKicker>NAUJAUSIAS ATNAUJINIMAS</MiniKicker>
                 {latestUpdate?.pinned ? <Pin aria-hidden>📌</Pin> : null}
-              </MiniHeader>
-              {latestUpdate?.header_url ? (
-                <MiniThumb style={{ backgroundImage: `url(${joinApi(latestUpdate.header_url)})` }} />
-              ) : (
+            </MiniHeader>
+
+            {latestUpdate?.header_url ? (
+                <MiniThumb
+                $clickable={!!latestUpdate?.header_url}
+                role="button"
+                tabIndex={0}
+                aria-label="Atidaryti naujausią atnaujinimą"
+                style={{ backgroundImage: `url(${joinApi(latestUpdate.header_url)})` }}
+                onClick={() => latestUpdate && goToUpdate(latestUpdate)}
+                onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); latestUpdate && goToUpdate(latestUpdate); }}}
+                />
+            ) : (
                 <MiniThumb className="placeholder" />
-              )}
-              <MiniBody>
-                <MiniTitle>
-                  {latestUpdate ? (
-                    <>
-                      {latestUpdate?.version ? <Version>v{latestUpdate.version}</Version> : null}
-                      {latestUpdate.title}
-                    </>
-                  ) : "—"}
-                </MiniTitle>
+            )}
+
+            <MiniBody>
+                <MiniTitle
+                $clickable={!!latestUpdate}
+                role="button"
+                tabIndex={0}
+                onClick={() => latestUpdate && goToUpdate(latestUpdate)}
+                onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); latestUpdate && goToUpdate(latestUpdate); }}}
+                >
                 {latestUpdate ? (
-                  <MiniMeta>
+                    <>
+                    {latestUpdate?.version ? <Version>v{latestUpdate.version}</Version> : null}
+                    {latestUpdate.title}
+                    </>
+                ) : "—"}
+                </MiniTitle>
+
+                {latestUpdate ? (
+                <MiniMeta
+                    onClick={(e) => e.stopPropagation()}
+                    onKeyDown={(e) => {
+                    if (e.key === "Enter" || e.key === " ") e.stopPropagation();
+                    }}
+                >
                     <UserRow>
-                      <MiniAvatar
+                    <MiniAvatar
                         $img={latestUpdate?.avatarUrl ? joinApi(latestUpdate.avatarUrl) : null}
                         role="button"
                         tabIndex={0}
                         aria-label={`Rodyti ${latestUpdate?.username} profilį`}
-                        onClick={(e) => latestUpdate?.author_id && openCard(latestUpdate.author_id, e)}
-                        onKeyDown={(e) => (e.key === "Enter" || e.key === " ") && latestUpdate?.author_id && openCard(latestUpdate.author_id, e)}
-                      >
+                        onClick={(e) => {
+                        e.stopPropagation();
+                        latestUpdate?.author_id && openCard(latestUpdate.author_id, e);
+                        }}
+                        onKeyDown={(e) => {
+                        if (e.key === "Enter" || e.key === " ") {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            latestUpdate?.author_id && openCard(latestUpdate.author_id, e);
+                        }
+                        }}
+                    >
                         {!latestUpdate?.avatarUrl ? <span>{initials(latestUpdate?.username)}</span> : null}
-                      </MiniAvatar>
-                      <MiniNick
+                    </MiniAvatar>
+
+                    <MiniNick
                         role="button"
                         tabIndex={0}
-                        onClick={(e) => latestUpdate?.author_id && openCard(latestUpdate.author_id, e)}
-                        onKeyDown={(e) => (e.key === "Enter" || e.key === " ") && latestUpdate?.author_id && openCard(latestUpdate.author_id, e)}
-                      >
+                        onClick={(e) => {
+                        e.stopPropagation();
+                        latestUpdate?.author_id && openCard(latestUpdate.author_id, e);
+                        }}
+                        onKeyDown={(e) => {
+                        if (e.key === "Enter" || e.key === " ") {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            latestUpdate?.author_id && openCard(latestUpdate.author_id, e);
+                        }
+                        }}
+                    >
                         {latestUpdate?.username || "—"}
-                      </MiniNick>
+                    </MiniNick>
                     </UserRow>
-                    <MiniDate>{latestUpdate ? String(latestUpdate.created_at).slice(0,16).replace("T"," ") : ""}</MiniDate>
-                  </MiniMeta>
+
+                    <MiniDate>
+                    {latestUpdate ? String(latestUpdate.created_at).slice(0, 16).replace("T", " ") : ""}
+                    </MiniDate>
+                </MiniMeta>
                 ) : null}
-              </MiniBody>
+            </MiniBody>
             </MiniCard>
           </MiniGrid>
         </LeftCol>
@@ -458,7 +531,7 @@ const HeroContent = styled.div`
   text-align:center;
   gap: 8px;
 `;
-const Title = styled.h2`margin:0; font-size:clamp(22px,4vw,45px); font-weight:900; letter-spacing:-.02em;`;
+const Title = styled.h2`margin:0; font-size:clamp(22px,4vw,45px); font-weight:800; letter-spacing:-.02em;`;
 const Dates = styled.div`font-weight:700;`;
 const LiveRow = styled.div`
   display:inline-flex; align-items:center; gap:8px; font-weight:900; color:#b91c1c;
@@ -508,9 +581,8 @@ const MiniCard = styled.article`
   border-radius:14px;
   overflow:hidden;
   display:grid;
-  grid-template-rows: auto 120px auto;
+  grid-template-rows: auto clamp(140px, 22vw, 200px) auto;
   box-shadow:0 6px 16px rgba(2,6,23,.06);
-  cursor:pointer;
   transition: transform .18s ease, box-shadow .18s ease, border-color .18s ease;
 
   &:hover {
@@ -524,18 +596,19 @@ const MiniHeader = styled.div`
   padding:10px 12px; background:#f9fafb; border-bottom:1px solid #eef2f7;
 `;
 const MiniKicker = styled.div`
-  font-size:11px; letter-spacing:.12em; font-weight:900; color:#0f172a; opacity:.8;
+  font-size:11px; letter-spacing:.12em; font-weight:800; color:#0f172a; opacity:.8;
 `;
 const Pin = styled.span`font-size:18px; opacity:.9;`;
 const MiniThumb = styled.div`
   background:#f3f4f6 center/cover no-repeat;
+  cursor: ${p => (p.$clickable ? 'pointer' : 'default')};
   &.placeholder{ background:#f3f4f6; }
 `;
 const MiniBody = styled.div`display:grid; gap:8px; padding:10px 12px;`;
 const Version = styled.span`
-  font-size:12px; font-weight:900; color:#1f6feb; margin-right:8px; background:#eef4ff; padding:2px 6px; border-radius:6px;
+  font-size:12px; font-weight:800; color:#1f6feb; margin-right:8px; background:#eef4ff; padding:2px 6px; border-radius:6px;
 `;
-const MiniTitle = styled.h3`margin:0; font-size:18px; font-weight:800; color:#0f172a;`;
+const MiniTitle = styled.h3`margin:0; font-size:18px; font-weight:800; color:#0f172a; cursor: ${p => (p.$clickable ? 'pointer' : 'default')};`;
 const MiniMeta = styled.div`
   display:flex; align-items:center; justify-content:space-between; gap:8px;
 `;
@@ -543,7 +616,7 @@ const UserRow = styled.div`display:flex; align-items:center; gap:8px;`;
 const MiniAvatar = styled.div`
   width:28px; height:28px; border-radius:50%;
   background:${p=>p.$img ? `url(${p.$img}) center/cover no-repeat` : "#e7eaf0"};
-  border:1px solid #e7eaf0; display:grid; place-items:center; color:#0f172a; font-weight:900;
+  border:1px solid #e7eaf0; display:grid; place-items:center; color:#0f172a; font-weight:800;
 `;
 const MiniNick = styled.span`font-weight:700; cursor:pointer; &:hover{ text-decoration: underline; }`;
 const MiniDate = styled.div`color:#64748b; font-weight:600; font-size:13px;`;
@@ -564,7 +637,7 @@ const BoardHeader = styled.div`
   display:grid; gap:6px;
 `;
 const BoardTitle = styled.h3`
-  margin:0; font-size:13px; letter-spacing:.14em; font-weight:900; color:#0f172a; opacity:.9;
+  margin:0; font-size:13px; letter-spacing:.14em; font-weight:800; color:#0f172a; opacity:.9;
 `;
 const BoardSub = styled.div`font-size:12px; color:#64748b; font-weight:700;`;
 const BoardList = styled.div`
@@ -601,7 +674,7 @@ const RowAvatar = styled.div`
 `;
 const RowInfo = styled.div`display:grid; align-content:center; gap:4px;`;
 const RowName = styled.div`
-  font-weight:900; color:#0f172a; line-height:1.1; cursor:pointer;
+  font-weight:800; color:#0f172a; line-height:1.1; cursor:pointer;
   &:hover { text-decoration: underline; }
 `;
 const RowMetric = styled.div`font-size:12px; color:#16a34a; font-weight:800;`;
