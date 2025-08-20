@@ -1,3 +1,4 @@
+import * as ReactDOM from "react-dom";
 import React, { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import styled, { keyframes } from "styled-components";
@@ -1031,6 +1032,8 @@ function AdminPosts() {
   const [html, setHtml] = useState("");
   const [delta, setDelta] = useState(null);
 
+  const canUseReactQuill = typeof ReactDOM.findDOMNode === "function";
+
   async function load() {
     setLoading(true);
     try {
@@ -1125,16 +1128,25 @@ function AdminPosts() {
       )}
 
       <div>
-        <ReactQuill
-          theme="snow"
-          modules={modules}
-          value={html}
-          onChange={(content, deltaObj, source, editor) => {
-            setHtml(content);
-            setDelta(editor.getContents());
-          }}
-          placeholder="Įveskite įrašo turinį…"
-        />
+        {canUseReactQuill ? (
+          <ReactQuill
+            theme="snow"
+            modules={modules}
+            value={html}
+            onChange={(content, _deltaObj, _source, editor) => {
+              setHtml(content);
+              setDelta(editor.getContents());
+            }}
+            placeholder="Įveskite įrašo turinį…"
+          />
+        ) : (
+          <textarea
+            value={html}
+            onChange={(e) => { setHtml(e.target.value); setDelta(null); }}
+            placeholder="Įveskite įrašo turinį…"
+            style={{ width: "100%", minHeight: 240, padding: 10 }}
+          />
+        )}
       </div>
 
       <div>
