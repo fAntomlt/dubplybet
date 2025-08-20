@@ -1080,18 +1080,18 @@ function AdminPosts() {
     if (type === "update" && !version.trim()) return toast.error("Įrašykite versiją");
 
     try {
-      const d = await api("/api/admin/posts", {
-        method: "POST",
-        json: {
-          type,
-          title: title.trim(),
-          version: type === "update" ? version.trim() : null,
-          header_url: headerUrl || null,
-          content_html: html,
-          content_json: delta,
-          pinned,
-        },
-      });
+      await api("/api/admin/posts", {
+      method: "POST",
+      json: {
+        type,
+        title: title.trim(),
+        version: type === "update" ? version.trim() : null,
+        header_url: headerUrl || null,
+        content_html: html,
+        content_json: delta,
+        pinned: !!pinned,   // <-- make sure a real boolean goes over the wire
+      },
+    });
       toast.success("Išsaugota");
       // reset form
       setTitle(""); setVersion(""); setHeaderUrl(""); setPinned(false); setHtml(""); setDelta(null);
