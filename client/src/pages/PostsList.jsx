@@ -60,7 +60,7 @@ const Card = styled.article`
 const Pin = styled.div`position:absolute; top:10px; right:10px; font-size:20px;`;
 const Thumb = styled.img`width:100%; height:auto; aspect-ratio:16/4; object-fit:cover; display:block;`;
 const ThumbPlaceholder = styled.div`width:100%; aspect-ratio:16/4; background:#f3f4f6;`;
-const Title = styled.h2`margin:12px; margin-bottom:10px; font-size:22px; font-weight:900;`;
+const Title = styled.h2`margin:12px; margin-bottom:10px; font-size:22px; font-weight:800;`;
 const Version = styled.span`
   font-size:14px; font-weight:900; color:#1f6feb; margin-right:8px; background:#eef4ff; padding:2px 6px; border-radius:6px;
 `;
@@ -72,5 +72,5 @@ const Avatar = styled.div`
   background-image:${p=>p.$img ? `url(${p.$img})` : "none"}; background-size:cover; background-position:center;
   border:1px solid #e7eaf0;
 `;
-const DateText = styled.div`color:#64748b; font-weight:700;`;
+const DateText = styled.div`color:#64748b; font-weight:600;`;
 const Empty = styled.div`color:#64748b; font-weight:600;`;
