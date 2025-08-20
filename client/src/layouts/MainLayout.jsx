@@ -1,19 +1,27 @@
+// MainLayout.jsx
 import { useState } from 'react';
 import styled, { ThemeProvider } from 'styled-components';
+import { useLocation, Outlet } from 'react-router-dom';
 import { theme } from '../styles/theme';
 import { GlobalStyle } from '../styles/GlobalStyle';
 import Sidebar from '../components/Sidebar';
 import ChatDock from '../components/ChatDock';
-import { Outlet } from 'react-router-dom';
 
 export default function MainLayout() {
   const [chatOpen, setChatOpen] = useState(false);
+  const { pathname } = useLocation();
+  const isHome = pathname === '/'; // adjust if your home path is different
+
   return (
     <ThemeProvider theme={theme}>
       <GlobalStyle />
       <Shell>
-        <Sidebar onOpenChat={() => setChatOpen(v=>!v)} />
-        <Main><Content><Outlet /></Content></Main>
+        <Sidebar onOpenChat={() => setChatOpen(v => !v)} />
+        <Main>
+          <Content $fullBleed={isHome}>
+            <Outlet />
+          </Content>
+        </Main>
         <ChatDock open={chatOpen} onClose={() => setChatOpen(false)} />
       </Shell>
     </ThemeProvider>
@@ -22,8 +30,29 @@ export default function MainLayout() {
 
 /* layout styling */
 const Shell = styled.div`
-  display:grid; grid-template-columns:260px 1fr; min-height:100vh;
+  display: grid;
+  grid-template-columns: 260px 1fr;
+  height: 100dvh;              /* fixed viewport height (not min-height) */
   @media (max-width:960px){ grid-template-columns: 1fr; }
 `;
-const Main = styled.main` position: relative; z-index: 0; padding:24px; @media (max-width:960px){ padding: calc(16px + 56px) 16px 16px; }`;
-const Content = styled.div` max-width:1120px; margin:0 auto; `;
+const Main = styled.main`
+  --main-pad-top: 24px;
+  --main-pad-bottom: 24px;
+
+  position: relative; z-index: 0;
+  height: 100%;                /* fill Shells height */
+  box-sizing: border-box;      /* include padding in the height */
+  padding: var(--main-pad-top) 24px var(--main-pad-bottom);
+  overflow: auto;              /* only Main scrolls if content is taller */
+
+  @media (max-width:960px){
+    --main-pad-top: calc(16px + 56px);
+    --main-pad-bottom: 16px;
+    padding: var(--main-pad-top) 16px var(--main-pad-bottom);
+  }
+`;
+const Content = styled.div`
+  width: 100%;
+  max-width: ${p => (p.$fullBleed ? 'none' : '1120px')};
+  margin: ${p => (p.$fullBleed ? '0' : '0 auto')};
+`;
