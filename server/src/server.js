@@ -80,6 +80,9 @@ app.use("/uploads", (req, res, next) => {
       case ".png":
         res.type("image/png");
         break;
+      case ".gif":
+        res.type("image/gif");
+        break;
       case ".webp":
         res.type("image/webp");
         break;
