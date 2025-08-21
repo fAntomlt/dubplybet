@@ -546,14 +546,14 @@ const HeroContent = styled.div`
 `;
 const Title = styled.h2`
   margin: 0;
-  font-size: clamp(34px, 10vw, 84px);
+  font-size: clamp(34px, 10vw, 57px);
   line-height: 1.05;
   font-weight: 900;
   letter-spacing: -.025em;
   text-shadow: 0 3px 10px rgba(0,0,0,.6);
 `;
 const Dates = styled.div`
-  font-size: clamp(16px, 3.5vw, 28px);
+  font-size: clamp(16px, 3.5vw, 20px);
   font-weight: 800;
   opacity: .95;
   text-shadow: 0 2px 8px rgba(0,0,0,.55);
@@ -563,7 +563,7 @@ const LiveRow = styled.div`
   align-items: center;
   gap: 10px;
   font-weight: 900;
-  font-size: clamp(14px, 4.2vw, 20px);
+  font-size: clamp(14px, 4.2vw, 18px);
   color: #b91c1c;
   background: rgba(255, 255, 255, .82);
   border-radius: 999px;
