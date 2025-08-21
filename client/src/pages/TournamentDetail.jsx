@@ -614,6 +614,24 @@ useEffect(() => {
     cards[next].scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' });
   };
 
+  const centerSelectedDay = (behavior = "auto") => {
+  const rail = dayRailRef.current;
+  if (!rail) return;
+  const active = rail.querySelector('[data-day-card="1"][aria-pressed="true"]');
+  if (active) {
+    active.scrollIntoView({ behavior, block: "nearest", inline: "center" });
+  }
+};
+
+useEffect(() => {
+  if (!selectedDay) return;
+  // wait one frame so the card exists in the DOM
+  const id = requestAnimationFrame(() => centerSelectedDay("auto"));
+  return () => cancelAnimationFrame(id);
+}, [selectedDay, dayList.length]);
+
+
+
   return (
     <Wrap ref={pageRef}>
       {tournament && (
