@@ -537,13 +537,12 @@ const Overlay = styled.div`
 const HeroContent = styled.div`
   position:absolute; z-index:2; inset:0;
   color:#fff;
-  padding:18px 20px;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  text-align:center;
-  gap: 8px;
+  padding: 0 20px;            /* no vertical padding so true centering */
+  display: grid;
+  align-content: center;      /* vertical centering */
+  justify-items: center;      /* horizontal centering */
+  text-align: center;
+  gap: 30px;                  /* spacing between title, date, GYVAI */
 `;
 const Title = styled.h2`
   margin: 0;
@@ -554,7 +553,6 @@ const Title = styled.h2`
   text-shadow: 0 3px 10px rgba(0,0,0,.6);
 `;
 const Dates = styled.div`
-  margin-top: 6px;
   font-size: clamp(16px, 3.5vw, 28px);
   font-weight: 800;
   opacity: .95;
@@ -571,7 +569,7 @@ const LiveRow = styled.div`
   border-radius: 999px;
   padding: 6px 14px;
   width: fit-content;
-  margin-top: 36px;
+  margin: 0;                  /* remove top margin so centering is exact */
 `;
 const LiveDot = styled.span`
   width: 10px;
