@@ -45,6 +45,8 @@ export default function Home() {
   const token = useMemo(() => localStorage.getItem("authToken"), []);
   const HOME_HERO_GIF = import.meta.env.VITE_HOME_HERO_GIF || "";
   const asBg = (p) => (p ? `url('${joinApi(p)}')` : null);
+  const heroBg =
+   asBg(HOME_HERO_GIF) || bgForStatus(activeTournament?.status);
 
 
   /* ---- effects ---- */
@@ -196,7 +198,7 @@ export default function Home() {
               onKeyDown={(e) => (e.key === "Enter" || e.key === " ") && goToTournament(activeTournament)}
               aria-label={`Atidaryti turnyrą ${activeTournament.name}`}
             >
-              <ImageLayer $bg={bgForStatus(activeTournament.status)} />
+              <ImageLayer $bg={heroBg} />
               <Overlay />
               <HeroContent>
                 <div>
