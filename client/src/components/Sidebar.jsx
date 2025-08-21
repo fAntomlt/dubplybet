@@ -152,10 +152,10 @@ export default function Sidebar({ onOpenChat }) {
             aria-hidden={!open.news}
           >
             <SubItem to="/naujienos" onClick={closeIfMobile}>
-              <FiFileText /> <span>Posts</span>
+              <span>Posts</span>
             </SubItem>
             <SubItem to="/atnaujinimai" onClick={closeIfMobile}>
-              <FiRefreshCw /> <span>Atnaujinimai</span>
+              <span>Atnaujinimai</span>
             </SubItem>
           </Submenu>
         </Group>
