@@ -487,6 +487,17 @@ function renderPodium(top3) {
     }
   }
 
+  const daysWithUpcoming = useMemo(() => {
+  const set = new Set();
+  (upcomingLocked || []).forEach(g => {
+    if (g?.status === "scheduled" && !g?.locked) {
+      set.add(d10(g.tipoff_at));
+    }
+  });
+  return set;
+}, [upcomingLocked]);
+
+
   useEffect(() => {
   const base = "DuBPlyBET";
   const name = (tournament?.name || "").trim();
@@ -798,23 +809,25 @@ useEffect(() => {
             <DayArrow onClick={() => scrollByCard(-1)}>‹</DayArrow>
             <DayRail ref={dayRailRef}>
               {dayList.map(d => {
-                const p = dayParts(d);
-                const active = selectedDay === d;
-                return (
-                  <DayCard
-                    data-day-card="1"
-                    key={d}
-                    aria-pressed={active}
-                    onClick={() => { setSelectedDay(d); }}
-                    title={`${p.dow} ${p.day} ${p.mon} ${p.year}`}
-                  >
-                    <div className="year">{p.year}</div>
-                    <div className="dow">{p.dow}</div>
-                    <div className="num">{p.day}</div>
-                    <div className="mon">{p.mon}</div>
-                  </DayCard>
-                );
-              })}
+  const p = dayParts(d);
+  const active = selectedDay === d;
+  const hasUpcoming = daysWithUpcoming.has(d);
+  return (
+    <DayCard
+      data-day-card="1"
+      key={d}
+      aria-pressed={active}
+      $hasUpcoming={hasUpcoming}
+      onClick={() => { setSelectedDay(d); }}
+      title={`${p.dow} ${p.day} ${p.mon} ${p.year}`}
+    >
+      <div className="year">{p.year}</div>
+      <div className="dow">{p.dow}</div>
+      <div className="num">{p.day}</div>
+      <div className="mon">{p.mon}</div>
+    </DayCard>
+  );
+})}
             </DayRail>
             <DayArrow onClick={() => scrollByCard(1)}>›</DayArrow>
           </DayBarWrap>
@@ -2175,6 +2188,23 @@ const DayCard = styled.button`
     color: #fff;
     box-shadow: 0 8px 18px rgba(2,6,23,.14);
   }
+  ${p => p.$hasUpcoming && `
+      background: #ecfdf5;                 /* light green backlight */
+      box-shadow: inset 0 0 0 1px #86efac; /* subtle green border */
+    `}
+
+    &[aria-pressed="true"]{
+      background: #0f172a;
+      color: #fff;
+      box-shadow: 0 8px 18px rgba(2,6,23,.14);
+
+      /* Optional: keep a tiny green indicator even when selected */
+      ${p => p.$hasUpcoming && `
+        background-image: linear-gradient(to top, rgba(16,185,129,.6) 3px, transparent 3px);
+        background-repeat: no-repeat;
+        background-size: 100% 100%;
+      `}
+    }
 `;
 const DayArrow = styled.button`
   position: absolute; top: 0; bottom: 0; width: 36px;
