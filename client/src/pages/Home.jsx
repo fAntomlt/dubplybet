@@ -207,7 +207,6 @@ export default function Home() {
                 </div>
                 <LiveRow><LiveDot /> <span>GYVAI</span></LiveRow>
               </HeroContent>
-              <CTA>DALYVAUTI</CTA>
             </HeroCard>
           ) : (
             <SkeletonHero />
@@ -533,7 +532,7 @@ const ImageLayer = styled.div`
   transition:transform .2s ease, filter .2s ease;
 `;
 const Overlay = styled.div`
-  position:absolute; inset:0; background:rgba(0,0,0,.45); transition:background .2s ease; z-index: 1;
+  position:absolute; inset:0; background:rgba(0,0,0,.65); transition:background .2s ease; z-index: 1;
 `;
 const HeroContent = styled.div`
   position:absolute; z-index:2; inset:0;
@@ -547,21 +546,40 @@ const HeroContent = styled.div`
   gap: 8px;
 `;
 const Title = styled.h2`
-   margin:0; font-size:clamp(22px,4vw,45px); font-weight:800; letter-spacing:-.02em;
-   text-shadow: 0 2px 6px rgba(0,0,0,.45);
- `;
+  margin: 0;
+  font-size: clamp(34px, 10vw, 84px);
+  line-height: 1.05;
+  font-weight: 900;
+  letter-spacing: -.025em;
+  text-shadow: 0 3px 10px rgba(0,0,0,.6);
+`;
 const Dates = styled.div`
-   font-weight:700;
-   text-shadow: 0 2px 6px rgba(0,0,0,.45);
- `;
+  margin-top: 6px;
+  font-size: clamp(16px, 3.5vw, 28px);
+  font-weight: 800;
+  opacity: .95;
+  text-shadow: 0 2px 8px rgba(0,0,0,.55);
+`;
 const LiveRow = styled.div`
-  display:inline-flex; align-items:center; gap:8px; font-weight:900; color:#b91c1c;
-  background:rgba(255,255,255,.7); border-radius:999px; padding:4px 10px; width:fit-content;
-  margin-top:20px;
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  font-weight: 900;
+  font-size: clamp(14px, 4.2vw, 20px);
+  color: #b91c1c;
+  background: rgba(255, 255, 255, .82);
+  border-radius: 999px;
+  padding: 6px 14px;
+  width: fit-content;
+  margin-top: 36px;
 `;
 const LiveDot = styled.span`
-  width:8px; height:8px; border-radius:50%; background:#ef4444; display:inline-block;
-  box-shadow:0 0 0 6px rgba(239,68,68,.2);
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: #ef4444;
+  display: inline-block;
+  box-shadow: 0 0 0 7px rgba(239,68,68,.18);
 `;
 const CTA = styled.button`
   position:absolute; left:50%; top:50%; transform:translate(-50%,-50%) scale(.96);
@@ -606,6 +624,10 @@ const MiniGrid = styled.div`
   display:grid;
   grid-template-columns: 1fr 1fr;
   gap: 12px;
+
+  @media (max-width: 900px){
+    padding-top: 16px; /* space below the full-bleed hero */
+  }
 
   @media (max-width: 640px){
     grid-template-columns: 1fr;
