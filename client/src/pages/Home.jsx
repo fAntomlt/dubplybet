@@ -43,6 +43,9 @@ export default function Home() {
   const [cardLoading, setCardLoading] = useState(false);
   const [cardError, setCardError] = useState("");
   const token = useMemo(() => localStorage.getItem("authToken"), []);
+  const HOME_HERO_GIF = import.meta.env.VITE_HOME_HERO_GIF || "";
+  const asBg = (p) => (p ? `url('${joinApi(p)}')` : null);
+
 
   /* ---- effects ---- */
   useEffect(() => { document.title = "Pradžia – DuBPlyBET"; }, []);
@@ -186,7 +189,7 @@ export default function Home() {
           {/* Active tournament hero card (same as Tournaments page) */}
           {activeTournament ? (
             <HeroCard
-              $bg={bgForStatus(activeTournament.status)}
+              $bg={asBg(HOME_HERO_GIF) || bgForStatus(activeTournament.status)}
               role="button"
               tabIndex={0}
               onClick={() => goToTournament(activeTournament)}
@@ -476,16 +479,26 @@ const Wrap = styled.div`
 
   /* Center the content block vertically (and keep full width) */
   display: grid;
-  align-content: center;  /* vertical centering of rows */
+  align-content: center;
   gap: 18px;
 
   /* Stop box-shadows/hover transforms from adding a 1-2px scroll */
-  overflow: hidden;       /* or: overflow: clip; (newer) */
+  overflow: hidden;
 
   @media (min-width: 901px){
     padding-left: 30px;
     padding-right: 30px;
   }
+
+  /* PHONE: let the hero bleed out of the container (for top/side edge-to-edge) */
+  @media (max-width: 900px){
+  overflow: visible;
+  align-content: start;
+  gap: 0;
+
+  /* Change this to reveal more/less of the next component */
+  --hero-peek: 320px;
+}
 `;
 
 const Grid = styled.div`
@@ -518,7 +531,7 @@ const ImageLayer = styled.div`
   transition:transform .2s ease, filter .2s ease;
 `;
 const Overlay = styled.div`
-  position:absolute; inset:0; background:rgba(255, 255, 255, 0.03); transition:background .2s ease; z-index: 1;
+  position:absolute; inset:0; background:rgba(0,0,0,.45); transition:background .2s ease; z-index: 1;
 `;
 const HeroContent = styled.div`
   position:absolute; z-index:2; inset:0;
@@ -531,8 +544,14 @@ const HeroContent = styled.div`
   text-align:center;
   gap: 8px;
 `;
-const Title = styled.h2`margin:0; font-size:clamp(22px,4vw,45px); font-weight:800; letter-spacing:-.02em;`;
-const Dates = styled.div`font-weight:700;`;
+const Title = styled.h2`
+   margin:0; font-size:clamp(22px,4vw,45px); font-weight:800; letter-spacing:-.02em;
+   text-shadow: 0 2px 6px rgba(0,0,0,.45);
+ `;
+const Dates = styled.div`
+   font-weight:700;
+   text-shadow: 0 2px 6px rgba(0,0,0,.45);
+ `;
 const LiveRow = styled.div`
   display:inline-flex; align-items:center; gap:8px; font-weight:900; color:#b91c1c;
   background:rgba(255,255,255,.7); border-radius:999px; padding:4px 10px; width:fit-content;
@@ -554,8 +573,23 @@ const HeroCard = styled.div`
   cursor:pointer; box-shadow:0 8px 24px rgba(2,6,23,.12); background:#000;
 
   &:hover ${ImageLayer}{ animation:${blurIn} .25s ease forwards; transform:scale(1.04); }
-  &:hover ${Overlay}{ background:rgba(255,255,255,.28); }
+  &:hover ${Overlay}{ background:rgba(0,0,0,.35); }
   &:hover ${CTA}{ opacity:1; transform:translate(-50%,-50%) scale(1); }
+
+  /* PHONE: full-bleed and full-height (below the sidebar) */
+  @media (max-width: 900px){
+  width: 100vw;
+  /* exact math so the visible peek equals --hero-peek even with negative bottom margin */
+  height: calc(100dvh - var(--hero-peek, 0px) + var(--main-pad-bottom, 0px));
+  min-height: calc(100dvh - var(--hero-peek, 0px) + var(--main-pad-bottom, 0px));
+
+  border-radius: 0;
+  margin-left: calc(50% - 50vw);
+  margin-right: calc(50% - 50vw);
+  margin-top: calc(var(--main-pad-top) * -1);
+  margin-bottom: calc(var(--main-pad-bottom) * -1);
+  box-shadow: none;
+}
 `;
 
 const shimmer = keyframes`0%{background-position:-200px 0}100%{background-position:calc(200px + 100%) 0}`;
