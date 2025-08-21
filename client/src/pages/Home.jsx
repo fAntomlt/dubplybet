@@ -50,7 +50,7 @@ export default function Home() {
 
 
   /* ---- effects ---- */
-  useEffect(() => { document.title = "Pradžia – DuBPlyBET"; }, []);
+  useEffect(() => { document.title = "DuBPlyBET"; }, []);
 
   useEffect(() => {
     (async () => {

@@ -27,7 +27,7 @@ export default function PostsList({ type }) {
     (async () => {
       const d = await api(`/api/posts?type=${type}`);
       setRows(d.posts || []);
-      document.title = type === "update" ? "Atnaujinimai" : "Naujienos";
+      document.title = type === "update" ? "Atnaujinimai - DuBPlyBET" : "Naujienos - DuBPlyBET";
     })();
   }, [type]);
 

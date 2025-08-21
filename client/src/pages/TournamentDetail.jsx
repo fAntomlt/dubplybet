@@ -487,7 +487,12 @@ function renderPodium(top3) {
     }
   }
 
-  useEffect(() => { document.title = `${tournament?.name || "Turnyras"}`; }, [])
+  useEffect(() => {
+  const base = "DuBPlyBET";
+  const name = (tournament?.name || "").trim();
+  document.title = name ? `${name} - ${base}` : `Turnyras - ${base}`;
+}, [tournament?.name]);
+
 
   useEffect(() => {
   if (!pickModal.open) return;
