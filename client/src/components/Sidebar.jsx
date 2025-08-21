@@ -3,7 +3,7 @@ import { NavLink, useLocation } from "react-router-dom";
 import styled from "styled-components";
 import {
   FiHome, FiUser, FiAward, FiBarChart2, FiChevronDown,
-  FiMessageSquare, FiShield, FiMenu, FiLogOut, FiX, FiFileText, FiRefreshCw
+  FiMessageSquare, FiShield, FiMenu, FiLogOut, FiX, FiFileText, FiRefreshCw, FiLifeBuoy
 } from "react-icons/fi";
 import logoImg from "../assets/icriblogo.png";
 import { useToast } from "../components/ToastProvider";
@@ -53,8 +53,8 @@ export default function Sidebar({ onOpenChat }) {
   const handleLogout = () => {
     clearAuth();                           // clears and notifies subscribers
     setAuthState({ user: null, token: null });
-    toast.info("Sėkmingai atsijungėtę");
     closeIfMobile();
+    if (typeof window !== "undefined") window.location.replace("/");
   };
 
   useEffect(() => {
@@ -169,6 +169,12 @@ export default function Sidebar({ onOpenChat }) {
             <FiShield /> <span>Admin</span>
           </Item>
         )}
+
+        {auth.user && (
+         <Item to="/ticketai" onClick={closeIfMobile}>
+           <FiLifeBuoy /> <span>Ticketai</span>
+         </Item>
+       )}
 
         {auth.user && (
           <LogoutDock>
