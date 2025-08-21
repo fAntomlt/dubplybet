@@ -498,7 +498,7 @@ const Wrap = styled.div`
   gap: 0;
 
   /* Change this to reveal more/less of the next component */
-  --hero-peek: 320px;
+  --hero-peek: 290px;
 }
 `;
 
