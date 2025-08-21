@@ -17,6 +17,7 @@ import ResetPassword from "./pages/ResetPassword.jsx";
 import PostsList from "./pages/PostsList.jsx";
 import PostDetail from "./pages/PostDetail.jsx";
 import { ToastProvider } from "./components/ToastProvider.jsx";
+import Tickets from "./pages/Tickets.jsx";
 
 function AppRoutes() {
   const routes = useRoutes([
@@ -46,6 +47,7 @@ function AppRoutes() {
         { path: "/atnaujinimai", element: <PostsList type="update" /> },
         { path: "/naujienos/:slug", element: <PostDetail type="post" /> },
         { path: "/atnaujinimai/:slug", element: <PostDetail type="update" /> },
+        { path: "/ticketai", element: <Tickets /> },
       ],
     },
 
