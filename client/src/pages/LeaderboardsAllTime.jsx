@@ -198,8 +198,8 @@ function closeCard() {
 `;
 
   return (
-    <Wrap>
-      {/* Page-level header (outside the box, like Admin.jsx) */}
+  <Wrap>
+    <PageCenter>
       <PageHeader>
         <PageTitle>VISŲ LAIKŲ LENTELĖ</PageTitle>
         <PageSub>Kiek kartų atspėta bent viena sąlyga</PageSub>
@@ -213,8 +213,6 @@ function closeCard() {
         ) : (
           <>
             <Podium>{renderPodium()}</Podium>
-
-            {/* List 4+ */}
             {rest.length ? (
               <LBList>
                 {rest.map((u) => (
@@ -228,9 +226,9 @@ function closeCard() {
                         tabIndex={0}
                         onClick={(e) => openCard(u.user_id, e)}
                         onKeyDown={(e) => (e.key === "Enter" ? openCard(u.user_id, e) : null)}
-                        >
-                            {u.username}
-                        </RowName>
+                      >
+                        {u.username}
+                      </RowName>
                     </RowLeft>
                     <RowRight>{u.correct}</RowRight>
                   </LBRow>
@@ -240,33 +238,43 @@ function closeCard() {
           </>
         )}
       </LeaderboardWrap>
-      <UserCardPopover
-        open={cardOpen}
-        anchorEl={anchorEl}
-        onClose={closeCard}
-        user={cardUser}
-        loading={cardLoading && !cardUser}
-        error={cardError}
-        apiOrigin={API_ORIGIN}
-      />
-    </Wrap>
-  );
+    </PageCenter>
+
+    <UserCardPopover
+      open={cardOpen}
+      anchorEl={anchorEl}
+      onClose={closeCard}
+      user={cardUser}
+      loading={cardLoading && !cardUser}
+      error={cardError}
+      apiOrigin={API_ORIGIN}
+    />
+  </Wrap>
+);
 }
 
 /* ====== Styles ====== */
 const MOBILE_BP = 441;
 
 const Wrap = styled.div`
+  /* desktop/tablet: unchanged layout */
   display: flex;
   flex-direction: column;
-  justify-content: center;
-  min-height: calc(100vh - (var(--main-pad-y, 24px) * 2));
+  /* use the same padding vars MainLayout provides so height math is correct */
+  min-height: calc(100dvh - var(--main-pad-top, 24px) - var(--main-pad-bottom, 24px));
   width: 100%;
   box-sizing: border-box;
 
   @media (max-width: ${MOBILE_BP}px) {
+    /* phone-only: don't vertically center; start at the top */
+    justify-content: flex-start;
+
+    /* small spacing; was already in your code */
     padding: 12px;
     gap: 12px;
+
+    /* kill the tiny "phantom" bounce/scroll on short pages */
+    overscroll-behavior: contain;
   }
 `;
 
@@ -426,4 +434,15 @@ const RowName = styled.div`
 const RowRight = styled.div`
   font-weight:900; color:#16a34a; transition: color 120ms ease;
   ${LBRow}:hover & { color: #0f172a; }
+`;
+
+const PageCenter = styled.div`
+  display: grid;
+  gap: 30px;
+
+  /* Center the whole page block vertically on phones only,
+     and only when it fits in the viewport */
+  @media (max-width: ${MOBILE_BP}px) {
+    margin-block: auto; /* top/bottom auto -> perfect centering without bounce */
+  }
 `;
