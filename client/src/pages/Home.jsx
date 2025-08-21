@@ -476,16 +476,26 @@ const Wrap = styled.div`
 
   /* Center the content block vertically (and keep full width) */
   display: grid;
-  align-content: center;  /* vertical centering of rows */
+  align-content: center;
   gap: 18px;
 
   /* Stop box-shadows/hover transforms from adding a 1-2px scroll */
-  overflow: hidden;       /* or: overflow: clip; (newer) */
+  overflow: hidden;
 
   @media (min-width: 901px){
     padding-left: 30px;
     padding-right: 30px;
   }
+
+  /* PHONE: let the hero bleed out of the container (for top/side edge-to-edge) */
+  @media (max-width: 900px){
+  overflow: visible;
+  align-content: start;
+  gap: 0;
+
+  /* Change this to reveal more/less of the next component */
+  --hero-peek: 320px;
+}
 `;
 
 const Grid = styled.div`
@@ -556,6 +566,21 @@ const HeroCard = styled.div`
   &:hover ${ImageLayer}{ animation:${blurIn} .25s ease forwards; transform:scale(1.04); }
   &:hover ${Overlay}{ background:rgba(255,255,255,.28); }
   &:hover ${CTA}{ opacity:1; transform:translate(-50%,-50%) scale(1); }
+
+  /* PHONE: full-bleed and full-height (below the sidebar) */
+  @media (max-width: 900px){
+  width: 100vw;
+  /* exact math so the visible peek equals --hero-peek even with negative bottom margin */
+  height: calc(100dvh - var(--hero-peek, 0px) + var(--main-pad-bottom, 0px));
+  min-height: calc(100dvh - var(--hero-peek, 0px) + var(--main-pad-bottom, 0px));
+
+  border-radius: 0;
+  margin-left: calc(50% - 50vw);
+  margin-right: calc(50% - 50vw);
+  margin-top: calc(var(--main-pad-top) * -1);
+  margin-bottom: calc(var(--main-pad-bottom) * -1);
+  box-shadow: none;
+}
 `;
 
 const shimmer = keyframes`0%{background-position:-200px 0}100%{background-position:calc(200px + 100%) 0}`;

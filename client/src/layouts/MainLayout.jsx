@@ -38,17 +38,20 @@ const Shell = styled.div`
 const Main = styled.main`
   --main-pad-top: 24px;
   --main-pad-bottom: 24px;
+  --main-pad-x: 24px;
 
   position: relative; z-index: 0;
-  height: 100%;                /* fill Shells height */
-  box-sizing: border-box;      /* include padding in the height */
-  padding: var(--main-pad-top) 24px var(--main-pad-bottom);
-  overflow: auto;              /* only Main scrolls if content is taller */
+  height: 100%;
+  box-sizing: border-box;
+  padding: var(--main-pad-top) var(--main-pad-x) var(--main-pad-bottom);
+  overflow: auto;
 
   @media (max-width:960px){
     --main-pad-top: calc(16px + 56px);
     --main-pad-bottom: 16px;
-    padding: var(--main-pad-top) 16px var(--main-pad-bottom);
+    --main-pad-x: 16px;
+    padding: var(--main-pad-top) var(--main-pad-x) var(--main-pad-bottom);
+    overflow-x: hidden; /* clamps any accidental bleed */
   }
 `;
 const Content = styled.div`
