@@ -131,6 +131,12 @@ app.use("/api/posts", publicPostsRoutes);
 app.use("/api/tickets", ticketsRouter);
 app.use("/api/admin", requireAuth, requireAdmin, adminTicketsRouter);
 app.use("/api", badgesRouter);
+app.use((req, res, next) => {
+  res.setHeader('Content-Security-Policy',
+    "default-src 'self'; connect-src 'self' https://api.icrib.pro; img-src 'self' https://api.icrib.pro data:; script-src 'self'; style-src 'self' 'unsafe-inline'; frame-ancestors 'none'; base-uri 'none'; object-src 'none';"
+  );
+  next();
+});
 
 app.get("/api/health", (req, res) => {
   res.json({ ok: true, uptime: process.uptime() });
