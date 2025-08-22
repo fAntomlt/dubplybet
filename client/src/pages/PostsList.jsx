@@ -106,8 +106,9 @@ export default function PostsList({ type }) {
 
             <Meta>
               <User>
-                <Avatar
-                  $img={absUrl(p.avatarUrl)}
+                <AvatarImg
+                  src={absUrl(p.avatarUrl)}
+                  alt=""
                   role="button"
                   tabIndex={0}
                   aria-label={`Rodyti ${p.username} profilį`}
@@ -174,10 +175,9 @@ const Version = styled.span`
 const Divider = styled.div`height:1px; background:#eef2f7;`;
 const Meta = styled.div`display:flex; justify-content:space-between; align-items:center; padding:10px 12px;`;
 const User = styled.div`display:flex; align-items:center; gap:8px; font-weight:700;`;
-const Avatar = styled.div`
+const AvatarImg = styled.img`
   width:28px; height:28px; border-radius:50%;
-  background:${p=>p.$img ? `url(${p.$img}) center/cover no-repeat` : "#f3f4f6"};
-  border:1px solid #e7eaf0; cursor: pointer;
+  object-fit: cover; background:#f3f4f6; border:1px solid #e7eaf0; cursor:pointer;
 `;
 const NameBtn = styled.span`
   cursor: pointer; &:hover { text-decoration: underline; }
