@@ -28,6 +28,7 @@ import adminPostsRoutes from "./routes/admin.posts.js";
 import publicPostsRoutes from "./routes/posts.public.js";
 import ticketsRouter from "./routes/tickets.js";
 import adminTicketsRouter from "./routes/adminTickets.js";
+import badgesRouter from "./routes/badges.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -111,6 +112,7 @@ app.use("/api/admin", requireAuth, requireAdmin, adminPostsRoutes);
 app.use("/api/posts", publicPostsRoutes);
 app.use("/api/tickets", ticketsRouter);
 app.use("/api/admin", adminTicketsRouter);
+app.use("/api", badgesRouter);
 
 app.get("/api/health", (req, res) => {
   res.json({ ok: true, uptime: process.uptime() });

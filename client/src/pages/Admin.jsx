@@ -66,9 +66,12 @@ function Tabs() {
         <TabButton $active={tab === "tickets"} onClick={() => setTab("tickets")}>
           Tickets
         </TabButton>
+        <TabButton $active={tab === "badges"} onClick={() => setTab("badges")}>
+          Ženkleliai
+        </TabButton>
       </TabRow>
 
-      <Card>{tab === "users" && <AdminUsers />}{tab === "tournaments" && <AdminTournaments />}{tab === "games" && <AdminGames />}{tab === "posts" && <AdminPosts />}{tab === "tickets" && <AdminTicketsPanel />}
+      <Card>{tab === "users" && <AdminUsers />}{tab === "tournaments" && <AdminTournaments />}{tab === "games" && <AdminGames />}{tab === "posts" && <AdminPosts />}{tab === "tickets" && <AdminTicketsPanel />}{tab === "badges" && <AdminBadges />}
       </Card>
     </>
   );
@@ -97,6 +100,11 @@ function AdminUsers() {
   // delete modal
   const [deleteUserId, setDeleteUserId] = useState(null);
   const [deleteUserIsAdmin, setDeleteUserIsAdmin] = useState(false);
+
+  const [badgeModal, setBadgeModal] = useState({
+  open:false, userId:null, username:"",
+  loading:false, catalog:[], assigned:new Set()
+  });
 
   async function load() {
     try {
@@ -183,6 +191,51 @@ function AdminUsers() {
       setDeleteUserIsAdmin(false);
     }
   }
+
+  async function openBadgesModal(userId, username) {
+  setBadgeModal(m => ({ ...m, open:true, userId, username, loading:true, catalog:[], assigned:new Set() }));
+  try {
+    const cat = await api("/api/admin/badges");
+    const cur = await api(`/api/users/${userId}/badges`);
+    setBadgeModal(m => ({
+      ...m,
+      loading:false,
+      catalog: cat.badges || [],
+      assigned: new Set((cur.badges||[]).map(b => b.id)),
+    }));
+  } catch (e) {
+    setBadgeModal(m => ({ ...m, loading:false }));
+    toast.error(e?.message || "Nepavyko užkrauti ženklelių");
+  }
+}
+
+function toggleAssign(badgeId) {
+  setBadgeModal(m => {
+    const next = new Set(m.assigned);
+    next.has(badgeId) ? next.delete(badgeId) : next.add(badgeId);
+    return { ...m, assigned: next };
+  });
+}
+
+async function saveAssignments() {
+  const { userId, assigned } = badgeModal;
+  try {
+    const cur = await api(`/api/users/${userId}/badges`);
+    const current = new Set((cur.badges||[]).map(b => b.id));
+    const toAdd = [...assigned].filter(id => !current.has(id));
+    const toDel = [...current].filter(id => !assigned.has(id));
+
+    await Promise.all([
+      ...toAdd.map(id => api(`/api/admin/users/${userId}/badges/${id}`, { method:"POST" })),
+      ...toDel.map(id => api(`/api/admin/users/${userId}/badges/${id}`, { method:"DELETE" })),
+    ]);
+
+    setBadgeModal({ open:false, userId:null, username:"", loading:false, catalog:[], assigned:new Set() });
+    toast.success("Ženkleliai atnaujinti");
+  } catch (e) {
+    toast.error(e?.message || "Nepavyko atnaujinti ženklelių");
+  }
+}
 
   return (
     <Section>
@@ -274,6 +327,7 @@ function AdminUsers() {
                     ) : (
                       <>
                         <Ghost onClick={() => startEdit(u)}>Redaguoti</Ghost>{" "}
+                        <Ghost onClick={() => openBadgesModal(u.id, u.username)}>Ženkleliai</Ghost>{" "}
                         <Danger onClick={() => askDeleteUser(u.id, u.role === "admin")}>Trinti</Danger>
                       </>
                     )}
@@ -305,6 +359,37 @@ function AdminUsers() {
           <p><strong>Dėmesio:</strong> šis vartotojas yra administratorius. Ar tikrai norite tęsti?</p>
         ) : (
           <p>Ar tikrai norite <strong>negrįžtamai</strong> ištrinti šią paskyrą?</p>
+        )}
+      </ConfirmModal>
+      <ConfirmModal
+        open={badgeModal.open}
+        onClose={() => setBadgeModal({ open:false, userId:null, username:"", loading:false, catalog:[], assigned:new Set() })}
+        onConfirm={saveAssignments}
+        title={`Ženkleliai – ${badgeModal.username}`}
+        confirmText="Išsaugoti"
+      >
+        {badgeModal.loading ? (
+          <p>Kraunama…</p>
+        ) : (
+          <div style={{ display:"grid", gap:8 }}>
+            <div style={{ display:"flex", flexWrap:"wrap", gap:8 }}>
+              {badgeModal.catalog.map(b => (
+                <label key={b.id} style={{ display:"inline-flex", alignItems:"center", gap:8, border:"1px solid #e5e7eb", borderRadius:10, padding:"6px 8px", cursor:"pointer" }}>
+                  <input
+                    type="checkbox"
+                    checked={badgeModal.assigned.has(b.id)}
+                    onChange={() => toggleAssign(b.id)}
+                  />
+                  <span style={{ background:b.bg, color:b.color, borderRadius:9999, padding:"2px 8px", fontWeight:900 }}>
+                    {b.name}
+                  </span>
+                </label>
+              ))}
+            </div>
+            <div style={{ fontSize:12, color:"#64748b" }}>
+              Spustelėkite, kad priskirtumėte arba nuimtumėte ženklelį.
+            </div>
+          </div>
         )}
       </ConfirmModal>
     </Section>

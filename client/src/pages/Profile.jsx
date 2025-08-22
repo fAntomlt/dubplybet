@@ -6,6 +6,8 @@ import logoImg from "../assets/icriblogo.png";
 import { useToast } from "../components/ToastProvider";
 import { setAuth, getAuth } from "../store/auth";
 import { flagForTeam } from "../lib/flags";
+import { subroleFor } from "../lib/subroles";
+import BadgePill from "../components/BadgePill.jsx";
 
 // small helper
 function roleLT(role) {
@@ -288,6 +290,7 @@ export default function Profile() {
   // ===== Left card extra data: Teisingi spėjimai + Favoritas =====
   const [correctAllTime, setCorrectAllTime] = useState(null);
   const [favoriteTeam, setFavoriteTeam] = useState(null);
+  const mySub = useMemo(() => subroleFor(Number(correctAllTime ?? 0)), [correctAllTime]);
 
   // --- Registered date (užsiregistravo) ---
 const [registeredAt, setRegisteredAt] = useState(null);
@@ -438,6 +441,19 @@ useEffect(() => {
 
   const name = me?.username || "Vartotojas";
 
+  const [badges, setBadges] = useState([]);
+  const [openBadgeId, setOpenBadgeId] = useState(null);
+  useEffect(() => {
+    if (!me?.id) return;
+    (async () => {
+      try {
+        const res = await fetch(`${API}/api/users/${me.id}/badges`, { headers: { ...authHeader } });
+        const d = await res.json();
+        if (d?.ok) setBadges(d.badges || []);
+      } catch {/* ignore */}
+    })();
+  }, [API, authHeader, me?.id]);
+
   return (
     <Wrap>
       <Container>
@@ -470,6 +486,12 @@ useEffect(() => {
             <NameRow>
               <Name title={name}>{name}</Name>
               <RolePill $admin={me?.role === "admin"}>{roleLT(me?.role)}</RolePill>
+              {!!correctAllTime && (
+                <RolePill as="span" style={{ color: mySub.fg, background: mySub.bg }}>
+                  <mySub.Icon style={{ verticalAlign: "middle", marginRight: 6 }} />
+                  {mySub.name}
+                </RolePill>
+              )}
             </NameRow>
 
             <Divider />
@@ -544,6 +566,33 @@ useEffect(() => {
               </CardActions>
             </Card>
           </Right>
+
+            <Card style={{ gridColumn: "1 / -1" }}>
+              <CardTitle>ŽENKLELIAI</CardTitle>
+              {badges.length === 0 ? (
+                <Muted>Ženklelių nėra.</Muted>
+              ) : (
+                <>
+                  <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+                    {badges.map(b => (
+                      <BadgePill
+                        key={b.id}
+                        badge={b}
+                        onClick={() => setOpenBadgeId(openBadgeId === b.id ? null : b.id)}
+                        title={`${b.name} – spustelk dėl aprašymo`}
+                      />
+                    ))}
+                  </div>
+
+                  {openBadgeId && (
+                    <div style={{ marginTop: 10, padding: "10px 12px", border: "1px dashed #e5e7eb", borderRadius: 10 }}>
+                      <strong>{badges.find(x => x.id === openBadgeId)?.name}:</strong>{" "}
+                      {badges.find(x => x.id === openBadgeId)?.description}
+                    </div>
+                  )}
+                </>
+              )}
+            </Card>
                 <Card style={{ gridColumn: "1 / -1" }}>
               <CardTitle>PASKYROS NUSTATYMAI</CardTitle>
               {!!serverError && <Alert role="alert">{serverError}</Alert>}

@@ -2,6 +2,8 @@ import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from "re
 import { createPortal } from "react-dom";
 import styled from "styled-components";
 import { flagForTeam } from "../lib/flags";
+import { subroleFor } from "../lib/subroles";
+import BadgePill from "../components/BadgePill.jsx";
 
 export default function UserCardPopover({
   open,
@@ -102,6 +104,7 @@ export default function UserCardPopover({
   }, [user]);
 
   const [correctAllTime, setCorrectAllTime] = useState(initialCorrect);
+  const sub = useMemo(() => subroleFor(Number(correctAllTime ?? 0)), [correctAllTime]);
 
   // Reset the value whenever the target user changes
   useEffect(() => {
@@ -185,6 +188,19 @@ export default function UserCardPopover({
 
   const abs = (u) => (u && !/^https?:\/\//i.test(u) ? `${apiOrigin}${u}` : u);
 
+  const [badges, setBadges] = useState([]);
+  useEffect(() => {
+   if (!open || !idForLookup || !apiOrigin) return;
+   (async () => {
+     try {
+       const r = await fetch(`${apiOrigin}/api/users/${idForLookup}/badges`);
+       const d = await r.json();
+       setBadges(d?.badges?.slice(0, 5) || []); // show up to 5
+     } catch { /* ignore */ }
+   })();
+ }, [open, idForLookup, apiOrigin]);
+
+
   return createPortal(
     <Wrap
       style={style}
@@ -213,6 +229,12 @@ export default function UserCardPopover({
             <RolePill $compact={variant === "compact"} $admin={user?.role === "admin"}>
                 {user?.role === "admin" ? "Administratorius" : "Narys"}
             </RolePill>
+            {!!correctAllTime && (
+              <SubRolePill title={`${sub.name} • ≥${sub.min}`}>
+                <sub.Icon style={{ verticalAlign: "middle", marginRight: 6 }} />
+                {sub.name}
+              </SubRolePill>
+            )}
         </TopRow>
 
           {loading && <InfoMuted>Kraunama…</InfoMuted>}
@@ -241,6 +263,25 @@ export default function UserCardPopover({
                   )}
                 </InfoValue>
               </InfoRow>
+              {!!badges.length && (
+                <InfoRow>
+                  <InfoLabel>Ženkleliai</InfoLabel>
+                  <InfoValue>
+                    <div style={{ display:"flex", gap:6, flexWrap:"wrap", justifyContent:"flex-end" }}>
+                      {badges.map(b => (
+                        <span key={b.id} title={b.name} style={{
+                          display:"inline-flex", alignItems:"center",
+                          background: b.bg, color: b.color, borderRadius: 9999, padding: "3px 8px",
+                          fontSize: 11, fontWeight: 900
+                        }}>
+                          {/* tiny dot instead of icon if you want super tight */}
+                          ● {b.name}
+                        </span>
+                      ))}
+                    </div>
+                  </InfoValue>
+                </InfoRow>
+              )}
             </InfoList>
           )}
         </RightPanel>
@@ -466,4 +507,10 @@ const Arrow = styled.div`
   border-bottom: ${({ $below }) => ($below ? "10px solid #ffffff" : "0")};
   filter: drop-shadow(0 -1px 0 ${({ theme }) => theme?.colors?.line || "#e7eaf0"});
   margin-top: ${({ $below }) => ($below ? "0" : "8px")};
+`;
+
+const SubRolePill = styled(RolePill)`
+  background: ${({ theme }) => theme?.colors?.soft ?? "#f6f8fc"};
+  border: 1px solid #e5e7eb;
+  color: ${({ $fg }) => $fg || "#0f172a"};
 `;
