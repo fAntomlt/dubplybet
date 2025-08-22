@@ -3,6 +3,7 @@ import styled from "styled-components";
 import { useParams } from "react-router-dom";
 import { api } from "../lib/api";
 import UserCardPopover from "../components/UserCardPopover.jsx";
+import sanitizeHtml from "../lib/sanitizeHtml";
 
 const API_ORIGIN = (import.meta.env.VITE_API_URL || "").replace(/\/+$/, "");
 const absUrl = (u) => {
@@ -129,7 +130,7 @@ export default function PostDetail({ type }) {
           </>
         ) : null}
 
-        <Content dangerouslySetInnerHTML={{ __html: p.content_html }} />
+        <Content dangerouslySetInnerHTML={{ __html: sanitizeHtml(p.content_html || "") }} />
       </Wrap>
 
       <UserCardPopover
