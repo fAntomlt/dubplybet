@@ -160,9 +160,20 @@ io.on("connection", async (socket) => {
 
     // everyone in a public room for now
     socket.join("public");
+    const buckets = new Map(); // userId -> { tokens, lastRefill }
 
+    function allow(userId, ratePerSec = 1, burst = 5) {
+      const now = Date.now();
+      const b = buckets.get(userId) || { tokens: burst, lastRefill: now };
+      const dt = (now - b.lastRefill) / 1000;
+      b.tokens = Math.min(burst, b.tokens + dt * ratePerSec);
+      b.lastRefill = now;
+      if (b.tokens < 1) { buckets.set(userId, b); return false; }
+      b.tokens -= 1; buckets.set(userId, b); return true;
+    }
     // === SEND ===
     socket.on("chat:send", async (data) => {
+       if (!allow(user.id, 1, 5)) return;
       const content = String(data?.content || "").trim();
       if (!content || content.length > 500) return;
 
