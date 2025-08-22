@@ -92,30 +92,35 @@ router.post("/register", async (req, res) => {
 
 // GET /api/auth/verify?token=...
 router.get("/verify", async (req, res) => {
+  const toLogin = (params) => {
+    const qs = new URLSearchParams(params).toString();
+    return res.redirect(303, `${process.env.FRONTEND_URL}/prisijungti?${qs}`);
+  };
+
   const { token } = req.query;
-  if (!token) return res.status(400).json({ error: "Trūksta žetono (token)" });
+  if (!token) return toLogin({ verified: "0", reason: "missing" });
 
   try {
     const [rows] = await pool.query(
       `SELECT ev.id, ev.user_id, ev.expires_at, ev.used, u.email_verified
-       FROM email_verifications ev
-       JOIN users u ON u.id = ev.user_id
-       WHERE ev.token = ? LIMIT 1`,
+         FROM email_verifications ev
+         JOIN users u ON u.id = ev.user_id
+        WHERE ev.token = ? LIMIT 1`,
       [token]
     );
-    if (!rows.length) return res.status(400).json({ error: "Neteisingas patvirtinimo žetonas" });
+    if (!rows.length) return toLogin({ verified: "0", reason: "invalid" });
 
     const ev = rows[0];
-    if (ev.used) return res.status(400).json({ error: "Šis patvirtinimo žetonas jau panaudotas" });
-    if (new Date(ev.expires_at) < new Date()) return res.status(400).json({ error: "Patvirtinimo žetonas nebegalioja" });
+    if (ev.used) return toLogin({ verified: "0", reason: "used" });
+    if (new Date(ev.expires_at) < new Date()) return toLogin({ verified: "0", reason: "expired" });
 
     await pool.query("UPDATE users SET email_verified = 1 WHERE id = ?", [ev.user_id]);
     await pool.query("UPDATE email_verifications SET used = 1 WHERE id = ?", [ev.id]);
 
-    return res.json({ ok: true, message: "Paskyra sėkmingai patvirtinta" });
+    return toLogin({ verified: "1" });
   } catch (err) {
     console.error("verify error:", err);
-    return res.status(500).json({ error: "Serverio klaida. Bandykite vėliau." });
+    return toLogin({ verified: "0", reason: "server" });
   }
 });
 
