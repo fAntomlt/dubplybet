@@ -73,8 +73,6 @@ async function uniqueSlug(title) {
 
 /* -------- CREATE -------- */
 router.post("/posts", async (req, res) => {
-  // log the raw payload you received
-  console.log("create /posts body:", req.body);
 
   const conn = await pool.getConnection();
   try {
