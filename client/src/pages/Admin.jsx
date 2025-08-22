@@ -8,6 +8,7 @@ import QuillEditor from "../components/QuillEditor";
 import "quill/dist/quill.snow.css";
 import AdminTicketsPanel from "../components/AdminTicketsPanel.jsx";
 import AdminBadges from "../components/AdminBadges.jsx";
+import sanitizeHtml from "../lib/sanitizeHtml";
 /**
  * Self-guarded Admin page:
  * - If not logged in or role !== 'admin' => redirect to "/"
@@ -1180,7 +1181,7 @@ function AdminPosts() {
         title: title.trim(),
         version: type === "update" ? version.trim() : null,
         header_url: headerUrl || null,
-        content_html: html,          // non-empty string
+        content_html: sanitizeHtml(html || ""), // sanitized string
         content_json: delta || null, // optional
         pinned: !!pinned,            // <-- boolean
       },
