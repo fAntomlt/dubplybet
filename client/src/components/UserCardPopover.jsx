@@ -409,7 +409,7 @@ const ProfileCard = styled.div`
   @media (max-width: 420px) {
     grid-template-columns: ${({ $compact }) => ($compact ? "100px 1fr" : "110px 1fr")};
   }
-  @media (max-width: 380px) {
+  @media (max-width: 450px) {
     /* Stack to avoid overflowing on very narrow screens */
     grid-template-columns: 1fr;
   }
@@ -420,7 +420,7 @@ const LeftPanel = styled.div`
   display: grid;
   place-items: center;
 
-  @media (max-width: 380px) {
+  @media (max-width: 450px) {
     padding: 12px 12px 0;
   }
 `;
@@ -435,7 +435,7 @@ const AvatarImg = styled.img`
   @media (max-width: 420px) {
     width: 78px; height: 78px;
   }
-  @media (max-width: 380px) {
+  @media (max-width: 450px) {
     width: 64px; height: 64px;
   }
 `;
@@ -450,7 +450,7 @@ const AvatarFallback = styled.div`
   @media (max-width: 420px) {
     width: 78px; height: 78px; font-size: 20px;
   }
-  @media (max-width: 380px) {
+  @media (max-width: 450px) {
     width: 64px; height: 64px; font-size: 18px;
   }
 `;
@@ -461,7 +461,7 @@ const RightPanel = styled.div`
   gap: 10px;
   min-width: 0;
 
-  @media (max-width: 380px) {
+  @media (max-width: 450px) {
     padding: 12px;
   }
 `;
