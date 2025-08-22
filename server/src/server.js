@@ -29,6 +29,7 @@ import publicPostsRoutes from "./routes/posts.public.js";
 import ticketsRouter from "./routes/tickets.js";
 import adminTicketsRouter from "./routes/adminTickets.js";
 import badgesRouter from "./routes/badges.js";
+import helmet from "helmet";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -131,6 +132,8 @@ app.get("/api/db-health", async (req, res) => {
 });
 
 const server = http.createServer(app);
+server.setTimeout(10_000);
+server.headersTimeout = 10_000;
 const io = new SocketIOServer(server, { cors: corsOptions });
 
 // ---------- CHAT SOCKET ----------
