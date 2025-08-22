@@ -37,14 +37,11 @@ dotenv.config({ path: path.join(__dirname, "../.env") });
 const app = express();
 const PORT = process.env.SERVER_PORT || 8080;
 
-// behind Nginx → trust the proxy so rate-limit sees the real IP
 app.set("trust proxy", 1);
 app.disable("x-powered-by");
 
 const allowedOrigins = (process.env.CORS_ORIGINS || process.env.CORS_ORIGIN || "*")
-  .split(",")
-  .map((s) => s.trim())
-  .filter(Boolean);
+  .split(",").map(s => s.trim()).filter(Boolean);
 
 const corsOptions = {
   origin: (origin, cb) => {
@@ -57,108 +54,69 @@ const corsOptions = {
 
 const uploadsRoot = path.join(__dirname, "../uploads");
 
-// ORDER: parsers → CORS → rate limits → routes
+// ORDER: parsers → cors → routes
 app.use(express.json({ limit: "1mb" }));
 app.use(express.urlencoded({ extended: false }));
 app.use(cors(corsOptions));
-
-/* ================== RATE LIMITS ================== */
-
-// Global soft guard (per IP) for everything under /api
-const apiLimiter = rateLimit({
-  windowMs: 60 * 1000, // 1 minute
-  max: 300,            // 300 req/min/IP
-  standardHeaders: true,
-  legacyHeaders: false,
-});
-
-// Stricter guard for write-ish actions
-const writeLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 min
-  max: 100,                  // writes per window/IP
-  standardHeaders: true,
-  legacyHeaders: false,
-  message: { error: "Per daug užklausų. Bandykite vėliau." },
-});
-
-// Helper so reads (GET/HEAD/OPTIONS) aren't throttled by the write limiter
-const writesOnly = (limiter) => (req, res, next) =>
-  req.method === "GET" || req.method === "HEAD" || req.method === "OPTIONS"
-    ? next()
-    : limiter(req, res, next);
-
-// Apply global ceiling for all /api/*
-app.use("/api", apiLimiter);
-
-// Apply stricter limits only to write-heavy areas
-app.use("/api/tickets", writesOnly(writeLimiter)); // create tickets & messages
-app.use("/api/games", writesOnly(writeLimiter));   // guesses & admin writes under /api/games
-app.use("/api/posts", writesOnly(writeLimiter));   // public posting routes
-
-// Keep your existing /api/auth limiter (more strict)
-const authLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000,
-  max: 50,
-  standardHeaders: true,
-  legacyHeaders: false,
-  message: { error: "Per daug užklausų. Bandykite dar kartą vėliau." },
-});
-
-/* ================== ROUTES ================== */
-
-// Static uploads (images only, with MIME guard)
-const allowedExt = new Set([".jpg",".jpeg",".png",".gif",".webp"]);
-
-app.use("/uploads", (req, res) => {
-  const rel = req.path.replace(/^\/+/, "");          // strip leading slash
-  const abs = path.resolve(path.join(uploadsRoot, rel));
-  const root = path.resolve(uploadsRoot);
-
-  // prevent traversal
-  if (!abs.startsWith(root + path.sep) && abs !== root) {
-    return res.status(400).end();
-  }
-
-  const ext = path.extname(abs).toLowerCase();
-  if (!allowedExt.has(ext)) return res.status(415).end();
-
-  switch (ext) {
-    case ".jpg":
-    case ".jpeg": res.type("image/jpeg"); break;
-    case ".png":  res.type("image/png");  break;
-    case ".gif":  res.type("image/gif");  break;
-    default:      res.type("image/webp");
-  }
-  res.set("Cache-Control", "public, max-age=604800, immutable");
-
-  fs.stat(abs, (err, stat) => {
-    if (err || !stat.isFile()) return res.status(404).end();
-    res.sendFile(abs);
-  });
-});
-
-// Public + auth routes
-app.use("/api/auth", authLimiter, authRoutes);
-app.use("/api/tournaments", tournamentsPublic);
-app.use("/api/tournaments", tournamentsWinnerPicks);
+app.use("/api/admin", requireAuth, requireAdmin, adminUsersRoutes);
+app.use("/api/admin", requireAuth, requireAdmin, tournamentsAdmin);
+app.use("/api/admin", requireAuth, requireAdmin, gamesAdmin);
 app.use("/api/games", gamesPublic);
 app.use("/api/games", gamesGuess);
 app.use("/api/games", gamePublicGuesses);
 app.use("/api/leaderboards", leaderboardsPublic);
 app.use("/api/chat", chatPublic);
 app.use("/api/users", usersMeRoutes);
+app.use("/uploads", (req, res, next) => {
+  const filePath = path.join(uploadsRoot, req.path);
+
+  // Prevent path traversal
+  if (!filePath.startsWith(uploadsRoot)) return res.status(400).end();
+
+  fs.stat(filePath, (err, stat) => {
+    if (err || !stat.isFile()) return res.status(404).end();
+
+    // Set MIME type explicitly for the extensions we allow
+    const ext = path.extname(filePath).toLowerCase();
+    switch (ext) {
+      case ".jpg":
+      case ".jpeg":
+        res.type("image/jpeg");
+        break;
+      case ".png":
+        res.type("image/png");
+        break;
+      case ".gif":
+        res.type("image/gif");
+        break;
+      case ".webp":
+        res.type("image/webp");
+        break;
+      default:
+        // Unknown/blocked extension -> 415 Unsupported Media Type
+        return res.status(415).end();
+    }
+    res.sendFile(filePath);
+  });
+});
+app.use("/api/tournaments", tournamentsPublic);
+
+const authLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 50,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: "Per daug užklausų. Bandykite dar kartą vėliau." }
+});
+app.use("/api/auth", authLimiter, authRoutes);
+app.use("/api/tournaments", tournamentsPublic);
+app.use("/api/tournaments", tournamentsWinnerPicks);
+app.use("/api/admin", requireAuth, requireAdmin, adminPostsRoutes);
 app.use("/api/posts", publicPostsRoutes);
 app.use("/api/tickets", ticketsRouter);
+app.use("/api/admin", requireAuth, requireAdmin, adminTicketsRouter);
 app.use("/api", badgesRouter);
 
-// Admin routes (protected)
-app.use("/api/admin", requireAuth, requireAdmin, adminUsersRoutes);
-app.use("/api/admin", requireAuth, requireAdmin, tournamentsAdmin);
-app.use("/api/admin", requireAuth, requireAdmin, gamesAdmin);
-app.use("/api/admin", requireAuth, requireAdmin, adminPostsRoutes);
-app.use("/api/admin", requireAuth, requireAdmin, adminTicketsRouter);
-
-// Health checks
 app.get("/api/health", (req, res) => {
   res.json({ ok: true, uptime: process.uptime() });
 });
@@ -230,9 +188,11 @@ io.on("connection", async (socket) => {
       io.to("public").emit("chat:new", message);
     });
 
+    // === DELETE (admins can delete others' messages) ===
     // === DELETE (owner OR admin) ===
     socket.on("chat:delete", async ({ id }) => {
       try {
+        // find owner of the message
         const [rows] = await pool.query(
           "SELECT user_id FROM chat_messages WHERE id = ? LIMIT 1",
           [id]
@@ -240,7 +200,7 @@ io.on("connection", async (socket) => {
         if (!rows.length) return;
 
         const ownerId = rows[0].user_id;
-        const canDelete = isAdmin || ownerId === user.id;
+        const canDelete = isAdmin || ownerId === user.id; // allow owner OR admin
         if (!canDelete) return;
 
         const [res] = await pool.query("DELETE FROM chat_messages WHERE id = ?", [id]);
@@ -252,20 +212,21 @@ io.on("connection", async (socket) => {
       }
     });
 
-    // === EDIT (only author) ===
+
+    // === EDIT (only author can edit) ===
     socket.on("chat:update", async ({ id, content }) => {
       try {
         const text = String(content || "").trim();
         if (!text || text.length > 500) return;
 
-        const [rows] = await pool.query("SELECT user_id FROM chat_messages WHERE id = ?", [id]);
+        // ensure ownership
+        const [rows] = await pool.query(
+          "SELECT user_id FROM chat_messages WHERE id = ?",
+          [id]
+        );
         if (!rows.length) return;
         if (rows[0].user_id !== user.id) return;
-
-        await pool.query("UPDATE chat_messages SET content = ?, edited_at = NOW() WHERE id = ?", [
-          text,
-          id,
-        ]);
+        await pool.query("UPDATE chat_messages SET content = ?, edited_at = NOW() WHERE id = ?", [text, id]);
 
         io.to("public").emit("chat:updated", {
           id,
