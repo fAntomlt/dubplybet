@@ -6,6 +6,7 @@ import logoImg from "../assets/icriblogo.png";
 import { useToast } from "../components/ToastProvider";
 import { setAuth, getAuth } from "../store/auth";
 import { flagForTeam } from "../lib/flags";
+import { subroleFor } from "../lib/subroles";
 
 // small helper
 function roleLT(role) {
@@ -288,6 +289,7 @@ export default function Profile() {
   // ===== Left card extra data: Teisingi spėjimai + Favoritas =====
   const [correctAllTime, setCorrectAllTime] = useState(null);
   const [favoriteTeam, setFavoriteTeam] = useState(null);
+  const mySub = useMemo(() => subroleFor(Number(correctAllTime ?? 0)), [correctAllTime]);
 
   // --- Registered date (užsiregistravo) ---
 const [registeredAt, setRegisteredAt] = useState(null);
@@ -470,6 +472,12 @@ useEffect(() => {
             <NameRow>
               <Name title={name}>{name}</Name>
               <RolePill $admin={me?.role === "admin"}>{roleLT(me?.role)}</RolePill>
+              {!!correctAllTime && (
+                <RolePill as="span" style={{ color: mySub.fg, background: mySub.bg }}>
+                  <mySub.Icon style={{ verticalAlign: "middle", marginRight: 6 }} />
+                  {mySub.name}
+                </RolePill>
+              )}
             </NameRow>
 
             <Divider />

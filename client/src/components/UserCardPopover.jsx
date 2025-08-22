@@ -2,6 +2,7 @@ import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from "re
 import { createPortal } from "react-dom";
 import styled from "styled-components";
 import { flagForTeam } from "../lib/flags";
+import { subroleFor } from "../lib/subroles";
 
 export default function UserCardPopover({
   open,
@@ -102,6 +103,7 @@ export default function UserCardPopover({
   }, [user]);
 
   const [correctAllTime, setCorrectAllTime] = useState(initialCorrect);
+  const sub = useMemo(() => subroleFor(Number(correctAllTime ?? 0)), [correctAllTime]);
 
   // Reset the value whenever the target user changes
   useEffect(() => {
@@ -213,6 +215,12 @@ export default function UserCardPopover({
             <RolePill $compact={variant === "compact"} $admin={user?.role === "admin"}>
                 {user?.role === "admin" ? "Administratorius" : "Narys"}
             </RolePill>
+            {!!correctAllTime && (
+              <SubRolePill title={`${sub.name} • ≥${sub.min}`}>
+                <sub.Icon style={{ verticalAlign: "middle", marginRight: 6 }} />
+                {sub.name}
+              </SubRolePill>
+            )}
         </TopRow>
 
           {loading && <InfoMuted>Kraunama…</InfoMuted>}
@@ -466,4 +474,10 @@ const Arrow = styled.div`
   border-bottom: ${({ $below }) => ($below ? "10px solid #ffffff" : "0")};
   filter: drop-shadow(0 -1px 0 ${({ theme }) => theme?.colors?.line || "#e7eaf0"});
   margin-top: ${({ $below }) => ($below ? "0" : "8px")};
+`;
+
+const SubRolePill = styled(RolePill)`
+  background: ${({ theme }) => theme?.colors?.soft ?? "#f6f8fc"};
+  border: 1px solid #e5e7eb;
+  color: ${({ $fg }) => $fg || "#0f172a"};
 `;
