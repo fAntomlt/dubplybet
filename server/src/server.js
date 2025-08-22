@@ -67,37 +67,44 @@ app.use("/api/games", gamePublicGuesses);
 app.use("/api/leaderboards", leaderboardsPublic);
 app.use("/api/chat", chatPublic);
 app.use("/api/users", usersMeRoutes);
-app.use("/uploads", (req, res, next) => {
-  const filePath = path.join(uploadsRoot, req.path);
+// safer /uploads handler (blocks symlink/path traversal, serves only images)
+app.use("/uploads", async (req, res) => {
+  try {
+    // Build candidate path and resolve real paths
+    const rawPath = path.join(uploadsRoot, req.path); // e.g. /uploads/avatars/u_1.webp
+    const [rootReal, fileReal] = await Promise.all([
+      fs.promises.realpath(uploadsRoot),
+      fs.promises.realpath(rawPath).catch(() => null), // null if not found or broken link
+    ]);
 
-  // Prevent path traversal
-  if (!filePath.startsWith(uploadsRoot)) return res.status(400).end();
+    // Reject if file missing or escapes the uploads root (symlinks, ../, etc.)
+    if (!fileReal || !fileReal.startsWith(rootReal)) return res.status(400).end();
 
-  fs.stat(filePath, (err, stat) => {
-    if (err || !stat.isFile()) return res.status(404).end();
+    // Must be a regular file
+    const stat = await fs.promises.stat(fileReal).catch(() => null);
+    if (!stat || !stat.isFile()) return res.status(404).end();
 
-    // Set MIME type explicitly for the extensions we allow
-    const ext = path.extname(filePath).toLowerCase();
+    // Strict MIME by extension
+    const ext = path.extname(fileReal).toLowerCase();
     switch (ext) {
       case ".jpg":
       case ".jpeg":
-        res.type("image/jpeg");
-        break;
+        res.type("image/jpeg"); break;
       case ".png":
-        res.type("image/png");
-        break;
+        res.type("image/png"); break;
       case ".gif":
-        res.type("image/gif");
-        break;
+        res.type("image/gif"); break;
       case ".webp":
-        res.type("image/webp");
-        break;
+        res.type("image/webp"); break;
       default:
-        // Unknown/blocked extension -> 415 Unsupported Media Type
         return res.status(415).end();
     }
-    res.sendFile(filePath);
-  });
+    res.setHeader("Cache-Control", "public, max-age=31536000, immutable");
+
+    return res.sendFile(fileReal);
+  } catch {
+    return res.status(400).end();
+  }
 });
 app.use("/api/tournaments", tournamentsPublic);
 
