@@ -107,36 +107,33 @@ const authLimiter = rateLimit({
 /* ================== ROUTES ================== */
 
 // Static uploads (images only, with MIME guard)
-app.use("/uploads", (req, res, next) => {
-  const filePath = path.join(uploadsRoot, req.path);
+const allowedExt = new Set([".jpg",".jpeg",".png",".gif",".webp"]);
 
-  // Prevent path traversal
-  if (!filePath.startsWith(uploadsRoot)) return res.status(400).end();
+app.use("/uploads", (req, res) => {
+  const rel = req.path.replace(/^\/+/, "");          // strip leading slash
+  const abs = path.resolve(path.join(uploadsRoot, rel));
+  const root = path.resolve(uploadsRoot);
 
-  fs.stat(filePath, (err, stat) => {
+  // prevent traversal
+  if (!abs.startsWith(root + path.sep) && abs !== root) {
+    return res.status(400).end();
+  }
+
+  const ext = path.extname(abs).toLowerCase();
+  if (!allowedExt.has(ext)) return res.status(415).end();
+
+  switch (ext) {
+    case ".jpg":
+    case ".jpeg": res.type("image/jpeg"); break;
+    case ".png":  res.type("image/png");  break;
+    case ".gif":  res.type("image/gif");  break;
+    default:      res.type("image/webp");
+  }
+  res.set("Cache-Control", "public, max-age=604800, immutable");
+
+  fs.stat(abs, (err, stat) => {
     if (err || !stat.isFile()) return res.status(404).end();
-
-    // Set MIME type explicitly for the extensions we allow
-    const ext = path.extname(filePath).toLowerCase();
-    switch (ext) {
-      case ".jpg":
-      case ".jpeg":
-        res.type("image/jpeg");
-        break;
-      case ".png":
-        res.type("image/png");
-        break;
-      case ".gif":
-        res.type("image/gif");
-        break;
-      case ".webp":
-        res.type("image/webp");
-        break;
-      default:
-        // Unknown/blocked extension -> 415 Unsupported Media Type
-        return res.status(415).end();
-    }
-    res.sendFile(filePath);
+    res.sendFile(abs);
   });
 });
 
