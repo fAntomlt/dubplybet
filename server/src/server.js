@@ -40,13 +40,21 @@ const PORT = process.env.SERVER_PORT || 8080;
 app.set("trust proxy", 1);
 app.disable("x-powered-by");
 
-const allowedOrigins = (process.env.CORS_ORIGINS || process.env.CORS_ORIGIN || "*")
-  .split(",").map(s => s.trim()).filter(Boolean);
+const allowedOrigins = (process.env.CORS_ORIGINS || process.env.CORS_ORIGIN || "")
+  .split(",")
+  .map(s => s.trim())
+  .filter(Boolean);
 
 const corsOptions = {
   origin: (origin, cb) => {
+    // allow same-origin / curl / mobile apps (no Origin header)
     if (!origin) return cb(null, true);
-    if (allowedOrigins.includes("*") || allowedOrigins.includes(origin)) return cb(null, true);
+
+    // in dev you may allow '*', but not in production
+    const allowWildcard = process.env.NODE_ENV !== "production" && allowedOrigins.includes("*");
+
+    const ok = allowWildcard || allowedOrigins.includes(origin);
+    if (ok) return cb(null, true);
     return cb(new Error("Not allowed by CORS: " + origin), false);
   },
   credentials: true,
