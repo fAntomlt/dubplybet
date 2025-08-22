@@ -12,6 +12,14 @@ const GameSchema = z.object({
   tipoff_at: z.string(), // ISO or "YYYY-MM-DD HH:mm:ss"
   stage: z.enum(["group", "playoff"]).optional().default("group"),
 });
+const GamePatchSchema = z.object({
+  team_a: z.string().min(1).max(120).optional(),
+  team_b: z.string().min(1).max(120).optional(),
+  tipoff_at: z.string().regex(/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/).optional(),
+  status: z.enum(["scheduled","locked"]).optional(),
+  stage: z.enum(["group","playoff"]).optional(),
+}).refine(d => Object.keys(d).length > 0, { message: "Nėra ką atnaujinti" });
+
 
 // List games by tournament
 router.get("/tournaments/:tid/games", async (req, res) => {
@@ -43,17 +51,24 @@ router.patch("/games/:id", async (req, res) => {
   const id = Number(req.params.id);
   if (!id) return res.status(400).json({ error: "Neteisingas ID" });
 
-  const fields = [];
-  const values = [];
-  // Allow stage updates (UI already calls this)
-  for (const k of ["team_a", "team_b", "tipoff_at", "status", "stage"]) {
-    if (k in req.body) { fields.push(`${k} = ?`); values.push(req.body[k]); }
-  }
-  if (!fields.length) return res.status(400).json({ error: "Nėra ką atnaujinti" });
+  try {
+    const payload = GamePatchSchema.parse(req.body || {});
+    const fields = [];
+    const values = [];
 
-  values.push(id);
-  await pool.query(`UPDATE games SET ${fields.join(", ")}, updated_at = NOW() WHERE id = ?`, values);
-  return res.json({ ok: true, message: "Rungtynės atnaujintos" });
+    for (const k of ["team_a","team_b","tipoff_at","status","stage"]) {
+      if (payload[k] !== undefined) { fields.push(`${k} = ?`); values.push(payload[k]); }
+    }
+    if (!fields.length) return res.status(400).json({ error: "Nėra ką atnaujinti" });
+
+    values.push(id);
+    await pool.query(`UPDATE games SET ${fields.join(", ")}, updated_at = NOW() WHERE id = ?`, values);
+    return res.json({ ok: true, message: "Rungtynės atnaujintos" });
+  } catch (e) {
+    if (e?.issues) return res.status(400).json({ error: "Neteisingi duomenys" });
+    console.error("games PATCH error:", e);
+    return res.status(500).json({ error: "Serverio klaida" });
+  }
 });
 
 // Delete game
