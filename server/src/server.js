@@ -111,7 +111,7 @@ app.use("/api/tournaments", tournamentsWinnerPicks);
 app.use("/api/admin", requireAuth, requireAdmin, adminPostsRoutes);
 app.use("/api/posts", publicPostsRoutes);
 app.use("/api/tickets", ticketsRouter);
-app.use("/api/admin", adminTicketsRouter);
+app.use("/api/admin", requireAuth, requireAdmin, adminTicketsRouter);
 app.use("/api", badgesRouter);
 
 app.get("/api/health", (req, res) => {

@@ -291,6 +291,18 @@ export default function Profile() {
   const [correctAllTime, setCorrectAllTime] = useState(null);
   const [favoriteTeam, setFavoriteTeam] = useState(null);
   const mySub = useMemo(() => subroleFor(Number(correctAllTime ?? 0)), [correctAllTime]);
+  const [badges, setBadges] = useState([]);
+  const [openBadgeId, setOpenBadgeId] = useState(null);
+  useEffect(() => {
+    if (!me?.id) return;
+    (async () => {
+      try {
+        const res = await fetch(`${API}/api/users/${me.id}/badges`, { headers: { ...authHeader } });
+        const d = await res.json();
+        if (d?.ok) setBadges(d.badges || []);
+      } catch {/* ignore */}
+    })();
+  }, [API, authHeader, me?.id]);
 
   // --- Registered date (užsiregistravo) ---
 const [registeredAt, setRegisteredAt] = useState(null);
@@ -440,19 +452,6 @@ useEffect(() => {
   if (serverError && !me) return <Load role="alert">{serverError}</Load>;
 
   const name = me?.username || "Vartotojas";
-
-  const [badges, setBadges] = useState([]);
-  const [openBadgeId, setOpenBadgeId] = useState(null);
-  useEffect(() => {
-    if (!me?.id) return;
-    (async () => {
-      try {
-        const res = await fetch(`${API}/api/users/${me.id}/badges`, { headers: { ...authHeader } });
-        const d = await res.json();
-        if (d?.ok) setBadges(d.badges || []);
-      } catch {/* ignore */}
-    })();
-  }, [API, authHeader, me?.id]);
 
   return (
     <Wrap>

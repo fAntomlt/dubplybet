@@ -105,6 +105,17 @@ export default function UserCardPopover({
 
   const [correctAllTime, setCorrectAllTime] = useState(initialCorrect);
   const sub = useMemo(() => subroleFor(Number(correctAllTime ?? 0)), [correctAllTime]);
+  const [badges, setBadges] = useState([]);
+  useEffect(() => {
+   if (!open || !idForLookup || !apiOrigin) return;
+   (async () => {
+     try {
+       const r = await fetch(`${apiOrigin}/api/users/${idForLookup}/badges`);
+       const d = await r.json();
+       setBadges(d?.badges?.slice(0, 5) || []); // show up to 5
+     } catch { /* ignore */ }
+   })();
+ }, [open, idForLookup, apiOrigin]);
 
   // Reset the value whenever the target user changes
   useEffect(() => {
@@ -187,18 +198,6 @@ export default function UserCardPopover({
   };
 
   const abs = (u) => (u && !/^https?:\/\//i.test(u) ? `${apiOrigin}${u}` : u);
-
-  const [badges, setBadges] = useState([]);
-  useEffect(() => {
-   if (!open || !idForLookup || !apiOrigin) return;
-   (async () => {
-     try {
-       const r = await fetch(`${apiOrigin}/api/users/${idForLookup}/badges`);
-       const d = await r.json();
-       setBadges(d?.badges?.slice(0, 5) || []); // show up to 5
-     } catch { /* ignore */ }
-   })();
- }, [open, idForLookup, apiOrigin]);
 
 
   return createPortal(

@@ -7,6 +7,7 @@ import { useToast } from "../components/ToastProvider";
 import QuillEditor from "../components/QuillEditor";
 import "quill/dist/quill.snow.css";
 import AdminTicketsPanel from "../components/AdminTicketsPanel.jsx";
+import AdminBadges from "../components/AdminBadges.jsx";
 /**
  * Self-guarded Admin page:
  * - If not logged in or role !== 'admin' => redirect to "/"
@@ -195,8 +196,10 @@ function AdminUsers() {
   async function openBadgesModal(userId, username) {
   setBadgeModal(m => ({ ...m, open:true, userId, username, loading:true, catalog:[], assigned:new Set() }));
   try {
-    const cat = await api("/api/admin/badges");
-    const cur = await api(`/api/users/${userId}/badges`);
+    const [cat, cur] = await Promise.all([
+     api("/api/admin/badges"),
+     api(`/api/users/${userId}/badges`)
+   ]);
     setBadgeModal(m => ({
       ...m,
       loading:false,
