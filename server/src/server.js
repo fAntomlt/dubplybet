@@ -37,6 +37,9 @@ dotenv.config({ path: path.join(__dirname, "../.env") });
 const app = express();
 const PORT = process.env.SERVER_PORT || 8080;
 
+app.set("trust proxy", 1);
+app.disable("x-powered-by");
+
 const allowedOrigins = (process.env.CORS_ORIGINS || process.env.CORS_ORIGIN || "*")
   .split(",").map(s => s.trim()).filter(Boolean);
 
