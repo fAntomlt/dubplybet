@@ -174,6 +174,7 @@ const NameBtn = styled.span`
   &:hover { text-decoration: underline; }
 `;
 const Content = styled.div`
+  color: #0f172a;
   font-size:16px; line-height:1.6;
   /* sensible typography for sanitized HTML */
   h1,h2 { line-height:1.2; margin: 16px 0 8px; }
