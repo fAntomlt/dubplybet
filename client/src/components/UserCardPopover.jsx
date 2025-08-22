@@ -3,6 +3,7 @@ import { createPortal } from "react-dom";
 import styled from "styled-components";
 import { flagForTeam } from "../lib/flags";
 import { subroleFor } from "../lib/subroles";
+import BadgePill from "../components/BadgePill.jsx";
 
 export default function UserCardPopover({
   open,
@@ -187,6 +188,19 @@ export default function UserCardPopover({
 
   const abs = (u) => (u && !/^https?:\/\//i.test(u) ? `${apiOrigin}${u}` : u);
 
+  const [badges, setBadges] = useState([]);
+  useEffect(() => {
+   if (!open || !idForLookup || !apiOrigin) return;
+   (async () => {
+     try {
+       const r = await fetch(`${apiOrigin}/api/users/${idForLookup}/badges`);
+       const d = await r.json();
+       setBadges(d?.badges?.slice(0, 5) || []); // show up to 5
+     } catch { /* ignore */ }
+   })();
+ }, [open, idForLookup, apiOrigin]);
+
+
   return createPortal(
     <Wrap
       style={style}
@@ -249,6 +263,25 @@ export default function UserCardPopover({
                   )}
                 </InfoValue>
               </InfoRow>
+              {!!badges.length && (
+                <InfoRow>
+                  <InfoLabel>Ženkleliai</InfoLabel>
+                  <InfoValue>
+                    <div style={{ display:"flex", gap:6, flexWrap:"wrap", justifyContent:"flex-end" }}>
+                      {badges.map(b => (
+                        <span key={b.id} title={b.name} style={{
+                          display:"inline-flex", alignItems:"center",
+                          background: b.bg, color: b.color, borderRadius: 9999, padding: "3px 8px",
+                          fontSize: 11, fontWeight: 900
+                        }}>
+                          {/* tiny dot instead of icon if you want super tight */}
+                          ● {b.name}
+                        </span>
+                      ))}
+                    </div>
+                  </InfoValue>
+                </InfoRow>
+              )}
             </InfoList>
           )}
         </RightPanel>
