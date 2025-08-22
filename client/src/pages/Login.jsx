@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useNavigate, Link } from "react-router-dom";
+import { useNavigate, Link, useLocation } from "react-router-dom";
 import styled from "styled-components";
 import { FiMail, FiLock } from "react-icons/fi";
 import logoImg from "../assets/icriblogo.png";
@@ -9,6 +9,7 @@ import { useToast } from "../components/ToastProvider";
 export default function Login() {
     useEffect(() => { document.title = "Prisijungti – DuBPlyBET"; }, []);
   const navigate = useNavigate();
+  const location = useLocation();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [touched, setTouched] = useState({ email: false, password: false });
@@ -67,6 +68,27 @@ export default function Login() {
       setSubmitting(false);
     }
   }
+
+  +  // toast after email verification redirects here
+  useEffect(() => {
+    const params = new URLSearchParams(location.search || "");
+    const verified = params.get("verified");
+    const reason = params.get("reason");
+    if (verified === "1") {
+      toast.success("Paskyra patvirtinta. Galite prisijungti.");
+      navigate("/prisijungti", { replace: true });
+    } else if (verified === "0") {
+      const msg =
+        reason === "expired" ? "Patvirtinimo nuoroda nebegalioja."
+      : reason === "used"    ? "Ši patvirtinimo nuoroda jau panaudota."
+      : reason === "invalid" ? "Neteisinga patvirtinimo nuoroda."
+      : reason === "missing" ? "Trūksta patvirtinimo žetono."
+      : "Įvyko klaida tikrinant nuorodą.";
+      toast.error(msg);
+      navigate("/prisijungti", { replace: true });
+    }
+  }, [location.search, navigate, toast]);
+
 
   return (
     <Wrap>
