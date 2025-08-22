@@ -1,7 +1,18 @@
 // components/QuillEditor.jsx
 import { useEffect, useRef } from "react";
 import Quill from "quill";
+import sanitizeHtml from "../lib/sanitizeHtml";
 
+const Link = Quill.import("formats/link");
+Link.sanitize = (url) => {
+  try {
+    const u = String(url || "").trim();
+    if (u.startsWith("#")) return u;
+    if (/^(https?:|mailto:)/i.test(u)) return u;
+  } catch {}
+  return "";
+};
+Quill.register(Link, true);
 // --- Force LTR-only direction & left align ---
 const Direction = Quill.import("attributors/attribute/direction");
 Direction.whitelist = ["ltr"];
@@ -63,7 +74,7 @@ export default function QuillEditor({ value, onChange, modules, placeholder }) {
 
     // Initial content (once)
     if (value) {
-      q.clipboard.dangerouslyPasteHTML(stripBidi(value));
+      q.clipboard.dangerouslyPasteHTML(sanitizeHtml(stripBidi(value)));
       q.formatLine(0, q.getLength(), { direction: "ltr", align: "left" }, "silent");
     }
 
@@ -73,13 +84,14 @@ export default function QuillEditor({ value, onChange, modules, placeholder }) {
       return new Ctor(
         delta.ops.map(op => {
           const next = { ...op };
+          if (typeof next.insert === "string") next.insert = stripBidi(next.insert);
+          // allow only Quill-known attrs we actually use
           if (next.attributes) {
             const a = { ...next.attributes };
-            delete a.direction;
-            delete a.align;
+            const allowed = ["bold","italic","underline","strike","list","header","color","link"];
+            for (const k of Object.keys(a)) if (!allowed.includes(k)) delete a[k];
             next.attributes = a;
           }
-          if (typeof next.insert === "string") next.insert = stripBidi(next.insert);
           return next;
         })
       );
@@ -95,7 +107,7 @@ export default function QuillEditor({ value, onChange, modules, placeholder }) {
 
     // On change: emit HTML/Delta — DO NOT move caret
     const handleChange = () => {
-      const html = q.root.innerHTML;
+      const html = sanitizeHtml(q.root.innerHTML);
       lastSentHtmlRef.current = html;
       isEmittingRef.current = true;
       onChange?.(html, q.getContents());
@@ -120,7 +132,7 @@ export default function QuillEditor({ value, onChange, modules, placeholder }) {
     // If this update is just our own echo, ignore
     if (isEmittingRef.current || value === lastSentHtmlRef.current) return;
 
-    const incoming = stripBidi(value || "");
+    const incoming = sanitizeHtml(stripBidi(value || ""));
     // Only re-paste if actually different (avoid nuking selection)
     if ((q.root.innerHTML || "") !== incoming) {
       const sel = q.getSelection();
