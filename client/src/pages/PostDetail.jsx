@@ -93,8 +93,9 @@ export default function PostDetail({ type }) {
       <Wrap>
         <Top>
           <Left>
-            <Avatar
-              $img={absUrl(p.avatarUrl)}
+            <AvatarImg
+              src={absUrl(p.avatarUrl)}
+              alt=""
               role="button"
               tabIndex={0}
               aria-label={`Rodyti ${p.username} profilį`}
@@ -163,11 +164,9 @@ const Right = styled.div`display:flex; align-items:center; gap:10px; color:#6474
 const Badge = styled.span`background:#eef4ff; color:#1f6feb; font-weight:900; padding:2px 6px; border-radius:6px;`;
 const Title = styled.h1`margin:0; font-size:32px; font-weight:800;`;
 const Hero = styled.img`width:100%; aspect-ratio:16/5; object-fit:cover; border-radius:12px;`;
-const Avatar = styled.div`
-  width:34px; height:34px; border-radius:50%; background:#f3f4f6;
-  background-image:${p=>p.$img ? `url(${p.$img})` : "none"}; background-size:cover; background-position:center;
-  border:1px solid #e7eaf0;
-  cursor: pointer;
+const AvatarImg = styled.img`
+  width:34px; height:34px; border-radius:50%;
+  object-fit: cover; background:#f3f4f6; border:1px solid #e7eaf0; cursor:pointer;
 `;
 const NameBtn = styled.span`
   font-weight:700; cursor:pointer;
