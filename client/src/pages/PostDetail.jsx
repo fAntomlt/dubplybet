@@ -8,9 +8,10 @@ import sanitizeHtml from "../lib/sanitizeHtml";
 const API_ORIGIN = (import.meta.env.VITE_API_URL || "").replace(/\/+$/, "");
 const absUrl = (u) => {
   if (!u) return "";
-  if (/^https?:\/\//i.test(u)) return u;        // already absolute
-  if (u.startsWith("/uploads")) return API_ORIGIN + u; // served by backend
-  return u;
+  const s = String(u).trim();
+  if (/^https?:\/\//i.test(s)) return s;
+  if (s.startsWith("/uploads")) return API_ORIGIN + s;
+  return ""; // drop unknown/unsafe schemes like javascript:, data:, etc.
 };
 
 export default function PostDetail({ type }) {
