@@ -1406,3 +1406,13 @@ const DangerBtn = styled.button`
   &:disabled { opacity: .6; cursor: not-allowed; }
   &:hover:not(:disabled) { background: #fecaca; }
 `;
+
+const Success = styled.div`
+  background:#effaf1;
+  border:1px solid #c9efd1;
+  color:#0d6c2f;
+  padding:10px 12px;
+  border-radius:12px;
+  margin-bottom:10px;
+  font-size:14px;
+`;
