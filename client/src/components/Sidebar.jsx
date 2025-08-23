@@ -58,26 +58,29 @@ export default function Sidebar({ onOpenChat }) {
   };
 
   useEffect(() => {
-  const { token, user } = getAuth();
-  if (!token) return;
+    const { token } = getAuth();
+    if (!token) return;
 
-  // Only hydrate if avatarUrl is missing/undefined
-  if (!user || typeof user.avatarUrl === "undefined") {
+    const ctrl = new AbortController();
     (async () => {
       try {
         const res = await fetch(`${API}/api/users/me`, {
           headers: { Authorization: `Bearer ${token}` },
+          signal: ctrl.signal,
         });
         const data = await res.json();
         if (res.ok && data?.ok) {
-          setAuth({ user: data.user, token }); // updates store -> Sidebar re-renders
+          // Always sync the store with the server-sanitized user
+          setAuth({ user: data.user, token });
         }
-      } catch {
-        // ignore – Sidebar can still show initials
+      } catch (e) {
+        if (e?.name !== "AbortError") {
+          // ignore – Sidebar can still show initials
+        }
       }
     })();
-  }
-}, []);
+    return () => ctrl.abort();
+  }, [API]);
 
   return (
     <>
