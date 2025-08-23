@@ -293,7 +293,7 @@ export default function Turnyrai() {
           {draftSorted.map(t => (
             <DraftCard key={t.id} $bg={bgOf(t)} aria-label={`${t.name} – jau greitai`}>
               <ImageLayer $bg={bgOf(t)} />
-              <Overlay $dark $alpha={0.45} />
+              <Overlay $dark $alpha={0.53} />
               <CardContent>
                 <CenterStack>
                 <CardTitle>{t.name}</CardTitle>
