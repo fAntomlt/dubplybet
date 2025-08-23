@@ -6,6 +6,7 @@ import { theme } from '../styles/theme';
 import { GlobalStyle } from '../styles/GlobalStyle';
 import Sidebar from '../components/Sidebar';
 import ChatDock from '../components/ChatDock';
+import Footer from '../components/Footer.jsx';
 
 export default function MainLayout() {
   const [chatOpen, setChatOpen] = useState(false);
@@ -21,6 +22,7 @@ export default function MainLayout() {
           <Content $fullBleed={isHome}>
             <Outlet />
           </Content>
+          <Footer />
         </Main>
         <ChatDock open={chatOpen} onClose={() => setChatOpen(false)} />
       </Shell>
@@ -44,6 +46,10 @@ const Main = styled.main`
   height: 100%;
   box-sizing: border-box;
   padding: var(--main-pad-top) var(--main-pad-x) var(--main-pad-bottom);
+
+  display: flex;
+  flex-direction: column;
+
   overflow: auto;
 
   @media (max-width:960px){
@@ -51,11 +57,15 @@ const Main = styled.main`
     --main-pad-bottom: 16px;
     --main-pad-x: 16px;
     padding: var(--main-pad-top) var(--main-pad-x) var(--main-pad-bottom);
-    overflow-x: hidden; /* clamps any accidental bleed */
+    overflow-x: hidden;
   }
 `;
+
 const Content = styled.div`
   width: 100%;
   max-width: ${p => (p.$fullBleed ? 'none' : '1120px')};
   margin: ${p => (p.$fullBleed ? '0' : '0 auto')};
+
+  /* nauja: užimk likusį aukštį, kad Footer nusileistų apačion */
+  flex: 1 0 auto;
 `;
