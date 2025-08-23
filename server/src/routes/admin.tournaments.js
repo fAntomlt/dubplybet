@@ -1,14 +1,25 @@
 import { Router } from "express";
 import { z } from "zod";
 import pool from "../db.js";
+import multer from "multer";
+import sharp from "sharp";
+import path from "path";
+import fs from "fs";
+import { fileURLToPath } from "url";
+import { nanoid } from "nanoid";
 
 const router = Router();
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 4 * 1024 * 1024 } });
 
 const TournamentSchema = z.object({
   name: z.string().min(3, "Pavadinimas per trumpas").max(120, "Pavadinimas per ilgas"),
-  start_date: z.string(), // "YYYY-MM-DD"
-  end_date: z.string(),   // "YYYY-MM-DD"
-});
+  start_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/,"Neteisinga data"),
+  end_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/,"Neteisinga data"),
+  // allow relative /uploads/... (what FE will send back after upload)
+  cover_url: z.string().regex(/^\/uploads\/.+$/, "Neteisingas kelias").optional().nullable(),
+}).refine(o => !o.start_date || !o.end_date || o.start_date <= o.end_date, { message: "Data neteisinga" });
 
 // GET list
 router.get("/tournaments", async (_req, res) => {
@@ -19,14 +30,39 @@ router.get("/tournaments", async (_req, res) => {
 // POST create
 router.post("/tournaments", async (req, res) => {
   try {
-    const { name, start_date, end_date } = TournamentSchema.parse(req.body);
+    const { name, start_date, end_date, cover_url = null } = TournamentSchema.parse(req.body);
     const [r] = await pool.query(
-      "INSERT INTO tournaments (name, start_date, end_date, status) VALUES (?,?,?,'draft')",
-      [name, start_date, end_date]
+      "INSERT INTO tournaments (name, start_date, end_date, status, cover_url) VALUES (?,?,?,'draft',?)",
+      [name, start_date, end_date, cover_url]
     );
     return res.json({ ok: true, id: r.insertId, message: "Turnyras sukurtas" });
   } catch (e) {
     return res.status(400).json({ error: e?.issues ? "Neteisingi duomenys" : "Serverio klaida" });
+  }
+});
+
+// POST /api/admin/tournaments/upload-cover  (multipart/form-data, field: "file")
+router.post("/tournaments/upload-cover", upload.single("file"), async (req, res) => {
+  try {
+    if (!req.file) return res.status(400).json({ error: "Failas nepridėtas" });
+    // ensure dir
+    const outDir = path.join(__dirname, "../../uploads/tournament_covers");
+    await fs.promises.mkdir(outDir, { recursive: true });
+
+    const id = nanoid(12);
+    const outPath = path.join(outDir, `${id}.webp`);
+
+    // cover-ish crop 16:9, WebP
+    await sharp(req.file.buffer)
+      .resize(1600, 900, { fit: "cover", position: "attention" })
+      .webp({ quality: 82 })
+      .toFile(outPath);
+
+    const url = `/uploads/tournament_covers/${id}.webp`;
+    res.json({ ok: true, url });
+  } catch (e) {
+    console.error("upload-cover error:", e);
+    res.status(500).json({ error: "Klaida įkeliant" });
   }
 });
 

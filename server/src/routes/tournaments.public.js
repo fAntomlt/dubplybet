@@ -8,7 +8,7 @@ const router = Router();
 router.get("/", async (_req, res) => {
   try {
     const [rows] = await pool.query(
-      "SELECT id, name, start_date, end_date, status, winner_team /* cover_url optional */ FROM tournaments ORDER BY created_at DESC"
+      "SELECT id, name, start_date, end_date, status, winner_team, cover_url FROM tournaments ORDER BY created_at DESC"
     );
     return res.json({ ok: true, tournaments: rows });
   } catch (e) {
@@ -23,7 +23,7 @@ router.get("/:id", async (req, res) => {
   if (!id) return res.status(400).json({ error: "Neteisingas ID" });
   try {
     const [rows] = await pool.query(
-      "SELECT id, name, start_date, end_date, status, winner_team FROM tournaments WHERE id = ? LIMIT 1",
+      "SELECT id, name, start_date, end_date, status, winner_team, cover_url FROM tournaments WHERE id = ? LIMIT 1",
       [id]
     );
     if (!rows.length) return res.status(404).json({ error: "Nerasta" });

@@ -207,7 +207,10 @@ export default function Turnyrai() {
       default:         return FALLBACK_IMG;
     }
   };
-  const bgOf = (t) => bgForStatus(t?.status);
+  const bgOf = (t) => {
+    if (t?.cover_url) return `url('${toUploadUrl(t.cover_url)}')`;
+    return bgForStatus(t?.status);
+  };
   const goTo = (t) => navigate(`/turnyrai/${t.id}`);
 
   if (loading) {
