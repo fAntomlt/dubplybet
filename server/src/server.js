@@ -114,6 +114,7 @@ app.use("/uploads", async (req, res) => {
       default:
         return res.status(415).end();
     }
+    res.setHeader("X-Content-Type-Options", "nosniff");
     res.setHeader("Cache-Control", "public, max-age=31536000, immutable");
 
     return res.sendFile(fileReal);
@@ -220,7 +221,7 @@ io.on("connection", async (socket) => {
       io.to("public").emit("chat:new", {
         id: result.insertId,
         userId: user.id,
-        username: user.username,
+        username: cleanName(user.username),
         avatarUrl: user.avatarUrl || null,
         content,
         createdAt: new Date().toISOString(),
@@ -273,7 +274,7 @@ io.on("connection", async (socket) => {
           content: text,
           edited: true,
           userId: user.id,
-          username: user.username,
+          username: cleanName(user.username),
           updatedAt: new Date().toISOString(),
         });
       } catch (e) {
