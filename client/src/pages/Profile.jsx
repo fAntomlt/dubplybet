@@ -451,40 +451,6 @@ useEffect(() => {
 
   const name = me?.username || "Vartotojas";
 
-  const [delOpen, setDelOpen] = useState(false);
-  const [delPwd, setDelPwd] = useState("");
-  const [delBusy, setDelBusy] = useState(false);
-  const [delErr, setDelErr] = useState("");
-  const [delOK, setDelOK] = useState(false);
-
-  async function sendDeleteRequest() {
-    setDelErr("");
-    if (!delPwd || delPwd.length < 8) {
-      setDelErr("Įveskite slaptažodį (min. 8 simboliai).");
-      return;
-    }
-    try {
-      setDelBusy(true);
-      const res = await fetch(`${API}/api/users/me/delete-request`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json", ...authHeader },
-        body: JSON.stringify({ password: delPwd }),
-      });
-      const data = await res.json();
-      if (!res.ok || !data?.ok) {
-        setDelErr(data?.error || "Nepavyko inicijuoti ištrynimo.");
-        setDelBusy(false);
-        return;
-      }
-      setDelOK(true);
-      toast.success("Išsiuntėme laišką paskyros ištrynimui patvirtinti.");
-    } catch {
-      setDelErr("Serverio klaida. Bandykite vėliau.");
-    } finally {
-      setDelBusy(false);
-    }
-  }
-
   return (
     <Wrap>
       <Container>
@@ -810,48 +776,6 @@ useEffect(() => {
                   )}
                 </Expand>
               </Field>
-            </Card>
-            <Card style={{ gridColumn: "1 / -1", borderColor: "#fecaca", background: "#fff1f2" }}>
-              <CardTitle style={{ color: "#991b1b" }}>PASKYROS IŠTRYNIMAS</CardTitle>
-              <div style={{ fontSize: 14, color: "#7f1d1d" }}>
-                Ištrynus paskyrą, šio veiksmo atšaukti negalėsite.
-              </div>
-
-              <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
-                <DangerBtn type="button" onClick={() => setDelOpen(v => !v)} aria-expanded={delOpen}>
-                  IŠTRINTI PASKYRĄ
-                </DangerBtn>
-              </div>
-
-              <Expand $open={delOpen} aria-hidden={!delOpen}>
-                {delOK ? (
-                  <Success role="status">
-                    IŠSIUNTĖME LAIŠKĄ Į EL. PAŠTĄ PASKYROS IŠTRINIMUI PATVIRTINTI.
-                  </Success>
-                ) : (
-                  <>
-                    <SubLabel>Patvirtinkite slaptažodį</SubLabel>
-                    <ExpandedInputWrap aria-invalid={!!delErr}>
-                      <FiLock />
-                      <Input
-                        type="password"
-                        value={delPwd}
-                        onChange={(e) => setDelPwd(e.target.value)}
-                        placeholder="●●●●●●●●"
-                      />
-                    </ExpandedInputWrap>
-                    {!!delErr && <Alert role="alert">{delErr}</Alert>}
-                    <div style={{ display: "flex", gap: 8, justifyContent: "center" }}>
-                      <DangerBtn onClick={sendDeleteRequest} disabled={delBusy}>
-                        {delBusy ? "Siunčiama..." : "Siųsti patvirtinimą el. paštu"}
-                      </DangerBtn>
-                      <IconBtn $variant="cancel" onClick={() => { setDelOpen(false); setDelPwd(""); setDelErr(""); }}>
-                        <FiX />
-                      </IconBtn>
-                    </div>
-                  </>
-                )}
-              </Expand>
             </Card>
         </Grid>
       </Container>
@@ -1392,27 +1316,4 @@ const MetaValue = styled.div`
 const MetaItem = styled.div`
   display: grid;
   gap: ${PAIR_GAP};         /* tight gap inside each pair */
-`;
-
-const DangerBtn = styled.button`
-  height: 42px;
-  border: 1px solid #dc2626;
-  background: #fee2e2;
-  color: #991b1b;
-  font-weight: 900;
-  border-radius: 12px;
-  padding: 0 14px;
-  cursor: pointer;
-  &:disabled { opacity: .6; cursor: not-allowed; }
-  &:hover:not(:disabled) { background: #fecaca; }
-`;
-
-const Success = styled.div`
-  background:#effaf1;
-  border:1px solid #c9efd1;
-  color:#0d6c2f;
-  padding:10px 12px;
-  border-radius:12px;
-  margin-bottom:10px;
-  font-size:14px;
 `;
