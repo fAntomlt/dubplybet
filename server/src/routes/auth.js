@@ -5,17 +5,24 @@ import pool from "../db.js";
 import { sendMail } from "../utils/mailer.js";
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
+import sanitizeHtml from "sanitize-html";
 
 const router = Router();
 const DISCORD_RE = /^(?!.*\.\.)[a-z0-9._]{2,32}$/;
+
+const STRIP_ALL = { allowedTags: [], allowedAttributes: {} };
+const cleanName = (s) =>
+  sanitizeHtml(String(s ?? ""), STRIP_ALL).replace(/\s+/g, " ").trim();
+const USERNAME_RE = /^[\p{L}\p{N}._\- ]{3,50}$/u;
 
 const RegisterSchema = z.object({
   email: z.string({ required_error: "El. paštas privalomas" })
            .email("Neteisingas el. pašto formatas")
            .max(191, "El. paštas per ilgas"),
   username: z.string({ required_error: "Vartotojo vardas privalomas" })
-             .min(3, "Vartotojo vardas per trumpas (min. 3)")
-             .max(50, "Vartotojo vardas per ilgas (max. 50)"),
+             .transform(cleanName)
+             .refine(v => v.length >= 3 && v.length <= 50, "Vardas 3–50 simbolių")
+             .refine(v => USERNAME_RE.test(v), "Leidžiami tik raidės/skaičiai, „._- “"),
   discordUsername: z.string({ required_error: "Discord vardas privalomas" })
   .transform(s => String(s).trim().toLowerCase())
   .refine(s => DISCORD_RE.test(s), "Neteisingas Discord vardas"),
@@ -150,7 +157,7 @@ router.post("/login", async (req, res) => {
       user: {
         id: user.id,
         email: user.email,
-        username: user.username,
+        username: cleanName(user.username),
         role: user.role,
         email_verified: !!user.email_verified,
       },

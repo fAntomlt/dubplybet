@@ -9,11 +9,21 @@ import fs from "fs/promises";
 import multer from "multer";
 import sharp from "sharp";
 import { fileURLToPath } from "url";
+import sanitizeHtml from "sanitize-html";
 
 const router = Router();
 
 // shared validators
-const UsernameSchema = z.string().min(3).max(50);
+const STRIP_ALL = { allowedTags: [], allowedAttributes: {} };
+ const cleanName = (s) =>
+   sanitizeHtml(String(s ?? ""), STRIP_ALL).replace(/\s+/g, " ").trim();
+ // allow letters (incl. diacritics), numbers, space, dot, underscore, hyphen
+ const USERNAME_RE = /^[\p{L}\p{N}._\- ]{3,50}$/u;
+ const UsernameSchema = z
+   .string()
+   .transform(cleanName)
+   .refine(v => v.length >= 3 && v.length <= 50, "Vardas 3–50 simbolių")
+   .refine(v => USERNAME_RE.test(v), "Leidžiami tik raidės/skaičiai, „._- “");
 
 // Discord: 2–32, only a–z 0–9 _ . , no consecutive "..".
 // We also normalize: trim, strip leading "@", lowercase.
@@ -132,7 +142,11 @@ router.get("/me", requireAuth, async (req, res) => {
     );
     if (!rows.length) return res.status(404).json({ error: "Vartotojas nerastas" });
 
-    return res.json({ ok: true, user: rows[0] });
+    const u = rows[0];
+    return res.json({
+      ok: true,
+      user: { ...u, username: cleanName(u.username) }
+    });
   } catch (err) {
     console.error("GET /users/me error:", err);
     return res.status(500).json({ error: "Serverio klaida. Bandykite vėliau." });
@@ -283,7 +297,11 @@ router.get("/public/:id", requireAuth, async (req, res) => {
       if (pRows.length) winnerPickTeam = pRows[0].team || null;
     }
 
-    return res.json({ ok: true, user: { ...rows[0], winnerPickTeam } });
+    const u = rows[0];
+    return res.json({
+      ok: true,
+      user: { ...u, username: cleanName(u.username), winnerPickTeam }
+    });
   } catch (err) {
     console.error("GET /users/public/:id error:", err);
     return res.status(500).json({ ok: false, error: "Serverio klaida" });
