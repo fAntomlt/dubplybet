@@ -207,7 +207,19 @@ router.patch("/me", requireAuth, async (req, res) => {
 
     await pool.query(`UPDATE users SET ${sets.join(", ")} WHERE id = ?`, vals);
 
-    return res.json({ ok: true, message: "Pakeitimai išsaugoti" });
+    const [after] = await pool.query(
+      "SELECT username, discord_username AS discordUsername FROM users WHERE id = ? LIMIT 1",
+      [uid]
+    );
+    const updated = after[0] || {};
+    return res.json({
+      ok: true,
+      message: "Pakeitimai išsaugoti",
+      user: {
+        username: cleanName(updated.username ?? ""),
+        discordUsername: updated.discordUsername ?? null,
+      },
+    });
   } catch (err) {
     if (err?.issues) {
       return res.status(400).json({ error: "Neteisingai užpildyti laukeliai", issues: err.issues });

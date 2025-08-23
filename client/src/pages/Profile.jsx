@@ -180,14 +180,12 @@ export default function Profile() {
       const data = await res.json();
       if (!res.ok || !data?.ok) return setServerError(data?.error || "Nepavyko išsaugoti pakeitimų.");
 
-      const updated = {
-        ...me,
-        ...(body.username ? { username: body.username } : {}),
-        ...(body.discordUsername ? { discordUsername: body.discordUsername } : {}),
-      };
-      setMe(updated);
-      if (body.username) setUsername(body.username);
-      if (body.discordUsername) setDiscord(body.discordUsername);
+      const sanitizedUsername = data.user?.username ?? me?.username;
+    const sanitizedDiscord  = data.user?.discordUsername ?? me?.discordUsername;
+    const updated = { ...me, username: sanitizedUsername, discordUsername: sanitizedDiscord };
+    setMe(updated);
+    if (edit.field === "username") setUsername(sanitizedUsername);
+    if (edit.field === "discord")  setDiscord(sanitizedDiscord);
 
       setConfirmPwd("");
       setEdit({ field: null });
