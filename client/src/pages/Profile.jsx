@@ -1,7 +1,7 @@
 // client/pages/Profile.jsx
 import { useEffect, useMemo, useState, useRef, useLayoutEffect } from "react";
 import styled from "styled-components";
-import { FiUser, FiHash, FiLock, FiEdit3, FiX, FiCheck, FiUpload } from "react-icons/fi";
+import { FiUser, FiHash, FiLock, FiEdit3, FiX, FiCheck, FiUpload, FiChevronDown } from "react-icons/fi";
 import logoImg from "../assets/icriblogo.png";
 import { useToast } from "../components/ToastProvider";
 import { setAuth, getAuth } from "../store/auth";
@@ -41,6 +41,42 @@ export default function Profile() {
   const [oldPwd, setOldPwd] = useState("");
   const [newPwd, setNewPwd] = useState("");
   const [newPwd2, setNewPwd2] = useState("");
+
+  // === Delete account modal state ===
+// -- delete account state --
+const [delPwd, setDelPwd] = useState("");
+const [delBusy, setDelBusy] = useState(false);
+const [delErr, setDelErr] = useState("");
+const [delDone, setDelDone] = useState(false);
+const [delOpen, setDelOpen] = useState(false);
+
+async function requestAccountDeletion() {
+  setDelErr("");
+  if (!delPwd || delPwd.length < 8) {
+    setDelErr("Įveskite slaptažodį (min. 8 simboliai).");
+    return;
+  }
+  try {
+    setDelBusy(true);
+    const res = await fetch(`${API}/api/users/me/delete-request`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", ...authHeader },
+      body: JSON.stringify({ password: delPwd }),
+    });
+    const data = await res.json();
+    if (!res.ok || !data?.ok) {
+      setDelErr(data?.error || "Nepavyko inicijuoti ištrynimo.");
+      return;
+    }
+    setDelDone(true);
+    setDelPwd("");
+    toast.success("Patvirtinimo laiškas išsiųstas.");
+  } catch {
+    setDelErr("Serverio klaida. Bandykite vėliau.");
+  } finally {
+    setDelBusy(false);
+  }
+}
 
   // --- password rule flags (live) ---
   const hasUpper = /[A-Z]/.test(newPwd);
@@ -777,6 +813,53 @@ useEffect(() => {
                 </Expand>
               </Field>
             </Card>
+            <Card style={{ gridColumn: "1 / -1" }}>
+  <CardToggle
+    onClick={() => setDelOpen(o => !o)}
+    aria-expanded={delOpen}
+    aria-controls="delete-section"
+    $open={delOpen}
+  >
+    <CardTitle>PASKYROS IŠTRYNIMAS</CardTitle>
+    <FiChevronDown aria-hidden="true" />
+  </CardToggle>
+
+  <Expand id="delete-section" $open={delOpen} aria-hidden={!delOpen}>
+    <DangerNote>
+      Šis veiksmas negrįžtamas. Įveskite slaptažodį ir gausite el. laišką su patvirtinimo nuoroda.
+    </DangerNote>
+
+    {!!delErr && <Alert role="alert">{delErr}</Alert>}
+
+    {delDone ? (
+      <SuccessBox>Patvirtinimo laiškas išsiųstas. Patikrinkite savo el. paštą.</SuccessBox>
+    ) : (
+      <Field>
+        <Label>Slaptažodis</Label>
+        <Row>
+          <ExpandedInputWrap aria-invalid={!!delErr}>
+            <FiLock />
+            <Input
+              type="password"
+              value={delPwd}
+              onChange={(e) => setDelPwd(e.target.value)}
+              placeholder="●●●●●●●●"
+            />
+          </ExpandedInputWrap>
+
+          <DangerAction
+            type="button"
+            onClick={requestAccountDeletion}
+            disabled={delBusy}
+            title="Siųsti patvirtinimą"
+          >
+            {delBusy ? "Siunčiama…" : "Siųsti patvirtinimą"}
+          </DangerAction>
+        </Row>
+      </Field>
+    )}
+  </Expand>
+</Card>
         </Grid>
       </Container>
     </Wrap>
@@ -1316,4 +1399,66 @@ const MetaValue = styled.div`
 const MetaItem = styled.div`
   display: grid;
   gap: ${PAIR_GAP};         /* tight gap inside each pair */
+`;
+
+const DangerNote = styled.div`
+  background: #fff7f7;
+  border: 1px solid #ffe1e1;
+  color: #7f1d1d;
+  padding: 10px 12px;
+  border-radius: 12px;
+  font-size: 14px;
+  font-weight: 700;
+`;
+
+const SuccessBox = styled.div`
+  background:#effaf1;
+  border:1px solid #c9efd1;
+  color:#0d6c2f;
+  padding:10px 12px;
+  border-radius:12px;
+  font-size:14px;
+  font-weight:700;
+`;
+// Clickable title row for collapsing/expanding
+const CardToggle = styled.button`
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  width: 100%;
+  padding: 4px 6px;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+  border-radius: 12px;
+  transition: background-color .15s ease;
+
+  
+  &:focus-visible {
+    outline: none;
+    box-shadow: 0 0 0 3px #e8f1ff;
+  }
+
+  svg {
+    transition: transform .2s ease, color .15s ease;
+    transform: rotate(${({ $open }) => ($open ? "180deg" : "0deg")});
+    color: #64748b;
+  }
+`;
+// Hover polish for the danger button (inspired by other buttons here)
+const DangerAction = styled.button`
+  border: 1px solid #fecaca;
+  background: #fee2e2;
+  color: #991b1b;
+  font-weight: 800;
+  border-radius: 12px;
+  padding: 12px 16px;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background-color .15s ease, border-color .15s ease, transform .05s ease;
+
+  &:hover { background: #fecaca; border-color: #fca5a5; }
+  &:active { transform: translateY(1px); }
+  &:disabled { opacity: .6; cursor: default; }
 `;
