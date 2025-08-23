@@ -1,5 +1,6 @@
 import cron from "node-cron";
 import pool from "../db.js";
+import { nowLTString } from "../utils/gameLock.js";
 
 function nowLT() {
    // 'sv-SE' gives 'YYYY-MM-DD HH:mm:ss'
@@ -15,7 +16,7 @@ export function startLockGamesJob() {
   // every minute
   cron.schedule("*/1 * * * *", async () => {
     try {
-      const nowLt = nowLT();
+      const nowLt = nowLTString();
       const [r] = await pool.query(
         `UPDATE games
            SET status = 'locked', updated_at = NOW()
