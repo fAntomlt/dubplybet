@@ -185,6 +185,7 @@ router.post("/forgot-password", async (req, res) => {
     if (!rows.length) return res.json({ ok: true });
 
     const user = rows[0];
+    const safeName = cleanName(user.username || "");
 
     const token = crypto.randomBytes(32).toString("hex");
     const hours = 2; // token validity
@@ -198,7 +199,7 @@ router.post("/forgot-password", async (req, res) => {
       to: email,
       subject: "Slaptažodžio atstatymas",
       html: `
-        <p>Sveiki${user.username ? ", " + user.username : ""},</p>
+        <p>Sveiki${safeName ? ", " + safeName : ""},</p>
         <p>Norėdami atstatyti slaptažodį, paspauskite nuorodą (galioja ${hours} val.):</p>
         <p><a href="${link}">${link}</a></p>
         <p>Jei to neprašėte, ignoruokite šį laišką.</p>
