@@ -5,6 +5,8 @@ import { FiLock } from "react-icons/fi";
 import logoImg from "../assets/icriblogo.png";
 import { useToast } from "../components/ToastProvider";
 
+const clampMsg = (s, n = 300) => String(s || "").slice(0, n);
+
 export default function ResetPassword() {
   useEffect(() => { document.title = "Atstatyti slaptažodį – DuBPlyBET"; }, []);
   const navigate = useNavigate();
@@ -54,7 +56,7 @@ export default function ResetPassword() {
       });
       const data = await res.json();
       if (!res.ok || !data?.ok) {
-        setServerError(data?.error || "Nepavyko atstatyti slaptažodžio.");
+        setServerError(clampMsg(data?.error) || "Nepavyko atstatyti slaptažodžio.");
         setSubmitting(false);
         return;
       }
@@ -62,7 +64,7 @@ export default function ResetPassword() {
       toast.success("Sėkmingai atsistatėte slaptažodį");
       setTimeout(() => navigate("/prisijungti"), 10000);
     } catch {
-      setServerError("Serverio klaida. Bandykite vėliau.");
+      setServerError(clampMsg("Serverio klaida. Bandykite vėliau."));
       setSubmitting(false);
     }
   }
