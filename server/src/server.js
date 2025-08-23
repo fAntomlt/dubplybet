@@ -29,6 +29,7 @@ import publicPostsRoutes from "./routes/posts.public.js";
 import ticketsRouter from "./routes/tickets.js";
 import adminTicketsRouter from "./routes/adminTickets.js";
 import badgesRouter from "./routes/badges.js";
+import sanitizeHtml from "sanitize-html";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -39,6 +40,12 @@ const PORT = process.env.SERVER_PORT || 8080;
 
 app.set("trust proxy", 1);
 app.disable("x-powered-by");
+app.use((req, res, next) => {
+  res.setHeader('Content-Security-Policy',
+    "default-src 'self'; connect-src 'self' https://api.icrib.pro; img-src 'self' https://api.icrib.pro data:; script-src 'self'; style-src 'self' 'unsafe-inline'; frame-ancestors 'none'; base-uri 'none'; object-src 'none';"
+  );
+  next();
+});
 
 const allowedOrigins = (process.env.CORS_ORIGINS || process.env.CORS_ORIGIN || "")
   .split(",")
@@ -131,12 +138,6 @@ app.use("/api/posts", publicPostsRoutes);
 app.use("/api/tickets", ticketsRouter);
 app.use("/api/admin", requireAuth, requireAdmin, adminTicketsRouter);
 app.use("/api", badgesRouter);
-app.use((req, res, next) => {
-  res.setHeader('Content-Security-Policy',
-    "default-src 'self'; connect-src 'self' https://api.icrib.pro; img-src 'self' https://api.icrib.pro data:; script-src 'self'; style-src 'self' 'unsafe-inline'; frame-ancestors 'none'; base-uri 'none'; object-src 'none';"
-  );
-  next();
-});
 
 app.get("/api/health", (req, res) => {
   res.json({ ok: true, uptime: process.uptime() });
@@ -155,6 +156,7 @@ const server = http.createServer(app);
 server.setTimeout(10_000);
 server.headersTimeout = 10_000;
 const io = new SocketIOServer(server, { cors: corsOptions });
+const CHAT_STRIP_ALL = { allowedTags: [], allowedAttributes: {} };
 
 // ---------- CHAT SOCKET ----------
 const lastSendAt = new Map();
@@ -197,8 +199,10 @@ io.on("connection", async (socket) => {
     // === SEND ===
     socket.on("chat:send", async (data) => {
        if (!allow(user.id, 1, 5)) return;
-      const content = String(data?.content || "").trim();
       if (!content || content.length > 500) return;
+      let content = String(data?.content || "").trim().slice(0, 500);
+      content = sanitizeHtml(content, CHAT_STRIP_ALL);
+      if (!content) return;
 
       // throttle: 1 message / second per user
       const now = Date.now();
@@ -250,8 +254,9 @@ io.on("connection", async (socket) => {
     // === EDIT (only author can edit) ===
     socket.on("chat:update", async ({ id, content }) => {
       try {
-        const text = String(content || "").trim();
-        if (!text || text.length > 500) return;
+        let text = String(content || "").trim().slice(0, 500);
+        text = sanitizeHtml(text, CHAT_STRIP_ALL);
+        if (!text) return;
 
         // ensure ownership
         const [rows] = await pool.query(

@@ -1,8 +1,10 @@
 import express from "express";
 import pool from "../db.js";
 import { requireAuth } from "../middleware/auth.js";
+import sanitizeHtml from "sanitize-html";
 
 const router = express.Router();
+const STRIP_ALL = { allowedTags: [], allowedAttributes: {} };
 
 // GET /api/chat/history?limit=50
 router.get("/history", async (req, res) => {
@@ -23,7 +25,8 @@ router.get("/history", async (req, res) => {
        LIMIT ?`,
       [limit]
     );
-    res.json({ ok: true, items: rows });
+    const items = rows.map(r => ({ ...r, content: sanitizeHtml(String(r.content ?? ""), STRIP_ALL) }));
+    res.json({ ok: true, items });
   } catch (err) {
     console.error("chat history error:", err);
     res.status(500).json({ ok: false, error: "Server error" });
