@@ -6,6 +6,15 @@ import logoImg from "../assets/icriblogo.png";
 import { useEffect } from "react";
 import { useToast } from "../components/ToastProvider";
 
+const stripTags = (s) => String(s ?? "").replace(/<[^>]*>/g, "");
+const cleanName = (s) => stripTags(s).replace(/\s+/g, " ").trim();
+const cleanEmail = (s) =>
+  String(s || "")
+    .trim()
+    .toLowerCase()
+    .replace(/\s+/g, "");
+const clampMsg = (s, n = 300) => String(s || "").slice(0, n);
+
 export default function Login() {
     useEffect(() => { document.title = "Prisijungti – DuBPlyBET"; }, []);
   const navigate = useNavigate();
@@ -21,7 +30,7 @@ export default function Login() {
     touched.email &&
     (!email
       ? "El. paštas privalomas"
-      : !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)
+      : !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(cleanEmail(email))
       ? "Neteisingas el. pašto formatas"
       : "");
 
@@ -44,32 +53,31 @@ export default function Login() {
 
     setSubmitting(true);
     try {
+      const emailSafe = cleanEmail(email);
       const res = await fetch(`${import.meta.env.VITE_API_URL}/api/auth/login`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, password }),
+        body: JSON.stringify({ email: emailSafe, password }),
       });
       const data = await res.json();
 
       if (!res.ok || !data?.ok) {
-        setServerError(
-          data?.error || "Nepavyko prisijungti. Bandykite dar kartą."
-        );
+        setServerError(clampMsg(data?.error) || "Nepavyko prisijungti. Bandykite dar kartą.");
         setSubmitting(false);
         return;
       }
 
+      const safeUser = { ...data.user, username: cleanName(data.user?.username) };
       localStorage.setItem("authToken", data.token);
-      localStorage.setItem("authUser", JSON.stringify(data.user));
+      localStorage.setItem("authUser", JSON.stringify(safeUser));
       toast.success("Sėkmingai prisijungėte");
       navigate("/");
     } catch {
-      setServerError("Serverio klaida. Bandykite vėliau.");
+      setServerError(clampMsg("Serverio klaida. Bandykite vėliau."));
       setSubmitting(false);
     }
   }
 
-  +  // toast after email verification redirects here
   useEffect(() => {
     const params = new URLSearchParams(location.search || "");
     const verified = params.get("verified");
