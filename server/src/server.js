@@ -198,13 +198,16 @@ io.on("connection", async (socket) => {
     }
     // === SEND ===
     socket.on("chat:send", async (data) => {
-       if (!allow(user.id, 1, 5)) return;
-      if (!content || content.length > 500) return;
-      let content = String(data?.content || "").trim().slice(0, 500);
-      content = sanitizeHtml(content, CHAT_STRIP_ALL);
+      if (!allow(user.id, 1, 5)) return;
+
+      const raw = String(data?.content ?? "").trim();
+      if (!raw) return;
+
+      const trimmed = raw.slice(0, 500);
+      const content = sanitizeHtml(trimmed, CHAT_STRIP_ALL); // strip all HTML
       if (!content) return;
 
-      // throttle: 1 message / second per user
+      // throttle: 1 msg/sec per user
       const now = Date.now();
       if ((lastSendAt.get(user.id) || 0) > now - 1000) return;
       lastSendAt.set(user.id, now);
@@ -214,16 +217,14 @@ io.on("connection", async (socket) => {
         [user.id, content]
       );
 
-      const message = {
+      io.to("public").emit("chat:new", {
         id: result.insertId,
         userId: user.id,
         username: user.username,
         avatarUrl: user.avatarUrl || null,
         content,
         createdAt: new Date().toISOString(),
-      };
-
-      io.to("public").emit("chat:new", message);
+      });
     });
 
     // === DELETE (admins can delete others' messages) ===
