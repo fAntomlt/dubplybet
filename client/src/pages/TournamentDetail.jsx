@@ -5,7 +5,7 @@ import { useParams } from "react-router-dom";
 import { api } from "../lib/api";
 import { flagForTeam, stageLabel, bandFromDiff } from "../lib/flags";
 import { guessConditionPretty } from "../lib/conditions";
-import { FiLock, FiChevronDown, FiCheck } from "react-icons/fi";
+import { FiLock, FiChevronDown, FiCheck, FiBookOpen } from "react-icons/fi";
 import { FaFire } from "react-icons/fa";
 import { getAuth } from "../store/auth";
 import { useToast } from "../components/ToastProvider";
@@ -68,6 +68,7 @@ export default function TournamentDetail(){
     window.addEventListener("storage", refresh); // keep in sync if token changes in another tab
     return () => window.removeEventListener("storage", refresh);
   }, []);
+  const [howOpen, setHowOpen] = useState(false);
 
   function renderMarkdownInline(input) {
   const esc = String(input ?? "")
@@ -663,7 +664,82 @@ useEffect(() => {
                 </CardContent>
           </HeaderCard>
       )}
+      <HowCard>
+        <HowHeader
+          type="button"
+          onClick={() => setHowOpen((v) => !v)}
+          aria-expanded={howOpen}
+          aria-controls="how-body"
+        >
+          <div className="lh">
+            <FiBookOpen />
+            <span>TAISYKLĖS IR DALYVAVIMO PROCESAS</span>
+          </div>
+          <HowCaret $open={howOpen}>
+            <FiChevronDown />
+          </HowCaret>
+        </HowHeader>
 
+        <HowCollapse $open={howOpen} id="how-body">
+          <HowInner $open={howOpen}>
+            <HowBody>
+              <p>
+                Išsirinkus komandą favoritą, atsidaro visas turnyro puslapis. Per vidurį – dienų
+                juosta: išsirenkate dieną ir spėjate tos dienos rungtynes.
+              </p>
+              <p>
+                Jog spėti – tiesiog paspauskite ant rungtynių. Atsidarius langui, suvedate
+                abiejų komandų galutinį rezultatą. Įrašius skaičius, viduryje iškart
+                pamatysite <strong>jūsų spėjimo sąlygą</strong>:
+                <br />
+                <strong>Komanda X &gt;, &lt;, = 5 [X pt.] (XX–XX)</strong>
+              </p>
+              <p>
+                Kiekvienas teisingas spėjimas taipogi keliauja į nepriklausomą nuo turnyrų <strong>Visų laikų</strong>
+                lentą (navigacijoje „Leaderboards → Visų laikų“) – ten matosi aktyviausi
+                ir taikliausi DuBPlyBET spėjikai.
+              </p>
+
+              <HowH4>TAŠKŲ SISTEMA (1 → 3 → 5)</HowH4>
+              <ol>
+                <li>
+                  <strong>Nugalėtojo sąlyga – 1 taškas.</strong> Komanda X
+                  <strong> &gt; 5</strong>, <strong>&lt; 5</strong> arba <strong>= 5</strong>.
+                  Sistema parenka pagal jūsų rezultatą.
+                </li>
+                <li>
+                  <strong>Taškų skirtumas – 3 taškai.</strong> Jei atspėjote nugalėtojo
+                  sąlygą, tikrinamas tikslus taškų <strong>skirtumas</strong>.
+                </li>
+                <li>
+                  <strong>Tikslus rezultatas – 5 taškai.</strong> Jei sutampa nugalėtojas,
+                  skirtumas ir <strong>tikslus rezultatas</strong> – gaunate maksimalų taškų skaičių.
+                </li>
+              </ol>
+              <SmallNote>Taškai nesumuojami: imamas aukščiausias atitiktas (1 → 3 → 5).</SmallNote>
+
+              <HowH4>SĄLYGŲ APSKAIČIAVIMAS</HowH4>
+              <p><strong>Nugalėtojo sąlyga (1 tšk.)</strong> – iš jūsų rezultato:</p>
+              <ul>
+                <li><strong>Komanda A &gt; 5</strong> – pvz., <strong>100–90</strong> (laimi &gt; 5).</li>
+                <li><strong>Komanda A &lt; 5</strong> – pvz., <strong>100–96</strong> (laimi &lt; 5).</li>
+                <li><strong>Komanda A = 5</strong> – pvz., <strong>100–95</strong> (laimi lygiai 5).</li>
+              </ul>
+              <p>
+                <strong>Taškų skirtumas (3 tšk.)</strong> – jei nugalėtojo sąlyga teisinga ir taškų
+                <strong> skirtumas</strong> tiksliai sutampa.
+              </p>
+              <p>
+                <strong>Galutinis rezultatas (5 tšk.)</strong> – jei sutampa viskas, įskaitant
+                <strong> tikslų rezultatą</strong>.
+              </p>
+
+              <HowH4>Trumpai</HowH4>
+              <p>Užtenka pataikyti bent vieną – jau gaunate taškų; kuo tiksliau – tuo daugiau (1 → 3 → 5).</p>
+            </HowBody>
+          </HowInner>
+        </HowCollapse>
+      </HowCard>
         {isArchived && (
     <WinnerWrap>
       <WinnerGrid>
@@ -2246,4 +2322,85 @@ const NickButton = styled.button`
   text-align: left;
   outline: none;
   &:hover { text-decoration: underline; }
+`;
+const HowCard = styled.section`
+  border: 1px solid #e7eaf0;
+  border-radius: 14px;
+  background: #ffffff;
+  overflow: hidden;
+`;
+
+const HowHeader = styled.button`
+  width: 100%;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+
+  padding: 12px 14px;
+  border: 0;
+  background: #ffffff;
+  border-bottom: 1px solid #e7eaf0;
+  cursor: pointer;
+
+  .lh {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 12px;
+    letter-spacing: .12em;
+    font-weight: 900;
+    color: #0f172a;
+    text-transform: uppercase;
+  }
+
+  &:hover { background: #f9fafb; }
+`;
+
+const HowCaret = styled.span`
+  display: grid;
+  place-items: center;
+  transition: transform .25s ease;
+  svg { transform: rotate(${p => (p.$open ? "180deg" : "0deg")}); transition: transform .25s ease; }
+`;
+
+const HowCollapse = styled.div`
+  display: grid;
+  grid-template-rows: ${p => (p.$open ? "1fr" : "0fr")};
+  transition: grid-template-rows .34s cubic-bezier(.22,.61,.36,1);
+`;
+
+const HowInner = styled.div`
+  overflow: hidden;
+  opacity: ${p => (p.$open ? 1 : 0)};
+  transform: translateY(${p => (p.$open ? "0" : "-4px")});
+  transition: opacity .22s ease, transform .28s ease;
+  padding: ${p => (p.$open ? "14px" : "0 14px")};
+  background: #ffffff;
+`;
+
+const HowBody = styled.div`
+  display: grid;
+  gap: 10px;
+  color: #0f172a;
+  font-size: 14px;
+
+  p { margin: 0; }
+  ul, ol { margin: 0; padding-left: 18px; }
+  li { margin: 4px 0; }
+`;
+
+const HowH4 = styled.h4`
+  margin: 6px 0 0;
+  font-size: 12px;
+  letter-spacing: .12em;
+  font-weight: 900;
+  color: #0f172a;
+  text-transform: uppercase;
+`;
+
+const SmallNote = styled.div`
+  font-size: 12px;
+  color: #64748b;
+  font-weight: 600;
 `;
