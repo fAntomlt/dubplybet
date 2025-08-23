@@ -162,6 +162,23 @@ const CHAT_STRIP_ALL = { allowedTags: [], allowedAttributes: {} };
 // ---------- CHAT SOCKET ----------
 const lastSendAt = new Map();
 
+function cleanName(name) {
+  const s = String(name ?? "").trim();
+  if (!s) return "Vartotojas";
+  // strip any HTML and weird control characters; collapse spaces; clamp length
+  const stripped = sanitizeHtml(s, CHAT_STRIP_ALL);
+  const asciiSafe = stripped
+    .replace(/[^\p{L}\p{N}\s._-]/gu, "")
+    .replace(/\s+/g, " ");
+  return asciiSafe.slice(0, 40) || "Vartotojas";
+}
+
+function safeAvatar(url) {
+  return typeof url === "string" && url.startsWith("/uploads/")
+    ? url
+    : null;
+}
+
 io.on("connection", async (socket) => {
   try {
     // token from handshake auth or Authorization header
@@ -222,7 +239,7 @@ io.on("connection", async (socket) => {
         id: result.insertId,
         userId: user.id,
         username: cleanName(user.username),
-        avatarUrl: user.avatarUrl || null,
+        avatarUrl: safeAvatar(user.avatarUrl),
         content,
         createdAt: new Date().toISOString(),
       });
