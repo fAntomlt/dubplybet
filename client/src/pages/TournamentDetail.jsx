@@ -30,6 +30,10 @@ const bgForStatus = (status) => {
   }
 };
 
+const bgForTournament = (t) => {
+  if (t?.cover_url) return `url('${joinApi(t.cover_url)}')`;
+  return bgForStatus(t?.status);
+};
 
 function ModalShell({ onClose, children}){
     const [show, setShow] = React.useState(false);
@@ -647,7 +651,7 @@ useEffect(() => {
     <Wrap ref={pageRef}>
       {tournament && (
           <HeaderCard aria-label={tournament.name}>
-            <ImageLayer $bg={bgForStatus(tournament.status)} />
+            <ImageLayer $bg={bgForTournament(tournament)} />
               <Overlay />
                 <CardContent>
                   <CardInfo>
