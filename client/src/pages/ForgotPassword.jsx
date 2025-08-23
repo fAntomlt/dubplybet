@@ -1,11 +1,19 @@
 import { useEffect, useState } from "react";
+import { useNavigate, Link } from "react-router-dom";
 import styled from "styled-components";
 import { FiMail } from "react-icons/fi";
 import logoImg from "../assets/icriblogo.png";
-import { Link } from "react-router-dom";
+
+const cleanEmail = (s) =>
+  String(s || "")
+    .trim()
+    .toLowerCase()
+    .replace(/\s+/g, "");
+const clampMsg = (s, n = 300) => String(s || "").slice(0, n);
 
 export default function ForgotPassword() {
   useEffect(() => { document.title = "Priminti slaptažodį – DuBPlyBET"; }, []);
+  const navigate = useNavigate();
 
   const [email, setEmail] = useState("");
   const [touched, setTouched] = useState(false);
@@ -17,7 +25,7 @@ export default function ForgotPassword() {
     touched &&
     (!email
       ? "El. paštas privalomas"
-      : !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)
+      : !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(cleanEmail(email))
       ? "Neteisingas el. pašto formatas"
       : email.length > 191
       ? "El. paštas per ilgas"
@@ -32,18 +40,21 @@ export default function ForgotPassword() {
     setServerOK("");
     if (!canSubmit) return;
 
+    const safeEmail = cleanEmail(email);
+    setEmail(safeEmail);
+
     setSending(true);
     try {
       const res = await fetch(`${import.meta.env.VITE_API_URL}/api/auth/forgot-password`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email }),
+        body: JSON.stringify({ email: safeEmail }),
       });
       await res.json(); // always {ok:true}
       setServerOK("Jei el. paštas egzistuoja, atsiuntėme nuorodą slaptažodžiui atstatyti. Į prisijungimą grįšite už 10s.");
       setTimeout(() => navigate("/prisijungti"), 10000);
     } catch {
-      setServerError("Serverio klaida. Bandykite vėliau.");
+      setServerError(clampMsg("Serverio klaida. Bandykite vėliau."));
     } finally {
       setSending(false);
     }

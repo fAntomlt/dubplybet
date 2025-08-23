@@ -5,6 +5,18 @@ import { FiMail, FiLock, FiUser, FiHash } from "react-icons/fi";
 import logoImg from "../assets/icriblogo.png";
 import { useToast } from "../components/ToastProvider";
 
+const stripTags = (s) => String(s ?? "").replace(/<[^>]*>/g, "");
+const cleanName = (s) => stripTags(s).replace(/\s+/g, " ").trim();
+const USERNAME_RE = /^[\p{L}\p{N}._\- ]{3,50}$/u;
+const cleanEmail = (s) =>
+  String(s || "")
+    .trim()
+    .toLowerCase()
+    .replace(/\s+/g, "");
+const normalizeDiscord = (s) => String(s || "").trim().replace(/^@/, "").toLowerCase();
+const clampMsg = (s, n = 300) => String(s || "").slice(0, n);
+const DISCORD_RE = /^(?!.*\.\.)[a-z0-9._]{2,32}$/;
+
 export default function Register() {
   const navigate = useNavigate();
 
@@ -37,14 +49,14 @@ export default function Register() {
   const hasSymbol = /[!@#$%^&*()_\-+\=\[\]{};:'",.<>/?\\|`~]/.test(password);
   const minLength = password.length >= 8;
   const ALLOWED_SYMBOLS = `! @ # $ % ^ & * ( ) _ - + = [ ] { } ; : ' " , . < > / ? \\ | \``;
-  const DISCORD_RE = /^(?!.*\.\.)[a-z0-9._]{2,32}$/;
+  
 
   // validations
   const emailError =
     touched.email &&
     (!email
       ? "El. paštas privalomas"
-      : !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)
+      : !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(cleanEmail(email))
       ? "Neteisingas el. pašto formatas"
       : email.length > 191
       ? "El. paštas per ilgas"
@@ -54,13 +66,15 @@ export default function Register() {
     touched.username &&
     (!username
       ? "Vartotojo vardas privalomas"
-      : username.length < 3
+      : cleanName(username).length < 3
       ? "Vartotojo vardas per trumpas (min. 3)"
-      : username.length > 50
+      : cleanName(username).length > 50
       ? "Vartotojo vardas per ilgas (max. 50)"
+      : !USERNAME_RE.test(cleanName(username))
+      ? "Leidžiami tik raidės/skaičiai, „._- “"
       : "");
 
-  const discordNormalized = (discord || "").trim().replace(/^@/, "").toLowerCase();
+  const discordNormalized = normalizeDiscord(discord);
 
   const discordError =
     touched.discord &&
@@ -117,9 +131,9 @@ export default function Register() {
     setSubmitting(true);
     try {
       const payload = {
-        email: email.trim(),
-        username: username.trim(),
-        discordUsername: discord.trim(),
+        email: cleanEmail(email),
+        username: cleanName(username).slice(0, 50),
+        discordUsername: discordNormalized,
         password,
         confirmPassword: confirm,
       };
@@ -132,7 +146,7 @@ export default function Register() {
       const data = await res.json();
 
       if (!res.ok || !data?.ok) {
-        setServerError(data?.error || "Registracija nepavyko. Bandykite dar kartą.");
+        setServerError(clampMsg(data?.error) || "Registracija nepavyko. Bandykite dar kartą.");
         setSubmitting(false);
         return;
       }
@@ -141,7 +155,7 @@ export default function Register() {
       toast.success("Sėkmingai prisiregistravote");
       setTimeout(() => navigate("/prisijungti"), 10000);
     } catch {
-      setServerError("Serverio klaida. Bandykite vėliau.");
+      setServerError(clampMsg("Serverio klaida. Bandykite vėliau."));
     } finally {
       setSubmitting(false);
     }
