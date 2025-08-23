@@ -409,6 +409,7 @@ function AdminTournaments() {
   const [name, setName] = useState("");
   const [start, setStart] = useState("");
   const [end, setEnd] = useState("");
+  const [coverUrl, setCoverUrl] = useState("");
 
   const T_STATUS_ORDER = { active: 0, draft: 1, archived: 2, finished: 2 };
 
@@ -416,6 +417,25 @@ function AdminTournaments() {
   const [finishId, setFinishId] = useState(null);
   const [winnerTeam, setWinnerTeam] = useState("");
   const [deleteId, setDeleteId] = useState(null);
+
+  function authHeader() {
+    const token = getAuth()?.token || localStorage.getItem("token") || "";
+    return token ? { Authorization: `Bearer ${token}` } : {};
+  }
+
+  async function uploadCover(file) {
+    const fd = new FormData();
+    fd.append("file", file);
+    const r = await fetch((import.meta.env.VITE_API_URL || "") + "/api/admin/tournaments/upload-cover", {
+      method: "POST",
+      body: fd,
+      headers: authHeader(),
+    });
+    const d = await r.json();
+    if (!d.ok) throw new Error(d.error || "Klaida įkeliant");
+    setCoverUrl(d.url); // "/uploads/…"
+    toast.success("Viršelis įkeltas");
+  }
 
   async function load() {
     try {
@@ -445,11 +465,12 @@ function AdminTournaments() {
       if (!name || !start || !end) return toast.error("Užpildykite laukus");
       await api(`/api/admin/tournaments`, {
         method: "POST",
-        json: { name, start_date: start, end_date: end },
+        json: { name, start_date: start, end_date: end, cover_url: coverUrl || null },
       });
       setName("");
       setStart("");
       setEnd("");
+      setCoverUrl("");
       toast.success("Sukurta");
       load();
     } catch (e) {
@@ -508,8 +529,21 @@ function AdminTournaments() {
         <Input value={name} onChange={e => setName(e.target.value)} placeholder="Pavadinimas" />
         <Input type="date" value={start} onChange={e => setStart(e.target.value)} />
         <Input type="date" value={end} onChange={e => setEnd(e.target.value)} />
+        <label style={{ display:"inline-grid", gap:6 }}>
+          <span style={{ fontSize:12, color:"#64748b" }}>Viršelio paveikslėlis</span>
+          <input
+            type="file"
+            accept="image/*"
+            onChange={e => e.target.files?.[0] && uploadCover(e.target.files[0]).catch(err => toast.error(err.message))}
+          />
+        </label>
         <Primary onClick={createTournament}>Sukurti</Primary>
       </Flex>
+      {coverUrl && (
+        <div style={{ border:"1px solid #e5e7eb", borderRadius:12, overflow:"hidden", maxWidth:560 }}>
+          <img src={joinApi(coverUrl)} alt="" style={{ width:"100%", display:"block", aspectRatio:"16/9", objectFit:"cover" }} />
+        </div>
+      )}
 
       <Divider />
 
