@@ -18,6 +18,8 @@ import PostsList from "./pages/PostsList.jsx";
 import PostDetail from "./pages/PostDetail.jsx";
 import { ToastProvider } from "./components/ToastProvider.jsx";
 import Tickets from "./pages/Tickets.jsx";
+import PrivacyPolicy from "./pages/PrivacyPolicy.jsx";
+import ContestRules from "./pages/ContestRules.jsx";
 
 function AppRoutes() {
   const routes = useRoutes([
@@ -48,6 +50,8 @@ function AppRoutes() {
         { path: "/naujienos/:slug", element: <PostDetail type="post" /> },
         { path: "/atnaujinimai/:slug", element: <PostDetail type="update" /> },
         { path: "/ticketai", element: <Tickets /> },
+        { path: "/privacy", element: <PrivacyPolicy /> },
+        { path: "/rules", element: <ContestRules /> },
       ],
     },
 
