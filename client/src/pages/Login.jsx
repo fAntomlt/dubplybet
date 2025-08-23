@@ -25,6 +25,7 @@ export default function Login() {
   const [submitting, setSubmitting] = useState(false);
   const [serverError, setServerError] = useState("");
   const toast = useToast();
+  const [serverInfo, setServerInfo] = useState("");
 
   const emailError =
     touched.email &&
@@ -79,23 +80,46 @@ export default function Login() {
   }
 
   useEffect(() => {
-    const params = new URLSearchParams(location.search || "");
-    const verified = params.get("verified");
-    const reason = params.get("reason");
-    if (verified === "1") {
-      toast.success("Paskyra patvirtinta. Galite prisijungti.");
-      navigate("/prisijungti", { replace: true });
-    } else if (verified === "0") {
-      const msg =
-        reason === "expired" ? "Patvirtinimo nuoroda nebegalioja."
-      : reason === "used"    ? "Ši patvirtinimo nuoroda jau panaudota."
-      : reason === "invalid" ? "Neteisinga patvirtinimo nuoroda."
-      : reason === "missing" ? "Trūksta patvirtinimo žetono."
-      : "Įvyko klaida tikrinant nuorodą.";
-      toast.error(msg);
-      navigate("/prisijungti", { replace: true });
-    }
-  }, [location.search, navigate, toast]);
+  const params   = new URLSearchParams(location.search || "");
+  const verified = params.get("verified");
+  const deleted  = params.get("deleted");
+  const reason   = params.get("reason");
+
+  // 1) Email verification flow
+  if (verified === "1") {
+    setServerInfo("Paskyra patvirtinta. Galite prisijungti.");
+    navigate("/prisijungti", { replace: true });
+    return;
+  }
+  if (verified === "0") {
+    const msg =
+      reason === "expired" ? "Patvirtinimo nuoroda nebegalioja."
+    : reason === "used"    ? "Ši patvirtinimo nuoroda jau panaudota."
+    : reason === "invalid" ? "Neteisinga patvirtinimo nuoroda."
+    : reason === "missing" ? "Trūksta patvirtinimo žetono."
+    : "Įvyko klaida tikrinant nuorodą.";
+    setServerError(msg);
+    navigate("/prisijungti", { replace: true });
+    return;
+  }
+
+  // 2) Account deletion flow
+  if (deleted === "1") {
+    setServerInfo("Paskyra ištrinta.");
+    navigate("/prisijungti", { replace: true });
+    return;
+  }
+  if (deleted === "0") {
+    const msg =
+      reason === "expired" ? "Ištrynimo nuoroda nebegalioja."
+    : reason === "used"    ? "Ši ištrynimo nuoroda jau panaudota."
+    : reason === "invalid" ? "Neteisinga ištrynimo nuoroda."
+    : reason === "missing" ? "Trūksta ištrynimo žetono."
+    : "Įvyko klaida tvirtinant ištrynimą.";
+    setServerError(msg);
+    navigate("/prisijungti", { replace: true });
+  }
+}, [location.search, navigate]);
 
 
   return (
@@ -110,6 +134,7 @@ export default function Login() {
 
           <Right>
             <Title>Prisijungti</Title>
+            {!!serverInfo && <Success role="status">{serverInfo}</Success>}
             {!!serverError && <Alert role="alert">{serverError}</Alert>}
 
             <Form onSubmit={onSubmit} noValidate>
@@ -374,4 +399,14 @@ const GuestLink = styled.div`
   &:hover {
     text-decoration: underline;
   }
+`;
+
+const Success = styled.div`
+  background:#effaf1;
+  border:1px solid #c9efd1;
+  color:#0d6c2f;
+  padding:10px 12px;
+  border-radius:12px;
+  margin-bottom:10px;
+  font-size:14px;
 `;

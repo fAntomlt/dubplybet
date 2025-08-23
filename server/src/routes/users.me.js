@@ -10,6 +10,9 @@ import multer from "multer";
 import sharp from "sharp";
 import { fileURLToPath } from "url";
 import sanitizeHtml from "sanitize-html";
+import rateLimit from "express-rate-limit";
+import crypto from "crypto";
+import { sendMail } from "../utils/mailer.js";
 
 const router = Router();
 
@@ -317,6 +320,115 @@ router.get("/public/:id", requireAuth, async (req, res) => {
   } catch (err) {
     console.error("GET /users/public/:id error:", err);
     return res.status(500).json({ ok: false, error: "Serverio klaida" });
+  }
+});
+
+const deletionLimiter = rateLimit({
+  windowMs: 10 * 60 * 1000,
+  max: 5,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: "Per daug bandymų. Pabandykite vėliau." }
+});
+
+router.post("/me/delete-request", requireAuth, deletionLimiter, async (req, res) => {
+  try {
+    const uid = req.user.uid ?? req.user.id ?? req.user.userId;
+    const password = String(req.body?.password || "");
+    if (password.length < 8 || password.length > 100) {
+      return res.status(400).json({ error: "Neteisingas slaptažodis" });
+    }
+
+    // Load user with email + hash
+    const [rows] = await pool.query(
+      "SELECT id, email, username, password_hash FROM users WHERE id = ? LIMIT 1",
+      [uid]
+    );
+    if (!rows.length) return res.status(404).json({ error: "Vartotojas nerastas" });
+
+    const user = rows[0];
+    const ok = await bcrypt.compare(password, user.password_hash);
+    if (!ok) return res.status(400).json({ error: "Neteisingas slaptažodis" });
+
+    // generate token (32B hex), expire in 2 hours
+    const token = crypto.randomBytes(32).toString("hex");
+    const hours = 2;
+
+    await pool.query(
+      "INSERT INTO account_deletions (user_id, token, expires_at) VALUES (?,?, DATE_ADD(NOW(), INTERVAL ? HOUR))",
+      [user.id, token, hours]
+    );
+
+    // Email link points to API endpoint that does deletion and 303-redirects to login
+    const link = `${process.env.BASE_URL}/api/users/delete-confirm?token=${token}`;
+
+    const safeName = cleanName(user.username || "");
+    await sendMail({
+      to: user.email,
+      subject: "Patvirtinkite paskyros ištrynimą",
+      html: `
+        <p>Sveiki${safeName ? ", " + safeName : ""},</p>
+        <p>Jeigu norite ištrinti savo paskyrą, paspauskite žemiau esančią nuorodą (galioja ${hours} val.):</p>
+        <p><a href="${link}">${link}</a></p>
+        <p>Jei to neprašėte, ignoruokite šį laišką – paskyra nebus ištrinta.</p>
+      `,
+    });
+
+    return res.json({ ok: true });
+  } catch (err) {
+    console.error("delete-request error:", err);
+    return res.status(500).json({ error: "Serverio klaida. Bandykite vėliau." });
+  }
+});
+
+router.get("/delete-confirm", async (req, res) => {
+  const toLogin = (params) => {
+    const qs = new URLSearchParams(params).toString();
+    return res.redirect(303, `${process.env.FRONTEND_URL}/prisijungti?${qs}`);
+  };
+
+  const token = String(req.query?.token || "").trim();
+  if (!token) return toLogin({ deleted: "0", reason: "missing" });
+
+  try {
+    const [rows] = await pool.query(
+      "SELECT id, user_id, expires_at, used FROM account_deletions WHERE token = ? LIMIT 1",
+      [token]
+    );
+    if (!rows.length) return toLogin({ deleted: "0", reason: "invalid" });
+
+    const reqRow = rows[0];
+    if (reqRow.used) return toLogin({ deleted: "0", reason: "used" });
+    if (new Date(reqRow.expires_at) < new Date()) {
+      return toLogin({ deleted: "0", reason: "expired" });
+    }
+
+    // Try hard delete (FKs should be CASCADE in your schema)
+    try {
+      const [r] = await pool.query("DELETE FROM users WHERE id = ?", [reqRow.user_id]);
+      if (!r.affectedRows) return toLogin({ deleted: "0", reason: "missing-user" });
+    } catch (e) {
+      // Fallback: anonymize instead of hard delete (if future FKs block deletion)
+      await pool.query(
+        `UPDATE users
+            SET email = CONCAT('deleted+', id, '@local.invalid'),
+                username = CONCAT('Ištrinta-', id),
+                discord_username = NULL,
+                password_hash = REPEAT('*', 60),
+                avatar_url = NULL,
+                email_verified = 0
+          WHERE id = ?`,
+        [reqRow.user_id]
+      );
+    }
+
+    // burn token
+    await pool.query("UPDATE account_deletions SET used = 1 WHERE id = ?", [reqRow.id]);
+
+    return toLogin({ deleted: "1" });
+  } catch (err) {
+    console.error("delete-confirm error:", err);
+    return toLogin({ deleted: "0", reason: "server" });
   }
 });
 
