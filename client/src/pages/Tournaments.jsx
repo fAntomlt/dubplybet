@@ -26,7 +26,13 @@ const ImageLayer = styled.div`
   transition:transform .2s ease, filter .2s ease;
 `;
 const Overlay = styled.div`
-  position:absolute; inset:0; background:rgba(255, 255, 255, 0.03); transition:background .2s ease; z-index: 1;
+  position: absolute; inset: 0; z-index: 1;
+  /* default = subtle white film; when $dark, use a black film */
+  background: ${p =>
+    p.$dark
+      ? `rgba(0,0,0,${p.$alpha ?? 0.45})`
+      : `rgba(255,255,255,${p.$alpha ?? 0.03})`};
+  transition: background .2s ease;
 `;
 const HeroContent = styled.div`
   position:absolute; z-index:2; inset:0;
@@ -80,7 +86,7 @@ const CardLive = styled.div`
 const DraftCard = styled(CardBase)`
   pointer-events:none; box-shadow:0 4px 12px rgba(2,6,23,.08);
   &:hover ${ImageLayer}{ transform:scale(1.03); filter:saturate(1.05); }
-  &:hover ${Overlay}{ background:rgba(255,255,255,.25); }
+  &:hover ${Overlay}{ background:rgba(0,0,0,.6); }
 `;
 const SoonRow = styled.div`
   display:inline-flex; align-items:center; gap:8px; font-weight:900;
@@ -287,7 +293,7 @@ export default function Turnyrai() {
           {draftSorted.map(t => (
             <DraftCard key={t.id} $bg={bgOf(t)} aria-label={`${t.name} – jau greitai`}>
               <ImageLayer $bg={bgOf(t)} />
-              <Overlay />
+              <Overlay $dark $alpha={0.45} />
               <CardContent>
                 <CenterStack>
                 <CardTitle>{t.name}</CardTitle>
