@@ -31,12 +31,14 @@ export default function Register() {
   const [password, setPassword] = useState("");
   const [confirm, setConfirm] = useState("");
 
+  const [accept, setAccept] = useState(false);
   const [touched, setTouched] = useState({
     email: false,
     username: false,
     discord: false,
     password: false,
     confirm: false,
+    accept: false,
   });
   const [submitting, setSubmitting] = useState(false);
   const [serverError, setServerError] = useState("");
@@ -102,17 +104,22 @@ export default function Register() {
       ? "Slaptažodžiai nesutampa"
       : "");
 
+  const acceptError =
+  touched.accept && !accept ? "Turite sutikti su taisyklėmis ir privatumo politika" : "";
+
   const canSubmit =
     !emailError &&
     !usernameError &&
     !discordError &&
     !passwordError &&
     !confirmError &&
+    !acceptError &&
     email &&
     username &&
     discord &&
     password &&
     confirm &&
+    accept &&
     !submitting;
 
   async function onSubmit(e) {
@@ -123,6 +130,7 @@ export default function Register() {
       discord: true,
       password: true,
       confirm: true,
+      accept: true,
     });
     setServerError("");
     setServerOK("");
@@ -266,7 +274,26 @@ export default function Register() {
                 </InputWrap>
                 {!!confirmError && <Error>{confirmError}</Error>}
               </Field>
-
+                <CheckField>
+                  <CheckWrap aria-invalid={!!acceptError}>
+                    <CheckInput
+                      id="accept"
+                      type="checkbox"
+                      checked={accept}
+                      onChange={(e) => setAccept(e.target.checked)}
+                      onBlur={() => setTouched(t => ({ ...t, accept: true }))}
+                      required
+                    />
+                    <FakeBox aria-hidden />
+                    <CheckLabel htmlFor="accept">
+                      Sutinku su{" "}
+                      <A to="/privacy" target="_blank" rel="noopener noreferrer">Privatumo politika</A>
+                      {" "}ir{" "}
+                      <A to="/rules" target="_blank" rel="noopener noreferrer">Konkursų taisyklėmis</A>.
+                    </CheckLabel>
+                  </CheckWrap>
+                  {!!acceptError && <Error>{acceptError}</Error>}
+                </CheckField>
               <Submit type="submit" disabled={!canSubmit}>
                 {submitting ? "Kuriama..." : "Kurti paskyrą"}
               </Submit>
@@ -442,4 +469,77 @@ const Rule = styled.li`
 
 const Symbols = styled.span`
   color: #0f172a;
+`;
+
+// NEW styles for consent row
+const CheckField = styled.div`
+  display: grid;
+  gap: 6px;
+`;
+
+const CheckWrap = styled.div`
+  position: relative;
+  display: grid;
+  grid-template-columns: 20px 1fr;
+  align-items: start;
+  gap: 10px;
+  padding: 10px 12px;
+  border: 1px solid ${({["aria-invalid"]: invalid}) => (invalid ? "#e11d48" : "#e6ecf5")};
+  border-radius: 12px;
+  background: #f8fafc;
+`;
+
+const CheckInput = styled.input`
+  appearance: none;
+  width: 20px; height: 20px;
+  margin: 0;
+  outline: none;
+  position: relative;
+  z-index: 2;
+  cursor: pointer;
+  /* hide real checkbox but keep it interactive */
+  opacity: 0;
+`;
+
+const FakeBox = styled.span`
+  position: absolute;
+  left: 12px; top: 10px;
+  width: 20px; height: 20px;
+  border-radius: 6px;
+  border: 1.5px solid #cbd5e1;
+  background: #fff;
+  pointer-events: none;
+
+  ${CheckInput}:focus-visible + & {
+    box-shadow: 0 0 0 3px #e8f1ff;
+    border-color: #1f6feb;
+  }
+  ${CheckInput}:checked + & {
+    background: #1f6feb;
+    border-color: #1f6feb;
+  }
+  ${CheckInput}:checked + &::after{
+    content: "";
+    position: absolute;
+    inset: 0;
+    background:
+      conic-gradient(from 0turn, #fff 0 25%, transparent 0) 55% 62%/6px 10px no-repeat,
+      conic-gradient(from 0turn, transparent 0 50%, #fff 0) 35% 48%/6px 10px no-repeat;
+    transform: rotate(-38deg);
+  }
+`;
+
+const CheckLabel = styled.label`
+  font-size: 14px;
+  font-weight: 600;
+  color: #0f172a;
+  user-select: none;
+  line-height: 1.45;
+`;
+
+const A = styled(Link)`
+  font-weight: 800;
+  color: #1f6feb;
+  text-decoration: none;
+  &:hover { text-decoration: underline; }
 `;
