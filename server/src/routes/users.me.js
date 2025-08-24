@@ -140,7 +140,7 @@ router.get("/me", requireAuth, async (req, res) => {
   try {
     const uid = req.user.uid ?? req.user.id ?? req.user.userId;
     const [rows] = await pool.query(
-      "SELECT id, email, username, discord_username AS discordUsername, role, avatar_url AS avatarUrl FROM users WHERE id = ? LIMIT 1",
+      "SELECT id, email, username, discord_username AS discordUsername, role, avatar_url AS avatarUrl, email_verified AS emailVerified FROM users WHERE id = ? LIMIT 1",
       [uid]
     );
     if (!rows.length) return res.status(404).json({ error: "Vartotojas nerastas" });
