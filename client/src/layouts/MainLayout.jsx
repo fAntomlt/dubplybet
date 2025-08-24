@@ -7,6 +7,7 @@ import { GlobalStyle } from '../styles/GlobalStyle';
 import Sidebar from '../components/Sidebar';
 import ChatDock from '../components/ChatDock';
 import Footer from '../components/Footer.jsx';
+import EmailVerifyNotice from '../components/EmailVerifyNotice.jsx';
 
 export default function MainLayout() {
   const [chatOpen, setChatOpen] = useState(false);
@@ -19,6 +20,7 @@ export default function MainLayout() {
       <Shell>
         <Sidebar onOpenChat={() => setChatOpen(v => !v)} />
         <Main>
+          <EmailVerifyNotice />
           <Content $fullBleed={isHome}>
             <Outlet />
           </Content>
