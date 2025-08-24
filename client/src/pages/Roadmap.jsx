@@ -1,14 +1,22 @@
 import React, { useEffect, useState, useMemo } from "react";
 import styled from "styled-components";
 import { api } from "../lib/api";
+import { FiCheck, FiX } from "react-icons/fi";
 
 const STATUSES = [
-  { key: "backlog",      label: "Backlog" },
-  { key: "planned",      label: "Planned" },
-  { key: "upcoming",     label: "Upcoming" },
-  { key: "in_progress",  label: "In progress" },
-  { key: "done",         label: "Released" },
+  { key: "backlog",      label: "Ateityje" },
+  { key: "planned",      label: "Planuojama" },
+  { key: "upcoming",     label: "Artėjantys" },
+  { key: "in_progress",  label: "Vykdoma" },
+  { key: "done",         label: "Išleista" },
 ];
+const STATUS_ACCENT = {
+  backlog: "#9ca3af",
+  planned: "#b34f4fff",
+  upcoming: "#f59e0b",
+  in_progress: "#1f6feb",
+  done: "#10b981",
+};
 
 export default function Roadmap() {
   const [cols, setCols] = useState(null);
@@ -45,22 +53,26 @@ function FeatureCard({ f }) {
   const total = f.subtasks?.length || 0;
   const done = f.subtasks?.filter(s => s.done)?.length || 0;
   const pct = total ? Math.round((done / total) * 100) : 0;
+  const accent = STATUS_ACCENT[f.status] || "#1f6feb";
+  const subs = [...(f.subtasks || [])].sort((a, b) => Number(b.done) - Number(a.done));
   return (
     <Card>
       <Top>
-        <Dot style={{ background: f.color || "#1f6feb" }}>{f.icon || "📌"}</Dot>
+        <Dot style={{ background: accent }}></Dot>
         <CardTitle>{f.title}</CardTitle>
       </Top>
       {f.description ? <Desc dangerouslySetInnerHTML={{ __html: escapeHtml(f.description) }} /> : null}
       <Progress aria-valuenow={pct} aria-valuemin={0} aria-valuemax={100}>
-        <Bar style={{ width: `${pct}%` }} />
+        <Bar style={{ width: `${pct}%`, background: accent }} />
       </Progress>
       <Meta>{done}/{total} subtasks</Meta>
       {total > 0 && (
         <Tasks>
-          {f.subtasks.map(s => (
+          {subs.map(s => (
             <li key={s.id} aria-checked={!!s.done}>
-              <input type="checkbox" checked={!!s.done} readOnly />
+              <Icon className={s.done ? "ok" : "no"}>
+                {s.done ? <FiCheck aria-label="Done" /> : <FiX aria-label="Not done" />}
+              </Icon>
               <span>{s.title}</span>
             </li>
           ))}
@@ -105,8 +117,19 @@ const Progress = styled.div`height:8px; background:#eef2f7; border-radius:6px; o
 const Bar = styled.div`height:100%; background:#1f6feb;`;
 const Meta = styled.div`font-size:12px; color:#64748b; font-weight:700;`;
 const Tasks = styled.ul`
-  list-style:none; padding:0; margin:0; display:grid; gap:4px; font-size:13px;
-  li{display:grid; grid-template-columns: 16px 1fr; gap:8px; align-items:center;}
-  li[aria-checked="true"] span{ text-decoration: line-through; color:#94a3b8; }
+  list-style:none; padding:0; margin:0; font-size:13px;
+  li{
+    display:grid; grid-template-columns: 16px 1fr; gap:8px; align-items:center;
+    padding:6px 0;
+  }
+  /* thin divider between items */
+  li + li{
+    border-top:1px solid #eef2f7;
+  }
 `;
 const Loading = styled.div`color:#64748b;`;
+const Icon = styled.span`
+  display:grid; place-items:center; width:16px; height:16px;
+  &.ok { color:#10b981; }    /* green for done */
+  &.no { color:#ef4444; }    /* red for not done */
+`;
