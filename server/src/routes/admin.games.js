@@ -165,7 +165,7 @@ router.post("/games/:id/finish", async (req, res) => {
     }
 
     const [[game]] = await conn.query(
-      "SELECT id, tournament_id, stage, score_a, score_b FROM games WHERE id = ? LIMIT 1",
+      "SELECT id, tournament_id, stage, score_a, score_b, team_a, team_b FROM games WHERE id = ? LIMIT 1",
       [id]
     );
 
@@ -226,7 +226,7 @@ router.post("/games/:id/finish", async (req, res) => {
         dedupeKey: `GAME_FINISHED:${id}`,
         scheduledFor: ltNowSql(),
         payload: {
-          team_a: game.score_a >= game.score_b ? game.team_a : game.team_a, // names already in "game"
+          team_a: game.team_a,
           team_b: game.team_b,
           score_a: game.score_a,
           score_b: game.score_b
