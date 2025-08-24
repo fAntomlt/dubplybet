@@ -6,6 +6,7 @@ import { sendMail } from "../utils/mailer.js";
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 import sanitizeHtml from "sanitize-html";
+import { requireAuth } from "../middleware/auth.js";
 
 const router = Router();
 const DISCORD_RE = /^(?!.*\.\.)[a-z0-9._]{2,32}$/;
@@ -249,6 +250,77 @@ router.post("/reset-password", async (req, res) => {
     return res.json({ ok: true, message: "Slaptažodis atnaujintas. Galite prisijungti." });
   } catch (err) {
     console.error("reset-password error:", err);
+    return res.status(500).json({ error: "Serverio klaida. Bandykite vėliau." });
+  }
+});
+
+// POST /api/auth/resend-verification
+router.post("/resend-verification", requireAuth, async (req, res) => {
+  try {
+    const uid = req.user.uid ?? req.user.id ?? req.user.userId;
+
+    // Load user
+    const [uRows] = await pool.query(
+      "SELECT id, email, username, email_verified FROM users WHERE id = ? LIMIT 1",
+      [uid]
+    );
+    if (!uRows.length) return res.status(404).json({ error: "Vartotojas nerastas" });
+
+    const user = uRows[0];
+    if (user.email_verified) {
+      return res.status(400).json({ error: "Paskyra jau patvirtinta" });
+    }
+
+    // Cooldown: last request within 5 min?
+    const [lastRows] = await pool.query(
+      `SELECT created_at
+         FROM email_verifications
+        WHERE user_id = ? AND used = 0
+        ORDER BY created_at DESC
+        LIMIT 1`,
+      [uid]
+    );
+
+    if (lastRows.length) {
+      const createdAt = new Date(lastRows[0].created_at);
+      if (Date.now() - createdAt.getTime() < 5 * 60 * 1000) {
+        return res
+          .status(429)
+          .json({ error: "Galite siųsti ne dažniau kaip kas 5 minutes" });
+      }
+    }
+
+    // Retire previous unused tokens, then create a new one
+    await pool.query("UPDATE email_verifications SET used = 1 WHERE user_id = ? AND used = 0", [uid]);
+
+    const token = crypto.randomBytes(32).toString("hex");
+    const hrs = Number(process.env.EMAIL_VERIFY_EXPIRES_HOURS || 24);
+    await pool.query(
+      "INSERT INTO email_verifications (user_id, token, expires_at) VALUES (?,?, DATE_ADD(NOW(), INTERVAL ? HOUR))",
+      [uid, token, hrs]
+    );
+
+    const verifyUrl = `${process.env.BASE_URL}/api/auth/verify?token=${token}`;
+    const STRIP_ALL = { allowedTags: [], allowedAttributes: {} };
+    const cleanName = (s) =>
+      sanitizeHtml(String(s ?? ""), STRIP_ALL).replace(/\s+/g, " ").trim();
+    const safeName = cleanName(user.username || "");
+
+    await sendMail({
+      to: user.email,
+      subject: "Patvirtinkite savo paskyrą",
+      html: `
+        <p>Sveiki${safeName ? ", " + safeName : ""},</p>
+        <p>Norėdami aktyvuoti paskyrą, paspauskite žemiau esančią nuorodą:</p>
+        <p><a href="${verifyUrl}">${verifyUrl}</a></p>
+        <p>Nuoroda galioja ${hrs} val.</p>
+        <p>Jei neregistravote paskyros, šį laišką galite ignoruoti.</p>
+      `,
+    });
+
+    return res.json({ ok: true, message: "Patvirtinimo laiškas išsiųstas" });
+  } catch (err) {
+    console.error("resend-verification error:", err);
     return res.status(500).json({ error: "Serverio klaida. Bandykite vėliau." });
   }
 });
