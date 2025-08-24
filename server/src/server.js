@@ -44,6 +44,7 @@ app.use((req, res, next) => {
   res.setHeader('Content-Security-Policy',
     "default-src 'self'; connect-src 'self' https://api.icrib.pro; img-src 'self' https://api.icrib.pro data:; script-src 'self'; style-src 'self' 'unsafe-inline'; frame-ancestors 'none'; base-uri 'none'; object-src 'none';"
   );
+  res.setHeader('Referrer-Policy', 'no-referrer');
   next();
 });
 
@@ -73,6 +74,10 @@ const uploadsRoot = path.join(__dirname, "../uploads");
 app.use(express.json({ limit: "1mb" }));
 app.use(express.urlencoded({ extended: false }));
 app.use(cors(corsOptions));
+app.use('/api', (req, res, next) => {
+  res.setHeader('Cache-Control', 'no-store');
+  next();
+});
 app.use("/api/admin", requireAuth, requireAdmin, adminUsersRoutes);
 app.use("/api/admin", requireAuth, requireAdmin, tournamentsAdmin);
 app.use("/api/admin", requireAuth, requireAdmin, gamesAdmin);

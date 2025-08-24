@@ -264,6 +264,7 @@ router.post("/change-password", requireAuth, async (req, res) => {
     const password_hash = await bcrypt.hash(password, salt);
 
     await pool.query("UPDATE users SET password_hash = ? WHERE id = ?", [password_hash, uid]);
+    await pool.query("UPDATE account_deletions SET used = 1 WHERE user_id = ? AND used = 0", [uid]);
 
     return res.json({ ok: true, message: "Slaptažodis atnaujintas" });
   } catch (err) {
@@ -352,11 +353,17 @@ router.post("/me/delete-request", requireAuth, deletionLimiter, async (req, res)
 
     // generate token (32B hex), expire in 2 hours
     const token = crypto.randomBytes(32).toString("hex");
+    const tokenHash = crypto.createHash("sha256").update(token).digest("hex");
     const hours = 2;
 
+    // retire any previous pending tokens for this user
     await pool.query(
-      "INSERT INTO account_deletions (user_id, token, expires_at) VALUES (?,?, DATE_ADD(NOW(), INTERVAL ? HOUR))",
-      [user.id, token, hours]
+      "UPDATE account_deletions SET used = 1 WHERE user_id = ? AND used = 0",
+      [user.id]
+    );
+    await pool.query(
+      "INSERT INTO account_deletions (user_id, token_hash, expires_at, used) VALUES (?,?, DATE_ADD(NOW(), INTERVAL ? HOUR), 0)",
+      [user.id, tokenHash, hours]
     );
 
     // Email link points to API endpoint that does deletion and 303-redirects to login
@@ -381,19 +388,22 @@ router.post("/me/delete-request", requireAuth, deletionLimiter, async (req, res)
   }
 });
 
-router.get("/delete-confirm", async (req, res) => {
+router.post("/delete-confirm", async (req, res) => {
   const toLogin = (params) => {
     const qs = new URLSearchParams(params).toString();
+    res.setHeader("Referrer-Policy", "no-referrer");
+    res.setHeader("Cache-Control", "no-store");
     return res.redirect(303, `${process.env.FRONTEND_URL}/prisijungti?${qs}`);
   };
 
-  const token = String(req.query?.token || "").trim();
+  const token = String(req.body?.token || "").trim();
   if (!token) return toLogin({ deleted: "0", reason: "missing" });
 
   try {
+    const tokenHash = crypto.createHash("sha256").update(token).digest("hex");
     const [rows] = await pool.query(
-      "SELECT id, user_id, expires_at, used FROM account_deletions WHERE token = ? LIMIT 1",
-      [token]
+      "SELECT id, user_id, expires_at, used FROM account_deletions WHERE token_hash = ? LIMIT 1",
+      [tokenHash]
     );
     if (!rows.length) return toLogin({ deleted: "0", reason: "invalid" });
 
@@ -403,33 +413,45 @@ router.get("/delete-confirm", async (req, res) => {
       return toLogin({ deleted: "0", reason: "expired" });
     }
 
-    // Try hard delete (FKs should be CASCADE in your schema)
+    // Try hard delete (FKs should be CASCADE)
     try {
       const [r] = await pool.query("DELETE FROM users WHERE id = ?", [reqRow.user_id]);
       if (!r.affectedRows) return toLogin({ deleted: "0", reason: "missing-user" });
-    } catch (e) {
-      // Fallback: anonymize instead of hard delete (if future FKs block deletion)
+    } catch {
+      // Fallback: anonymize
       await pool.query(
         `UPDATE users
-            SET email = CONCAT('deleted+', id, '@local.invalid'),
-                username = CONCAT('Ištrinta-', id),
-                discord_username = NULL,
-                password_hash = REPEAT('*', 60),
-                avatar_url = NULL,
-                email_verified = 0
-          WHERE id = ?`,
+           SET email = CONCAT('deleted+', id, '@local.invalid'),
+               username = CONCAT('Ištrinta-', id),
+               discord_username = NULL,
+               password_hash = REPEAT('*', 60),
+               avatar_url = NULL,
+               email_verified = 0
+         WHERE id = ?`,
         [reqRow.user_id]
       );
     }
 
-    // burn token
     await pool.query("UPDATE account_deletions SET used = 1 WHERE id = ?", [reqRow.id]);
-
     return toLogin({ deleted: "1" });
   } catch (err) {
-    console.error("delete-confirm error:", err);
+    console.error("delete-confirm POST error:", err);
     return toLogin({ deleted: "0", reason: "server" });
   }
+});
+
+router.get("/delete-confirm", async (req, res) => {
+  // Only redirect to the SPA confirmation screen; do NOT delete on GET.
+  const token = String(req.query?.token || "").trim();
+  res.setHeader("Referrer-Policy", "no-referrer");
+  res.setHeader("Cache-Control", "no-store");
+  if (!token) {
+    const qs = new URLSearchParams({ deleted: "0", reason: "missing" }).toString();
+    return res.redirect(303, `${process.env.FRONTEND_URL}/prisijungti?${qs}`);
+  }
+  // Hand off to SPA which will POST the token back.
+  const target = `${process.env.FRONTEND_URL}/patvirtinti-istrynima?token=${encodeURIComponent(token)}`;
+  return res.redirect(303, target);
 });
 
 export default router;

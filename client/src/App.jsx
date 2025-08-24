@@ -20,6 +20,7 @@ import { ToastProvider } from "./components/ToastProvider.jsx";
 import Tickets from "./pages/Tickets.jsx";
 import PrivacyPolicy from "./pages/PrivacyPolicy.jsx";
 import ContestRules from "./pages/ContestRules.jsx";
+import ConfirmDeletion from "./pages/ConfirmDeletion.jsx";
 
 function AppRoutes() {
   const routes = useRoutes([
@@ -52,6 +53,7 @@ function AppRoutes() {
         { path: "/ticketai", element: <Tickets /> },
         { path: "/privacy", element: <PrivacyPolicy /> },
         { path: "/rules", element: <ContestRules /> },
+        { path: "/patvirtinti-istrynima", element: <ConfirmDeletion /> },
       ],
     },
 
