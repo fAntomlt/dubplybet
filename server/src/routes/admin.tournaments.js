@@ -7,6 +7,7 @@ import path from "path";
 import fs from "fs";
 import { fileURLToPath } from "url";
 import { nanoid } from "nanoid";
+import { enqueueDiscordEvent, ltNowSql } from '../discord/events.js';
 
 const router = Router();
 const __filename = fileURLToPath(import.meta.url);
@@ -93,7 +94,22 @@ router.post("/tournaments/:id/finish", async (req, res) => {
   await pool.query(
     "UPDATE tournaments SET status='archived', winner_team = ?, updated_at = NOW() WHERE id = ?",
     [winner_team, id]
+    
   );
+  try {
+  // you already have winner_team in req.body
+  const [[t]] = await pool.query('SELECT id, name FROM tournaments WHERE id = ? LIMIT 1', [id]);
+  await enqueueDiscordEvent({
+    type: 'TOURNAMENT_FINISHED',
+    dedupeKey: `TOURNAMENT_FINISHED:${id}`,
+    scheduledFor: ltNowSql(),
+    payload: { tournament_id: id, tournament_name: t?.name || `#${id}`, winner_team },
+    tournamentId: id,
+    channelHint: 'tournaments',
+  });
+} catch(e) {
+  console.error('[discord] enqueue TOURNAMENT_FINISHED failed', e);
+}
   return res.json({ ok: true, message: "Turnyras užbaigtas" });
 });
 

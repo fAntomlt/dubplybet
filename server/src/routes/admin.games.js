@@ -2,6 +2,7 @@ import { Router } from "express";
 import { z } from "zod";
 import pool from "../db.js";
 import { scoreGuess } from "../utils/scoring.js";
+import { enqueueDiscordEvent, ltNowSql } from '../discord/events.js';
 
 const router = Router();
 
@@ -217,6 +218,28 @@ router.post("/games/:id/finish", async (req, res) => {
     }
 
     await conn.commit();
+
+    // --- step 5: enqueue Discord result post (exact snippet) ---
+    try {
+      await enqueueDiscordEvent({
+        type: 'GAME_FINISHED',
+        dedupeKey: `GAME_FINISHED:${id}`,
+        scheduledFor: ltNowSql(),
+        payload: {
+          team_a: game.score_a >= game.score_b ? game.team_a : game.team_a, // names already in "game"
+          team_b: game.team_b,
+          score_a: game.score_a,
+          score_b: game.score_b
+        },
+        tournamentId: game.tournament_id,
+        gameId: game.id,
+        channelHint: 'results',
+      });
+    } catch(e) {
+      console.error('[discord] enqueue GAME_FINISHED failed', e);
+    }
+    // ----------------------------------------------------------
+
     return res.json({ ok: true, message: "Rungtynės užbaigtos ir įvertintos" });
   } catch (e) {
     try { await conn.rollback(); } catch {}
@@ -226,5 +249,6 @@ router.post("/games/:id/finish", async (req, res) => {
     conn.release();
   }
 });
+
 
 export default router;
