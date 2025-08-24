@@ -15,41 +15,9 @@ import {
   useSortable,
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
+import { api } from "../lib/api";
+import { useToast } from "../components/ToastProvider";
 
-/* ------------------------------------------------------------------ */
-/* Minimal helpers so this file is standalone                          */
-/* ------------------------------------------------------------------ */
-const api = async (url, { method = "GET", json, headers, ...rest } = {}) => {
-  const res = await fetch(url, {
-    method,
-    headers: {
-      "Content-Type": "application/json",
-      ...(headers || {}),
-    },
-    body: json ? JSON.stringify(json) : undefined,
-    ...rest,
-  });
-  if (!res.ok) {
-    const msg = await res.text().catch(() => "");
-    throw new Error(msg || `${res.status} ${res.statusText}`);
-  }
-  // Some endpoints might return 204
-  const ct = res.headers.get("content-type") || "";
-  return ct.includes("application/json") ? res.json() : null;
-};
-
-function useToast() {
-  return {
-    error: (msg) => {
-      console.error(msg);
-      if (typeof window !== "undefined") alert(msg);
-    },
-    success: (msg) => {
-      console.log(msg);
-      if (typeof window !== "undefined") alert(msg);
-    },
-  };
-}
 
 /* ------------------------------------------------------------------ */
 /* Trello-like board statuses                                          */
