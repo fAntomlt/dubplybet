@@ -32,6 +32,7 @@ import badgesRouter from "./routes/badges.js";
 import sanitizeHtml from "sanitize-html";
 import roadmapPublic from "./routes/roadmap_public.js";
 import adminRoadmap from "./routes/admin_roadmap.js";
+import { startDayStartJob } from './jobs/dayStartJob.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -317,8 +318,11 @@ io.on("connection", async (socket) => {
 const enableCron = process.env.ENABLE_CRON_JOBS === "true";
 if (enableCron) {
   startLockGamesJob();
+  startDayStartJob();
   console.log("Cron jobs enabled: lockGames");
 }
+
+startDayStartJob();
 
 server.listen(PORT, () => {
   console.log(`API listening on http://localhost:${PORT}`);
