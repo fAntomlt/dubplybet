@@ -8,22 +8,23 @@ router.use(requireAuth, requireAdmin);
 
 const Status = z.enum(['backlog','planned','upcoming','in_progress','done']);
 
-const FeatureSchema = z.object({
+const FeatureBase = z.object({
   title: z.string().min(3).max(160),
   description: z.string().max(5000).optional().nullable(),
   status: Status.optional().default('backlog'),
   color: z.string().max(16).optional().nullable(),
   icon: z.string().max(32).optional().nullable(),
   is_public: z.boolean().optional().default(true),
-});
+}).strict();
+const FeatureSchema = FeatureBase;
+const FeaturePatch = FeatureBase.partial().refine(o => Object.keys(o).length > 0);
 
-const FeaturePatch = FeatureSchema.partial().refine(o => Object.keys(o).length > 0);
-
-const SubtaskSchema = z.object({
+const SubtaskBase = z.object({
   title: z.string().min(1).max(200),
   done: z.boolean().optional().default(false),
-});
-const SubtaskPatch = SubtaskSchema.partial().refine(o => Object.keys(o).length > 0);
+}).strict();
+const SubtaskSchema = SubtaskBase;
+const SubtaskPatch = SubtaskBase.partial().refine(o => Object.keys(o).length > 0);
 
 /** Admin board (all items incl. hidden) */
 router.get("/board", async (_req, res) => {
@@ -124,11 +125,33 @@ router.delete("/subtasks/:id", async (req, res) => {
 router.post("/reorder", async (req, res) => {
   const columns = req.body?.columns || {};
   const statuses = ['backlog','planned','upcoming','in_progress','done'];
+
+  // sanitize ids per column -> positive integers only
+  const cleaned = {};
+  for (const s of statuses) {
+    const arr = Array.isArray(columns[s]) ? columns[s] : [];
+    cleaned[s] = arr.map(Number).filter(n => Number.isInteger(n) && n > 0);
+  }
+
+  // reject duplicates across all columns
+  const all = statuses.flatMap(s => cleaned[s]);
+  const uniq = new Set(all);
+  if (uniq.size !== all.length) {
+    return res.status(400).json({ error: "Duplicate ids in payload" });
+  }
+
+  // optional: verify all ids exist
+  if (all.length) {
+    const [rows] = await pool.query("SELECT id FROM roadmap_features WHERE id IN (?)", [all]);
+    if (rows.length !== all.length) {
+      return res.status(400).json({ error: "Unknown feature id in payload" });
+    }
+  }
   const conn = await pool.getConnection();
   try {
     await conn.beginTransaction();
     for (const status of statuses) {
-      const ids = columns[status] || [];
+      const ids = cleaned[status] || [];
       for (let i = 0; i < ids.length; i++) {
         await conn.query(
           "UPDATE roadmap_features SET status=?, sort_index=?, updated_at=NOW() WHERE id=?",
