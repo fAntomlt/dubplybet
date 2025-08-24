@@ -263,6 +263,25 @@ export default function AdminRoadmap() {
     }
   }
 
+  function moveFeature(id, toStatus) {
+  if (!toStatus) return;
+  updateColumns((cols) => {
+    // find the source column
+    const fromKey = STATUSES.find(s => (cols[s.key] || []).some(x => String(x.id) === String(id)))?.key;
+    if (!fromKey || fromKey === toStatus) return;
+
+    const from = cols[fromKey] || [];
+    const to   = cols[toStatus] || [];
+
+    const idx = from.findIndex(x => String(x.id) === String(id));
+    if (idx < 0) return;
+
+    const item = from[idx];
+    from.splice(idx, 1);
+    to.push({ ...item, status: toStatus });
+  });
+}
+
   if (loading && !board) return (
     <Wrap><Hint>Kraunama…</Hint></Wrap>
   );
@@ -391,7 +410,23 @@ export default function AdminRoadmap() {
                                 Trinti
                               </button>
                             </MetaRow>
-
+                            <MoveRow>
+                                <span>Perkelti į</span>
+                                <SelectSmall
+                                    defaultValue=""
+                                    onChange={(e) => {
+                                    const val = e.target.value;
+                                    if (!val) return;
+                                    moveFeature(card.id, val);
+                                    e.target.value = ""; // reset to placeholder
+                                    }}
+                                >
+                                    <option value="" disabled>Pasirinkite…</option>
+                                    {STATUSES
+                                    .filter(s => s.key !== card.status)
+                                    .map(s => <option key={s.key} value={s.key}>{s.label}</option>)}
+                                </SelectSmall>
+                            </MoveRow>
                             <Subtasks
                               feature={card}
                               onAdd={addSub}
@@ -483,4 +518,17 @@ const AddRow = styled.form`
   display:grid; grid-template-columns:1fr auto; gap:8px;
   input,button{border:1px solid #e5e7eb; border-radius:8px; padding:6px 8px;}
   button{background:#f3f6fc; font-weight:800;}
+`;
+const MoveRow = styled.div`
+  display:flex; align-items:center; gap:8px;
+  font-size:12px; color:#64748b;
+`;
+const SelectSmall = styled.select`
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  padding: 6px 8px;
+  height: 30px;
+  background: #fff;
+  font-size: 12px;
+  font-weight: 700;
 `;
