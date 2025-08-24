@@ -12,29 +12,22 @@ export default function ConfirmDeletion() {
 
   const submit = async () => {
     if (!token) {
-      nav("/prisijungti?deleted=0&reason=missing", { replace: true }); return;
-    }
-    setBusy(true);
-    try {
-      const res = await fetch(`${import.meta.env.VITE_API_URL}/api/users/delete-confirm`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ token }),
-      });
-      // Server 303-redirects to /prisijungti?deleted=1 or ?deleted=0...
-      // But SPA fetch won't follow cross-origin 303 into a browser nav, so handle JSON fallback:
-      if (res.redirected) {
-        window.location.href = res.url;
-        return;
-      }
-      // In most setups the server redirects; as a fallback:
-      nav("/prisijungti?deleted=1", { replace: true });
-    } catch {
-      nav("/prisijungti?deleted=0&reason=server", { replace: true });
-    } finally {
-      setBusy(false);
-    }
-  };
+     nav("/prisijungti?deleted=0&reason=missing", { replace: true });
+     return;
+   }
+   setBusy(true);
+   const form = document.createElement("form");
+   form.method = "POST";
+   form.action = `${import.meta.env.VITE_API_URL}/api/users/delete-confirm`;
+   form.style.display = "none";
+   const input = document.createElement("input");
+   input.type = "hidden";
+   input.name = "token";
+   input.value = token;
+   form.appendChild(input);
+   document.body.appendChild(form);
+   form.submit();
+ };
 
   return (
     <Wrap>
