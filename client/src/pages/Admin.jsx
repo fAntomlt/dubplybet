@@ -9,6 +9,7 @@ import "quill/dist/quill.snow.css";
 import AdminTicketsPanel from "../components/AdminTicketsPanel.jsx";
 import AdminBadges from "../components/AdminBadges.jsx";
 import sanitizeHtml from "../lib/sanitizeHtml";
+import AdminRoadmap from "./AdminRoadmap.jsx";
 /**
  * Self-guarded Admin page:
  * - If not logged in or role !== 'admin' => redirect to "/"
