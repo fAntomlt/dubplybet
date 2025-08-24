@@ -10,7 +10,7 @@ export default function Footer() {
     <Wrap role="contentinfo" aria-label="Svetainės apačia">
       <Inner>
         <Left>
-          <Brand>iCrib.pro</Brand>
+          <Brand>icrib.pro</Brand>
           <Small>© {year} — VISOS TEISĖS SAUGOMOS</Small>
         </Left>
 
@@ -61,7 +61,6 @@ const Left = styled.div`
 `;
 
 const Brand = styled.div`
-  font-weight: 900;
   letter-spacing: -0.01em;
   color: #0f172a;
   font-size: 16px;
@@ -69,7 +68,6 @@ const Brand = styled.div`
 
 const Small = styled.div`
   color: #64748b;
-  font-weight: 700;
   font-size: 12px;
   letter-spacing: .02em;
 `;
@@ -89,17 +87,12 @@ const Dot = styled.span`
 `;
 
 const FooterLink = styled(NavLink)`
-  font-weight: 800;
   color: #0f172a;
   text-decoration: none;
   padding: 4px 6px;
   border-radius: 8px;
 
   &:hover { background: #f5f7fb; }
-  &.active {
-    background: #e8f1ff;
-    color: #1f6feb;
-  }
 `;
 
 const Right = styled.div`
@@ -116,8 +109,7 @@ const Right = styled.div`
 `;
 
 const Mail = styled.a`
-  font-weight: 900;
-  color: #1f6feb;
+  
   text-decoration: none;
   &:hover { text-decoration: underline; }
 `;
