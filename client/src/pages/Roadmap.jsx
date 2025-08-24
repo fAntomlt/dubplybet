@@ -33,7 +33,6 @@ export default function Roadmap() {
   return (
     <Wrap>
       <Title>Roadmap</Title>
-      <Hint>Viešas planų sąrašas</Hint>
       <Board>
         {STATUSES.map(col => (
           <Column key={col.key}>
@@ -87,7 +86,6 @@ function escapeHtml(s=""){ return String(s).replace(/&/g,"&amp;").replace(/</g,"
 /* styles */
 const Wrap = styled.div`display:grid; gap:10px;`;
 const Title = styled.h1`margin:0; font-weight:900; letter-spacing:-.01em;`;
-const Hint = styled.div`color:#64748b; font-weight:600;`;
 const Board = styled.div`
   display:grid; grid-template-columns: repeat(5, minmax(240px, 1fr));
   gap:12px; align-items:start;

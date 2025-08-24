@@ -3,7 +3,7 @@ import { NavLink, useLocation } from "react-router-dom";
 import styled from "styled-components";
 import {
   FiHome, FiUser, FiAward, FiBarChart2, FiChevronDown,
-  FiMessageSquare, FiShield, FiMenu, FiLogOut, FiX, FiFileText, FiRefreshCw, FiLifeBuoy
+  FiMessageSquare, FiShield, FiMenu, FiLogOut, FiX, FiFileText, FiMap, FiLifeBuoy
 } from "react-icons/fi";
 import logoImg from "../assets/icriblogo.png";
 import { useToast } from "../components/ToastProvider";
@@ -178,6 +178,9 @@ export default function Sidebar({ onOpenChat }) {
            <FiLifeBuoy /> <span>Ticketai</span>
          </Item>
        )}
+       <Item to="/roadmap" onClick={closeIfMobile}>
+          <FiMap /> <span>Roadmap</span>
+        </Item>
 
         {auth.user && (
           <LogoutDock>
