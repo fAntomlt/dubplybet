@@ -71,9 +71,12 @@ function Tabs() {
         <TabButton $active={tab === "badges"} onClick={() => setTab("badges")}>
           Ženkleliai
         </TabButton>
+        <TabButton $active={tab==="roadmap"} onClick={()=>setTab("roadmap")}>
+          Roadmap
+        </TabButton>
       </TabRow>
 
-      <Card>{tab === "users" && <AdminUsers />}{tab === "tournaments" && <AdminTournaments />}{tab === "games" && <AdminGames />}{tab === "posts" && <AdminPosts />}{tab === "tickets" && <AdminTicketsPanel />}{tab === "badges" && <AdminBadges />}
+      <Card>{tab === "users" && <AdminUsers />}{tab === "tournaments" && <AdminTournaments />}{tab === "games" && <AdminGames />}{tab === "posts" && <AdminPosts />}{tab === "tickets" && <AdminTicketsPanel />}{tab === "badges" && <AdminBadges />}{tab==="roadmap" && <AdminRoadmap />}
       </Card>
     </>
   );
