@@ -1,5 +1,12 @@
 import 'dotenv/config';
-import { Client, GatewayIntentBits } from 'discord.js';
+import {
+  Client,
+  GatewayIntentBits,
+  EmbedBuilder,
+  ActionRowBuilder,
+  ButtonBuilder,
+  ButtonStyle,
+} from 'discord.js';
 import pool from '../src/db.js'; // reuse your DB pool
 import { TEAM_TO_ISO } from './team-map.js'; // create below
 
@@ -7,6 +14,22 @@ const client = new Client({ intents: [GatewayIntentBits.Guilds] });
 
 const TZ = process.env.TIMEZONE || 'Europe/Vilnius';
 const FETCH_LIMIT = 20;
+const COLORS = {
+  day: 0x3b82f6,        // blue
+  lock: 0xf59e0b,       // amber
+  result: 0x22c55e,     // green
+  tournament: 0x8b5cf6, // purple
+};
+
+function footerText() {
+  return process.env.DISCORD_FOOTER_TEXT || 'iCrib.pro';
+}
+function applyFooter(embed) {
+  const icon = process.env.DISCORD_FOOTER_ICON; // optional URL
+  if (icon) embed.setFooter({ text: footerText(), iconURL: icon });
+  else embed.setFooter({ text: footerText() });
+  return embed;
+}
 
 // Flag helper
 function flagEmoji(iso2) {
@@ -44,21 +67,47 @@ async function resolveChannelId(purpose, tournamentId) {
   return process.env[envKey] || null;
 }
 
-// Message builders
+// Message builders -> return { embeds, components? }
 function buildDayStart(payload) {
-  const lines = [];
-  lines.push('siandien nauja rungtyniu diena! siandien zaidzia:\n');
-  for (const g of payload.games || []) {
-    lines.push(`${F(g.team_a)} ${g.team_a} VS ${g.team_b} ${F(g.team_b)}`);
-  }
-  return lines.join('\n');
+  const games = payload.games || [];
+  const e = new EmbedBuilder()
+    .setColor(COLORS.day)
+    .setTitle('Šiandienos rungtynės')
+    .setDescription(
+      games.length
+        ? games.map(g => `• ${F(g.team_a)} **${g.team_a}** vs **${g.team_b}** ${F(g.team_b)}`).join('\n')
+        : 'Šiandien rungtynių nėra.'
+    )
+    .setTimestamp();
+  applyFooter(e);
+  return { embeds: [e] };
 }
+
 function buildGameLock(payload) {
-  return `Uz 10min prasides naujas zaidimas, rezultato spejimas uzdaromas:\n${F(payload.team_a)} ${payload.team_a} VS ${payload.team_b} ${F(payload.team_b)}`;
+  const e = new EmbedBuilder()
+    .setColor(COLORS.lock)
+    .setTitle('Spejimai uždaromi po 10 min')
+    .addFields(
+      { name: 'Rungtynės', value: `${F(payload.team_a)} **${payload.team_a}** vs **${payload.team_b}** ${F(payload.team_b)}` }
+    )
+    .setTimestamp();
+  applyFooter(e);
+  return { embeds: [e] };
 }
+
 function buildGameFinished(payload) {
-  return `Rungtynes baigtos, rezultatas:\n${F(payload.team_a)} ${payload.team_a} ${payload.score_a} - ${payload.score_b} ${payload.team_b} ${F(payload.team_b)}`;
+  const e = new EmbedBuilder()
+    .setColor(COLORS.result)
+    .setTitle('Galutinis rezultatas')
+    .addFields(
+      { name: 'Komandos', value: `${F(payload.team_a)} **${payload.team_a}** — **${payload.team_b}** ${F(payload.team_b)}` },
+      { name: 'Rezultatas', value: `**${payload.team_a} ${payload.score_a} : ${payload.score_b} ${payload.team_b}**` },
+    )
+    .setTimestamp();
+  applyFooter(e);
+  return { embeds: [e] };
 }
+
 async function buildTournamentFinished(payload) {
   const tid = payload.tournament_id;
   // winner user (top of tournament_scores)
@@ -75,12 +124,25 @@ async function buildTournamentFinished(payload) {
     champion = row ? row.username : null;
   } catch {}
   const link = (process.env.FRONTEND_URL || 'https://dubply.bet') + `/turnyrai/${tid}`;
-  return [
-    `Aciu visiems uz dalyvavima, ${payload.tournament_name} turnyras oficialiai skelbiamas BAIGTU.`,
-    `Nugalejusi salis: ${F(payload.winner_team)} ${payload.winner_team}`,
-    `Speliojusiu cempionas, gaves pinigini priza: ${champion || '—'}`,
-    `Turnyro info: ${link}`,
-  ].join('\n');
+  const e = new EmbedBuilder()
+    .setColor(COLORS.tournament)
+    .setTitle(`🏆 Turnyras užbaigtas — ${payload.tournament_name}`)
+    .addFields(
+      { name: 'Nugalėtoja šalis', value: `${F(payload.winner_team)} **${payload.winner_team}**` },
+      { name: 'Spėliojimų čempionas', value: champion ? `**${champion}**` : '—' },
+    )
+    .setTimestamp();
+  applyFooter(e);
+
+  const components = [
+    new ActionRowBuilder().addComponents(
+      new ButtonBuilder()
+        .setStyle(ButtonStyle.Link)
+        .setURL(link)
+        .setLabel('Peržiūrėti turnyrą')
+    )
+  ];
+  return { embeds: [e], components };
 }
 
 async function formatMessage(row) {
@@ -129,13 +191,13 @@ async function processQueue() {
         await markError(row.id, `No channel mapping for purpose=${row.channel_hint} tournament_id=${row.tournament_id}`);
         continue;
       }
-      const content = await formatMessage(row);
-      if (!content) {
+      const message = await formatMessage(row);
+      if (!message || (!message.content && !(message.embeds?.length))) {
         await markError(row.id, 'Empty content');
         continue;
       }
       const ch = await client.channels.fetch(channelId);
-      await ch.send({ content });
+      await ch.send(message);
       await markPublished(row.id);
     } catch (e) {
       await markError(row.id, e?.message || e);
