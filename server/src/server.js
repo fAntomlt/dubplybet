@@ -322,8 +322,6 @@ if (enableCron) {
   console.log("Cron jobs enabled: lockGames");
 }
 
-startDayStartJob();
-
 server.listen(PORT, () => {
   console.log(`API listening on http://localhost:${PORT}`);
   console.log("Allowed CORS origins:", allowedOrigins.join(", ") || "(none)");
