@@ -1,6 +1,6 @@
 // client/pages/Profile.jsx
-import { useEffect, useMemo, useState, useRef, useLayoutEffect } from "react";
-import styled from "styled-components";
+import { useEffect, useMemo, useState, useRef} from "react";
+import styled, { keyframes } from "styled-components";
 import { FiUser, FiHash, FiLock, FiEdit3, FiX, FiCheck, FiUpload, FiChevronDown } from "react-icons/fi";
 import logoImg from "../assets/icriblogo.png";
 import { useToast } from "../components/ToastProvider";
@@ -421,60 +421,111 @@ useEffect(() => {
   }, [API, authHeader]);
 
   // ===== Top-right card: correct guesses list (scrollable) =====
-  const PAGE = 100;
-  const [cg, setCg] = useState({ items: [], loading: false, error: "", offset: 0, hasMore: true });
+  const PAGE_SIZE = 5
+  const FETCH_SIZE = 50;
+  
+  const [cg, setCg] = useState({
+    items: [],
+    loading: false,
+    error: "",
+    offset: 0,
+    hasMore: true,
+  });
+
+  const [page, setPage] = useState(1);
+
+  const prevPageRef = useRef(1);
+  const [pageDir, setPageDir] = useState(1); // 1 = next/right, -1 = prev/left
+  useEffect(() => {
+    const dir = page > prevPageRef.current ? 1 : -1;
+    setPageDir(dir);
+    prevPageRef.current = page;
+  }, [page]);
+
+  const listRef = useRef(null);
+  useEffect(() => {
+    listRef.current?.scrollTo?.({ top: 0, behavior: "smooth" });
+  }, [page]);
+
+  const pageCount = Math.max(1, Math.ceil(cg.items.length / PAGE_SIZE));
+  const startIdx = (page - 1) * PAGE_SIZE;
+  const endIdx = startIdx + PAGE_SIZE;
 
   const loadMoreCorrect = async () => {
-    if (cg.loading || !cg.hasMore) return;
-    setCg(s => ({ ...s, loading: true, error: "" }));
-    try {
-      const res = await fetch(`${API}/api/games/finished?limit=${PAGE}&offset=${cg.offset}`, {
-        headers: { ...authHeader },
-      });
-      const d = await res.json();
-      if (!res.ok) throw new Error(d?.error || "Nepavyko užkrauti");
-      const raw = d?.games || [];
-      // keep only games where my guess exists and earned > 0 points
-      const pageSeen = new Set()
-      const next = raw
-        .filter(g => g?.my_guess && (Number(g.my_guess?.awarded_points ?? 0) > 0))
-        .map(g => ({
-          id: g.id,
-          stage: g.stage,
-          tipoff_at: g.tipoff_at,
-          team_a: g.team_a,
-          team_b: g.team_b,
-          score_a: g.score_a,
-          score_b: g.score_b,
-          my: {
-            a: g.my_guess.guess_a,
-            b: g.my_guess.guess_b,
-            pts: g.my_guess.awarded_points ?? 0,
-          },
-        }))
-        .filter(it => (pageSeen.has(it.id) ? false : (pageSeen.add(it.id), true)));
-      setCg(prev => {
-        const seen = new Set(prev.items.map(i => i.id));
-        const dedupNext = next.filter(n => !seen.has(n.id));
-        const merged = [...prev.items, ...dedupNext];
-        return {
-          ...prev,
-          items: merged,
-          loading: false,
-          error: "",
-          offset: prev.offset + PAGE,
-          hasMore: raw.length >= PAGE, // server caps at 100; if got less, no more pages
-        };
-      });
-      // If we still don't have all-time value, keep a running sum as fallback
-      if (correctAllTime == null) {
-        const uniqIds = new Set([...cg.items, ...next].map(x => x.id));
-        setCorrectAllTime(uniqIds.size);
-      }
-    } catch (e) {
-      setCg(s => ({ ...s, loading: false, error: e?.message || "Klaida kraunant sąrašą" }));
-    }
-  };
+  if (cg.loading || !cg.hasMore) return;
+  setCg(s => ({ ...s, loading: true, error: "" }));
+  try {
+    const res = await fetch(
+      `${API}/api/games/finished?limit=${FETCH_SIZE}&offset=${cg.offset}`,
+      { headers: { ...authHeader } }
+    );
+    const d = await res.json();
+    if (!res.ok) throw new Error(d?.error || "Nepavyko užkrauti");
+
+    const raw = Array.isArray(d?.games) ? d.games : [];
+
+    const pageSeen = new Set();
+    const next = raw
+      .filter(g => g?.my_guess && Number(g.my_guess?.awarded_points ?? 0) > 0)
+      .map(g => ({
+        id: g.id,
+        stage: g.stage,
+        tipoff_at: g.tipoff_at,
+        team_a: g.team_a,
+        team_b: g.team_b,
+        score_a: g.score_a,
+        score_b: g.score_b,
+        my: {
+          a: g.my_guess.guess_a,
+          b: g.my_guess.guess_b,
+          pts: g.my_guess.awarded_points ?? 0,
+        },
+      }))
+      .filter(it => (pageSeen.has(it.id) ? false : (pageSeen.add(it.id), true)));
+
+    setCg(prev => {
+      const seen = new Set(prev.items.map(i => i.id));
+      const dedupNext = next.filter(n => !seen.has(n.id));
+      const merged = [...prev.items, ...dedupNext];
+
+      // if you still want the fallback counter:
+      // if (correctAllTime == null) setCorrectAllTime(merged.length);
+
+      return {
+        ...prev,
+        items: merged,
+        loading: false,
+        error: "",
+        offset: prev.offset + FETCH_SIZE,
+        hasMore: raw.length >= FETCH_SIZE, // stop when server sent fewer than batch size
+      };
+    });
+  } catch (e) {
+    setCg(s => ({ ...s, loading: false, error: e?.message || "Klaida kraunant sąrašą" }));
+  }
+};
+
+const goToPage = (n) => {
+  const clamped = Math.min(Math.max(1, n), pageCount);
+  setPage(clamped);
+};
+
+const goNext = async () => {
+  // If we’re not on the last *fetched* page, just advance
+  if (page < pageCount) return setPage(p => p + 1);
+
+  // We’re on the last fetched page. If server has more — fetch next batch, then advance if new items arrived
+  if (cg.hasMore && !cg.loading) {
+    await loadMoreCorrect();
+    // After fetching, if pageCount increased, advance 1 page
+    const newCount = Math.max(1, Math.ceil((cg.items.length) / PAGE_SIZE));
+    setPage(p => Math.min(p + 1, newCount));
+  }
+};
+
+const goPrev = () => {
+  if (page > 1) setPage(p => p - 1);
+};
 
   useEffect(() => {
     // initial page
@@ -486,6 +537,7 @@ useEffect(() => {
   if (serverError && !me) return <Load role="alert">{serverError}</Load>;
 
   const name = me?.username || "Vartotojas";
+
 
   return (
     <Wrap>
@@ -564,12 +616,17 @@ useEffect(() => {
 
               {cg.error ? <Alert role="alert">{cg.error}</Alert> : null}
 
-              <CorrectList>
-                {cg.items.length === 0 && !cg.loading ? (
-                  <Muted>Nėra teisingų spėjimų.</Muted>
-                ) : (
-                  cg.items.map(it => (
-                    <CorrectItem key={it.id}>
+              <CorrectViewport>
+    <PageSlide key={page} $dir={pageDir}>
+      <CorrectList ref={listRef}>
+        {cg.items.length === 0 && !cg.loading ? (
+          <Muted>Nėra teisingų spėjimų.</Muted>
+        ) : (
+          cg.items.slice(startIdx, endIdx).map((it, idx) => (
+            <CorrectItem
+              key={`${page}-${it.id}`}
+              $delay={`${idx * 60}ms`}
+            >
                       <TeamsMini>
                         <RowMini>
                           <FlagDot>{flagForTeam(it.team_a, 16)}</FlagDot>
@@ -591,11 +648,31 @@ useEffect(() => {
                   ))
                 )}
               </CorrectList>
+              </PageSlide>
+              </CorrectViewport>
 
               <CardActions>
-                <SmallBtn onClick={loadMoreCorrect} disabled={!cg.hasMore || cg.loading}>
-                  {cg.loading ? "Kraunama…" : (cg.hasMore ? "Įkelti daugiau" : "Viskas įkelta")}
-                </SmallBtn>
+                <Pager role="navigation" aria-label="Puslapių navigacija">
+                  <PageBtn onClick={goPrev} disabled={page <= 1 || cg.loading}>Ankstesnis</PageBtn>
+
+                  {/* Page numbers for fetched items */}
+                  {Array.from({ length: pageCount }, (_, i) => i + 1).map(n => (
+                    <PageNumber
+                      key={n}
+                      $active={n === page}
+                      onClick={() => goToPage(n)}
+                      aria-current={n === page ? "page" : undefined}
+                      disabled={cg.loading}
+                    >
+                      {n}
+                    </PageNumber>
+                  ))}
+
+                  {/* If server still has more, show an affordance that Next may fetch */}
+                  <PageBtn onClick={goNext} disabled={(!cg.hasMore && page >= pageCount) || cg.loading}>
+                    Kitas{cg.hasMore && page >= pageCount ? " +" : ""}
+                  </PageBtn>
+                </Pager>
               </CardActions>
             </Card>
           </Right>
@@ -1302,6 +1379,11 @@ const CorrectList = styled.div`
   align-items: start;           /* don’t stretch individual cards vertically */
 `;
 
+const enterUp = keyframes`
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
+`;
+
 const CorrectItem = styled.div`
   border: 1px solid #e7eaf0;
   background: #fff;
@@ -1312,6 +1394,12 @@ const CorrectItem = styled.div`
   grid-auto-rows: auto;
   gap: 10px 12px;
   align-items: center;;
+  animation: ${enterUp} .22s ease both;
+  animation-delay: ${({ $delay }) => $delay || "0ms"};
+
+  @media (prefers-reduced-motion: reduce) {
+    animation: none;
+  }
 `;
 
 const TeamsMini = styled.div`
@@ -1461,4 +1549,58 @@ const DangerAction = styled.button`
   &:hover { background: #fecaca; border-color: #fca5a5; }
   &:active { transform: translateY(1px); }
   &:disabled { opacity: .6; cursor: default; }
+`;
+
+const Pager = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+`;
+
+const PageBtn = styled.button`
+  border: 1px solid #e5e7eb;
+  background: #fff;
+  border-radius: 10px;
+  padding: 8px 12px;
+  font-weight: 800;
+  cursor: pointer;
+  &:disabled { opacity: .6; cursor: default; }
+`;
+
+const PageNumber = styled(PageBtn)`
+  min-width: 40px;
+  text-align: center;
+  ${({ $active }) =>
+    $active &&
+    `
+      border-color: #1f6feb;
+      box-shadow: 0 0 0 3px #e8f1ff;
+    `}
+`;
+
+const slideInRight = keyframes`
+  from { opacity: 0; transform: translateX(16px); }
+  to   { opacity: 1; transform: translateX(0); }
+`;
+const slideInLeft = keyframes`
+  from { opacity: 0; transform: translateX(-16px); }
+  to   { opacity: 1; transform: translateX(0); }
+`;
+
+const CorrectViewport = styled.div`
+  position: relative;
+  overflow: hidden;      /* hide slide edges */
+  flex: 1 1 auto;
+  min-height: 0;
+  display: grid;         /* keeps your layout consistent */
+`;
+
+const PageSlide = styled.div`
+  will-change: transform, opacity;
+  animation: ${({ $dir }) => ($dir === -1 ? slideInLeft : slideInRight)} .54s ease both;
+
+  @media (prefers-reduced-motion: reduce) {
+    animation: none;
+  }
 `;
