@@ -1084,13 +1084,56 @@ useEffect(() => {
             </LeftCol>
 
             <RightCol>
-              <MetaBlock>
-                <SmallMeta>{dOWMMMDD(g.tipoff_at).toUpperCase()}</SmallMeta>
-              </MetaBlock>
-              <DividerV />
-              <DoneBadge><FiCheck style={{ verticalAlign: "middle" }} /> Baigta</DoneBadge>
-            </RightCol>
+  <RightMetaGrid>
+    <MetaBlock>
+      <SmallMeta>{dOWMMMDD(g.tipoff_at).toUpperCase()}</SmallMeta>
+    </MetaBlock>
+    <DividerV />
 
+    {/* Top-right status */}
+    <DoneBadge><FiCheck style={{ verticalAlign: "middle" }} /> Baigta</DoneBadge>
+    <ResultCondInline className="cond">
+      <CondText className="cond--desktop">
+        {renderMarkdownInline(
+          guessConditionPretty({
+            team_a: g.team_a,
+            team_b: g.team_b,
+            a: g.score_a,
+            b: g.score_b,
+            finished: false,
+          })
+        )}
+      </CondText>
+      <CondTwoLine className="cond--mobile" aria-hidden="false">
+        <span className="main">
+          {(() => {
+            const a = Number(g.score_a) || 0;
+            const b = Number(g.score_b) || 0;
+            const diff = Math.abs(a - b);
+            if (a === b) return "Lygiosios";
+            const band = bandFromDiff(diff); // "> 5", "< 5" or "= 5"
+            return a > b ? `${g.team_a} ${band}` : `${g.team_b} ${band}`;
+          })()}
+        </span>
+        <span className="diff">
+          {(() => {
+            const a = Number(g.score_a) || 0;
+            const b = Number(g.score_b) || 0;
+            const diff = Math.abs(a - b);
+            return `[${diff} pt.]`;
+          })()}
+        </span>
+        <span className="score">
+          {(() => {
+            const a = Number(g.score_a) || 0;
+            const b = Number(g.score_b) || 0;
+            return `(${a}-${b})`;
+          })()}
+        </span>
+      </CondTwoLine>
+    </ResultCondInline>
+  </RightMetaGrid>
+</RightCol>
             <FullWidth>
               <MyGuessBoxFinished>
                 <div>
@@ -2403,4 +2446,76 @@ const SmallNote = styled.div`
   font-size: 12px;
   color: #64748b;
   font-weight: 600;
+`;
+// Grid inside the existing RightCol:
+// first row: [date] | | [BAIGTA]
+// second row: condition spans across all three
+const RightMetaGrid = styled.div`
+  display: grid;
+  grid-template-columns: auto 1px auto;
+  align-items: center;
+  column-gap: 12px;
+  justify-items: end;
+
+  /* the condition sits below, spanning all cols */
+  .cond { grid-column: 1 / -1; margin-top: 6px; }
+
+  @media (max-width: 474px){
+    margin-left: 8px;
+    grid-template-columns: auto;
+    /* stack: date, BAIGTA, then condition */
+    & > ${DividerV} { display: none; }
+    .cond { grid-column: 1; }
+  }
+
+  /* keep divider height tidy in this context */
+  & > ${DividerV} { height: 28px; }
+`;
+
+// Compact, right-aligned condition pill
+// Ultra-min text-only condition line
+// Ultra-min text, but unbreakable names won't blow the card
+const ResultCondInline = styled.div`
+  display: block;
+  min-width: 0;
+  max-width: 100%;
+  padding-top: 6px;
+  text-align: right;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+  hyphens: auto;
+
+  ${CondText}{
+    font-size: 12.5px;
+    line-height: 1.25;
+    
+    font-variant-numeric: tabular-nums;
+    letter-spacing: .01em;
+    /* keep emphasis subtle */
+    strong { font-weight: 800; }
+  }
+    @media (max-width: 474px){
+    margin-bottom: 5px;
+    text-align: right;
+    ${CondText}.cond--desktop { display: none; }
+  }
+`;
+const CondTwoLine = styled.div`
+  display: none;
+  @media (max-width: 474px){
+    display: grid;
+    grid-template-rows: auto auto auto;
+    justify-items: end;
+    text-align: right;
+    gap: 2px;
+    font-size: clamp(10px, 3.5vw, 12.5px);
+    line-height: 1.25;
+    font-variant-numeric: tabular-nums;
+
+    .main{
+      /* allow long team names to wrap nicely */
+      overflow-wrap: anywhere;
+      word-break: break-word;
+    }
+  }
 `;
