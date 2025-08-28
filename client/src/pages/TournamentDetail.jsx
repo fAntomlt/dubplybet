@@ -883,7 +883,7 @@ useEffect(() => {
   </LeaderboardWrap>
 
       {/* === Day picker: show for archived, and for active when day is unset or today/future === */}
-      {(isArchived || (!selectedDay || isTodayOrFutureSelected)) && (
+      {dayList.length > 0 && (
         <>
           <DayBarWrap>
             <DayArrow onClick={() => scrollByCard(-1)}>‹</DayArrow>
