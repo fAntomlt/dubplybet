@@ -28,6 +28,14 @@ export default function Home() {
     () => tournaments.find((t) => t.status === "active") || null,
     [tournaments]
   );
+const firstArchived = useMemo(
+  () => tournaments.find((t) => t.status === "archived") || null,
+  [tournaments]
+);
+
+// Prefer active; otherwise the most recent archived (API returns DESC by created_at)
+const heroTournament = activeTournament || firstArchived || null;
+
 
   const [lbTourney, setLbTourney] = useState([]); // points
   const [lbAllTime, setLbAllTime] = useState([]); // correct
@@ -45,8 +53,8 @@ export default function Home() {
   const token = useMemo(() => localStorage.getItem("authToken"), []);
   const HOME_HERO_GIF = import.meta.env.VITE_HOME_HERO_GIF || "";
   const asBg = (p) => (p ? `url('${joinApi(p)}')` : null);
-  const heroBg =
-   asBg(HOME_HERO_GIF) || bgForStatus(activeTournament?.status);
+  // was using activeTournament?.status
+const heroBg = asBg(HOME_HERO_GIF) || bgForStatus(heroTournament?.status);
 
 
   /* ---- effects ---- */
@@ -189,28 +197,47 @@ export default function Home() {
         {/* ===== Left column ===== */}
         <LeftCol>
           {/* Active tournament hero card (same as Tournaments page) */}
-          {activeTournament ? (
-            <HeroCard
-              $bg={asBg(HOME_HERO_GIF) || bgForStatus(activeTournament.status)}
-              role="button"
-              tabIndex={0}
-              onClick={() => goToTournament(activeTournament)}
-              onKeyDown={(e) => (e.key === "Enter" || e.key === " ") && goToTournament(activeTournament)}
-              aria-label={`Atidaryti turnyrą ${activeTournament.name}`}
-            >
-              <ImageLayer $bg={heroBg} />
-              <Overlay />
-              <HeroContent>
-                <div>
-                  <Title>{activeTournament.name}</Title>
-                  <Dates>{d10(activeTournament.start_date)} – {d10(activeTournament.end_date)}</Dates>
-                </div>
-                <LiveRow><LiveDot /> <span>GYVAI</span></LiveRow>
-              </HeroContent>
-            </HeroCard>
-          ) : (
-            <SkeletonHero />
-          )}
+          {/* Hero card — always render */}
+<HeroCard
+  $bg={asBg(HOME_HERO_GIF) || bgForStatus(heroTournament?.status)}
+  role="button"
+  tabIndex={0}
+  onClick={() => (heroTournament ? goToTournament(heroTournament) : navigate("/turnyrai"))}
+  onKeyDown={(e) => {
+    if (e.key === "Enter" || e.key === " ") {
+      e.preventDefault();
+      heroTournament ? goToTournament(heroTournament) : navigate("/turnyrai");
+    }
+  }}
+  aria-label={
+    heroTournament
+      ? `Atidaryti turnyrą ${heroTournament.name}`
+      : "Atidaryti turnyrus"
+  }
+>
+  <ImageLayer $bg={heroBg} />
+  <Overlay />
+  <HeroContent>
+    <div>
+      <Title>{heroTournament?.name || "Turnyrai"}</Title>
+      {activeTournament ? (
+        <Dates>
+          {d10(activeTournament.start_date)} – {d10(activeTournament.end_date)}
+        </Dates>
+      ) : null}
+    </div>
+
+    {activeTournament ? (
+      <LiveRow><LiveDot /> <span>GYVAI</span></LiveRow>
+    ) : (
+      <MoreRow>
+        <Arrow aria-hidden>→</Arrow>
+        <span>- PLACIAU</span>
+      </MoreRow>
+    )}
+  </HeroContent>
+</HeroCard>
+
 
           <MiniGrid>
             {/* Latest post */}
@@ -734,3 +761,21 @@ const RowName = styled.div`
   &:hover { text-decoration: underline; }
 `;
 const RowMetric = styled.div`font-size:12px; color:#16a34a; font-weight:800;`;
+const MoreRow = styled.div`
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  font-weight: 900;
+  font-size: clamp(14px, 4.2vw, 18px);
+  color: #0f172a;
+  background: rgba(255, 255, 255, .9);
+  border-radius: 999px;
+  padding: 6px 14px;
+  width: fit-content;
+  margin: 0;
+`;
+const Arrow = styled.span`
+  display: inline-block;
+  font-weight: 900;
+  line-height: 1;
+`;
