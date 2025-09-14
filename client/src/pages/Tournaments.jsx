@@ -367,9 +367,7 @@ export default function Turnyrai() {
           )}
           <Divider />
         </>
-      ) : (
-        <EmptyHint>Šiuo metu aktyvių turnyrų nėra.</EmptyHint>
-      )}
+      ) : null}
 
       {/* DRAFT */}
       <SectionHeader>ARTĖJANTYS TURNYRAI</SectionHeader>
