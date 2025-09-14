@@ -298,7 +298,6 @@ useEffect(() => {
             tabIndex={0}
             onClick={(e) => openCard(heroLb[0].user_id, e)}
             onKeyDown={(e) => (e.key === "Enter" || e.key === " ") && openCard(heroLb[0].user_id, e)}
-            style={{ textDecoration: "underline", cursor: "pointer" }}
           >
             {heroLb[0].username}
           </NameText>
