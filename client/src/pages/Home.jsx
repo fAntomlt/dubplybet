@@ -4,6 +4,7 @@ import styled, { keyframes } from "styled-components";
 import { useNavigate } from "react-router-dom";
 import { api } from "../lib/api";
 import UserCardPopover from "../components/UserCardPopover.jsx";
+import { flagForTeam } from "../lib/flags";
 
 /* ======= shared helpers / constants ======= */
 const API_ORIGIN = (import.meta.env.VITE_API_URL || "").replace(/\/+$/, "");
@@ -39,6 +40,7 @@ const heroTournament = activeTournament || firstArchived || null;
 
   const [lbTourney, setLbTourney] = useState([]); // points
   const [lbAllTime, setLbAllTime] = useState([]); // correct
+  const [heroLb, setHeroLb] = useState([]);
 
   // Latest content
   const [latestPost, setLatestPost] = useState(null);
@@ -136,6 +138,45 @@ const heroBg = asBg(HOME_HERO_GIF) || bgForStatus(heroTournament?.status);
     })();
   }, [activeTournament?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // If no active tournament, but we have an archived hero tourney, load its leaderboard to show the champion
+useEffect(() => {
+  if (activeTournament) { 
+    setHeroLb([]); 
+    return; 
+  }
+  if (!heroTournament?.id || heroTournament?.status !== "archived") { 
+    setHeroLb([]); 
+    return; 
+  }
+  (async () => {
+    try {
+      const d = await api(`/api/leaderboards/tournament/${heroTournament.id}`);
+      const list = d.leaderboard || [];
+      // same stable sorter logic as in TournamentDetail.jsx
+      const num = (v, def = 0) => (Number.isFinite(v) ? v : def);
+      list.sort((a, b) => {
+        const p = num(b.points) - num(a.points);
+        if (p) return p;
+        const ca = num(b.correct_any) - num(a.correct_any);
+        if (ca) return ca;
+        const aGuessCnt = num(a.guesses_count ?? a.predictions_count ?? a.total_guesses, null);
+        const bGuessCnt = num(b.guesses_count ?? b.predictions_count ?? b.total_guesses, null);
+        if (aGuessCnt !== null && bGuessCnt !== null && aGuessCnt !== bGuessCnt) return aGuessCnt - bGuessCnt;
+        const aTime = a.last_updated_at || a.updated_at || a.last_guess_at || "";
+        const bTime = b.last_updated_at || b.updated_at || b.last_guess_at || "";
+        if (aTime && bTime && aTime !== bTime) return aTime.localeCompare(bTime);
+        const n = String(a.username || "").localeCompare(String(b.username || ""));
+        if (n) return n;
+        return num(a.user_id, 0) - num(b.user_id, 0);
+      });
+      setHeroLb(list);
+    } catch {
+      setHeroLb([]);
+    }
+  })();
+}, [activeTournament?.id, heroTournament?.id, heroTournament?.status]);
+
+
   /* ---- popover ---- */
   async function fetchUserPublic(userId) {
     setCardLoading(true);
@@ -218,24 +259,64 @@ const heroBg = asBg(HOME_HERO_GIF) || bgForStatus(heroTournament?.status);
   <ImageLayer $bg={heroBg} />
   <Overlay />
   <HeroContent>
-    <div>
-      <Title>{heroTournament?.name || "Turnyrai"}</Title>
-      {activeTournament ? (
-        <Dates>
-          {d10(activeTournament.start_date)} – {d10(activeTournament.end_date)}
-        </Dates>
-      ) : null}
-    </div>
+  {/* Title + dates (works for both active and archived) */}
+  <div>
+    <Title>{heroTournament?.name || "Turnyrai"}</Title>
+    {heroTournament ? (
+      <Dates>{d10(heroTournament.start_date)} – {d10(heroTournament.end_date)}</Dates>
+    ) : null}
+  </div>
 
-    {activeTournament ? (
-      <LiveRow><LiveDot /> <span>GYVAI</span></LiveRow>
-    ) : (
-      <MoreRow>
-        <Arrow aria-hidden>→</Arrow>
-        <span>- PLACIAU</span>
-      </MoreRow>
-    )}
-  </HeroContent>
+  {/* Status / Winners */}
+  {activeTournament ? (
+  <LiveRow><LiveDot /> <span>GYVAI</span></LiveRow>
+) : heroTournament?.status === "archived" ? (
+  <WinnerBlock>
+    {/* Tournament winner: label, then flag + team name */}
+    <WinnerLine title="Turnyro nugalėtojas">
+      <TextWrap>
+        <WinnerLabel>TURNYRO NUGALĖTOJAS:</WinnerLabel>
+      </TextWrap>
+      <InlineGroup>
+        <FlagBare>{flagForTeam(heroTournament?.winner_team, 20)}</FlagBare>
+        <NameText>{heroTournament?.winner_team || "—"}</NameText>
+      </InlineGroup>
+    </WinnerLine>
+
+    {/* Guessing champion: label, then avatar + username */}
+    <WinnerLine title="Spėliojimų čempionas">
+      <TextWrap>
+        <WinnerLabel>SPĖLIOJIMŲ ČEMPIONAS:</WinnerLabel>
+      </TextWrap>
+      {heroLb?.[0] ? (
+        <InlineGroup>
+          <AvatarBare $img={heroLb[0].avatarUrl ? joinApi(heroLb[0].avatarUrl) : null}>
+            {!heroLb[0].avatarUrl ? <span>{initials(heroLb[0].username)}</span> : null}
+          </AvatarBare>
+          <NameText
+            role="button"
+            tabIndex={0}
+            onClick={(e) => openCard(heroLb[0].user_id, e)}
+            onKeyDown={(e) => (e.key === "Enter" || e.key === " ") && openCard(heroLb[0].user_id, e)}
+            style={{ textDecoration: "underline", cursor: "pointer" }}
+          >
+            {heroLb[0].username}
+          </NameText>
+        </InlineGroup>
+      ) : (
+        <InlineGroup>
+          <NameText>—</NameText>
+        </InlineGroup>
+      )}
+    </WinnerLine>
+  </WinnerBlock>
+) : (
+  <MoreRow>
+    <Arrow aria-hidden>→</Arrow>
+    <span>- PLACIAU</span>
+  </MoreRow>
+)}
+</HeroContent>
 </HeroCard>
 
 
@@ -778,4 +859,63 @@ const Arrow = styled.span`
   display: inline-block;
   font-weight: 900;
   line-height: 1;
+`;
+
+const WinnerBlock = styled.div`
+  display: grid;
+  gap: 10px;
+  justify-items: center;
+`;
+
+const WinnerLine = styled.div`
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+`;
+
+const InlineGroup = styled.span`
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+`;
+
+const TextWrap = styled.span`
+  display: inline;
+  color: #ffffff;
+  font-weight: 700;
+  font-size: clamp(7px, 4.2vw, 14px);
+  text-shadow: 0 2px 8px rgba(0,0,0,.55);
+`;
+
+const WinnerLabel = styled.span`
+  opacity: .95;
+  letter-spacing: .02em;
+`;
+
+const NameText = styled.span`
+  color: #ffffff;
+  font-weight: 900;
+  font-size: clamp(14px, 4.2vw, 20px);
+  text-shadow: 0 2px 8px rgba(0,0,0,.55);
+`;
+
+/* Transparent, no background/border */
+const FlagBare = styled.span`
+  display: inline-grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+`;
+
+const AvatarBare = styled.span`
+  display: inline-grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: ${p => p.$img ? `url(${p.$img}) center/cover no-repeat` : "transparent"};
+  color: #fff;
+  font-weight: 900;
+  font-size: 12px;
+  text-shadow: 0 1px 6px rgba(0,0,0,.6);
 `;
