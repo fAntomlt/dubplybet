@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from "react";
 import styled, { keyframes } from "styled-components";
 import { useNavigate } from "react-router-dom";
 import { api } from "../lib/api";
+import { flagForTeam } from "../lib/flags";
 
 const API_ORIGIN = (import.meta.env.VITE_API_URL || "").replace(/\/+$/, "");
 const joinApi = (p) => (p?.startsWith("/uploads") ? `${API_ORIGIN}${p}` : p || "");
@@ -19,6 +20,8 @@ const toUploadUrl = (p) => {
 const FALLBACK_IMG = `url('${API_ORIGIN}/uploads/basketball.jpg')`;
 
 const blurIn = keyframes`from{filter:blur(0)}to{filter:blur(3px)}`;
+const initials = (name = "") =>
+  name.split(" ").filter(Boolean).map(s => s[0]).slice(0,2).join("").toUpperCase() || "U";
 
 const ImageLayer = styled.div`
   position:absolute; inset:0;
@@ -165,10 +168,45 @@ const Divider = styled.div`
   margin: 10px 0 30px 0;
 `;
 
+const InlineGroup = styled.span`
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+`;
+const FlagBare = styled.span`
+  display: inline-grid;
+  place-items: center;
+  width: 20px;
+  height: 20px;
+`;
+const AvatarBare = styled.span`
+  display: inline-grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: ${p => p.$img ? `url(${p.$img}) center/cover no-repeat` : "transparent"};
+  color: #fff;
+  font-weight: 900;
+  font-size: 11px;
+  text-shadow: 0 1px 6px rgba(0,0,0,.6);
+`;
+const WinnersStack = styled.div`
+  display: grid;
+  gap: 0;
+  justify-items: center;
+`;
+const ChampionIcon = styled.span`
+  display: inline-block;
+  font-size: 16px;
+`;
+
+
 export default function Turnyrai() {
   const navigate = useNavigate();
   const [rows, setRows] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [champByTid, setChampByTid] = useState({});
   const d10 = (v) => String(v || '').slice(0, 10);
 
   useEffect(() => {
@@ -203,6 +241,53 @@ export default function Turnyrai() {
       archivedSorted: archived,
     };
   }, [rows]);
+  useEffect(() => {
+  if (!archivedSorted.length) return;
+
+  const missing = archivedSorted
+    .map(t => t.id)
+    .filter(id => champByTid[id] === undefined);
+  if (!missing.length) return;
+
+  (async () => {
+    const entries = await Promise.all(missing.map(async (id) => {
+      try {
+        const d = await api(`/api/leaderboards/tournament/${id}`);
+        const list = (d.leaderboard || []).slice();
+        const num = (v, def = 0) => (Number.isFinite(v) ? v : def);
+        list.sort((a, b) => {
+          const p = num(b.points) - num(a.points);
+          if (p) return p;
+          const ca = num(b.correct_any) - num(a.correct_any);
+          if (ca) return ca;
+          const aGuessCnt = num(a.guesses_count ?? a.predictions_count ?? a.total_guesses, null);
+          const bGuessCnt = num(b.guesses_count ?? b.predictions_count ?? b.total_guesses, null);
+          if (aGuessCnt !== null && bGuessCnt !== null && aGuessCnt !== bGuessCnt) return aGuessCnt - bGuessCnt;
+          const aTime = a.last_updated_at || a.updated_at || a.last_guess_at || "";
+          const bTime = b.last_updated_at || b.updated_at || b.last_guess_at || "";
+          if (aTime && bTime && aTime !== bTime) return aTime.localeCompare(bTime);
+          const n = String(a.username || "").localeCompare(String(b.username || ""));
+          if (n) return n;
+          return num(a.user_id, 0) - num(b.user_id, 0);
+        });
+        const top = list[0];
+        return [id, top ? {
+          user_id: top.user_id ?? top.id,
+          username: top.username ?? top.name ?? `#${top.user_id ?? top.id}`,
+          avatarUrl: top.avatarUrl ?? top.avatar_url ?? null,
+        } : null];
+      } catch {
+        return [id, null];
+      }
+    }));
+    setChampByTid(prev => {
+      const next = { ...prev };
+      for (const [id, v] of entries) next[id] = v;
+      return next;
+    });
+  })();
+}, [archivedSorted, champByTid]);
+
 
 
   const bgForStatus = (status) => {
@@ -322,17 +407,37 @@ export default function Turnyrai() {
               <ImageLayer $bg={bgOf(t)} />
               <Overlay />
               <CardContent>
-                <CenterStack>
-                <CardTitle>{t.name}</CardTitle>
-                <CardDates>{d10(t.start_date)} – {d10(t.end_date)}</CardDates>
-                </CenterStack>
-                {t.winner_team && (
-                  <WinnerRow title="Turnyro nugalėtojas">
-                    <Trophy aria-hidden>🏆</Trophy>
-                    <span>{t.winner_team}</span>
-                  </WinnerRow>
-                )}
-              </CardContent>
+  <CenterStack>
+    <CardTitle>{t.name}</CardTitle>
+    <CardDates>{d10(t.start_date)} – {d10(t.end_date)}</CardDates>
+  </CenterStack>
+
+  {(t.winner_team || champByTid[t.id]) && (
+    <WinnersStack>
+  {t.winner_team && (
+    <WinnerRow title="Turnyro nugalėtojas">
+      <Trophy aria-hidden>🏆</Trophy>
+      <InlineGroup>
+        <span>{t.winner_team}</span>
+        <FlagBare>{flagForTeam(t.winner_team, 18)}</FlagBare>
+      </InlineGroup>
+    </WinnerRow>
+  )}
+
+  {champByTid[t.id] && (
+    <WinnerRow title="Spėliojimų čempionas">
+      <ChampionIcon aria-hidden>👑</ChampionIcon>
+      <InlineGroup>
+        <span>{champByTid[t.id].username}</span>
+        <AvatarBare $img={champByTid[t.id].avatarUrl ? joinApi(champByTid[t.id].avatarUrl) : null}>
+          {!champByTid[t.id].avatarUrl ? <span>{initials(champByTid[t.id].username)}</span> : null}
+        </AvatarBare>
+      </InlineGroup>
+    </WinnerRow>
+  )}
+</WinnersStack>
+  )}
+</CardContent>
               <CTA>PERŽIŪRĖTI</CTA>
             </ArchivedCard>
           ))}
